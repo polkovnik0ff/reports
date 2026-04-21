@@ -66,9 +66,9 @@ DATABASE_URL=postgresql://seo_user:yourpassword@localhost:5432/seo_reports
 
 | Слой | Технология |
 |------|-----------|
-| Фреймворк | Next.js 14, App Router, TypeScript |
-| БД | PostgreSQL 16 |
-| ORM | Prisma |
+| Фреймворк | Next.js 16, App Router, TypeScript |
+| БД | PostgreSQL 18 |
+| ORM | Prisma 7 (provider: prisma-client, Driver Adapter) |
 | UI | shadcn/ui + Tailwind CSS |
 | Drag-and-drop | dnd-kit |
 | Rich-text | Tiptap |
@@ -77,6 +77,17 @@ DATABASE_URL=postgresql://seo_user:yourpassword@localhost:5432/seo_reports
 | Шифрование | AES-256-GCM (встроенный crypto Node.js) |
 | ID | nanoid (slug публичных отчётов) |
 | Валидация | Zod |
+
+### Установленные пакеты (сверх create-next-app)
+
+```
+prisma @prisma/client @prisma/adapter-pg
+pg @types/pg
+jose bcryptjs @types/bcryptjs
+nanoid zod dotenv
+tsx ts-node (dev)
+shadcn/ui: button card input label
+```
 
 ---
 
@@ -268,8 +279,10 @@ app/
     settings/                # get/patch настроек + /topvisor/projects
 
 lib/
-  auth.ts                    # createToken, verifyToken, getSession
+  auth-edge.ts               # edge-safe: verifyToken, SessionPayload (только jose)
+  auth.ts                    # server-only: createToken, getSession, sessionCookieOptions
   crypto.ts                  # encryptToken, decryptToken (AES-256-GCM)
+  prisma.ts                  # PrismaClient синглтон с PrismaPg adapter
   report-generator.ts        # оркестратор генерации снапшота
   pdf.ts                     # Playwright headless → PDF
   services/
@@ -282,8 +295,11 @@ components/
   builder/                   # конструктор шаблона (drag-and-drop)
   ui/                        # shadcn компоненты
 
-middleware.ts                # защита роутов (кроме /login и /r/*)
+proxy.ts                     # защита роутов (Next.js 16, кроме /login и /r/*)
+scripts/
+  create-admin.ts            # создать OWNER пользователя: npx tsx scripts/create-admin.ts
 prisma/schema.prisma
+prisma.config.ts             # конфиг Prisma CLI (читает .env.local через dotenv)
 ```
 
 ---
@@ -368,17 +384,76 @@ async function generatePdf(slug: string): Promise<string> {
 
 ---
 
+## Важные технические решения (принятые в ходе разработки)
+
+### Next.js 16
+
+- **`middleware.ts` переименован в `proxy.ts`**, функция экспортируется как `proxy` (не `middleware`):
+  ```typescript
+  // proxy.ts
+  export async function proxy(request: NextRequest) { ... }
+  export const config = { matcher: [...] }
+  ```
+- **Edge runtime** (где выполняется `proxy.ts`) не поддерживает `next/headers` и Node.js-only API.
+  Всё что импортируется в `proxy.ts` должно быть edge-safe.
+
+### Auth — два модуля
+
+| Файл | Содержимое | Где импортировать |
+|------|-----------|-------------------|
+| `lib/auth-edge.ts` | `verifyToken`, `SessionPayload` (только `jose`) | `proxy.ts` |
+| `lib/auth.ts` | `createToken`, `getSession`, `sessionCookieOptions` (импортирует `next/headers`) | API роуты, Server Components |
+
+`proxy.ts` импортирует **только из `lib/auth-edge.ts`** — иначе ошибка edge runtime.
+
+### Prisma 6 с кастомным output
+
+- Новый провайдер `prisma-client` (вместо `prisma-client-js`) требует **Driver Adapter**.
+  Обычная строка подключения в конструкторе не работает.
+- Установлены: `@prisma/adapter-pg` + `pg` + `@types/pg`.
+- Синглтон клиента в `lib/prisma.ts`:
+  ```typescript
+  import { PrismaPg } from "@prisma/adapter-pg";
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  export const prisma = new PrismaClient({ adapter });
+  ```
+- Prisma Client генерируется в `app/generated/prisma` (прописан в `prisma.config.ts`).
+  Импортировать: `import { PrismaClient } from "@/app/generated/prisma/client"`.
+- `prisma.config.ts` читает `.env.local` через `dotenv` (не `.env`).
+- PostgreSQL 18: пользователю `seo_user` нужны права `CREATEDB` и `GRANT ALL ON SCHEMA public`.
+
+### Скрипты (scripts/)
+
+- Запускать через `npx tsx` — поддерживает ESM (не `ts-node`):
+  ```powershell
+  npx tsx scripts/create-admin.ts admin@agency.ru Password123!
+  ```
+- В скриптах `dotenv.config()` вызывать **до** импорта Prisma (иначе `DATABASE_URL` не установлен).
+
+### Остановка dev-сервера на Windows
+
+Если `npm run dev` не стартует (порт занят), убить через PowerShell:
+```powershell
+Stop-Process -Name node -Force
+```
+После нескольких аварийных остановок может повредиться Turbopack cache — удалить `.next/`:
+```powershell
+Remove-Item -Recurse -Force .next
+```
+
+---
+
 ## Текущая фаза разработки
 
 **Обновить эту строку при переходе между фазами.**
 
 ```
-Текущая фаза: 1 — Инициализация и авторизация
-Следующий шаг: создать проект Next.js → Prisma schema → migrate
+Текущая фаза: 2 — Источники данных + OAuth Яндекса
+Следующий шаг: страница /sources, подключение Яндекс-аккаунтов
 ```
 
 ### Фазы:
-1. Инит + Prisma + авторизация email/пароль + middleware
+1. ✅ Инит + Prisma + авторизация email/пароль + middleware
 2. Источники данных + OAuth Яндекса + список счётчиков + добавление проектов
 3. Конструктор шаблонов + генератор отчётов + Метрика + публичная страница
 4. Topvisor + блоки позиций + PDF
@@ -387,46 +462,39 @@ async function generatePdf(slug: string): Promise<string> {
 
 ---
 
-## Команды для старта (Фаза 1, Windows PowerShell)
+## Команды разработки (Windows PowerShell)
 
 ```powershell
-# 1. Перейти в папку проекта
-cd F:\projects\reports
-
-# 2. Создать Next.js проект
-npx create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias "@/*"
-
-# 3. Установить основные зависимости
-npm install prisma @prisma/client
-npm install jose bcryptjs nanoid zod
-npm install @types/bcryptjs
-
-# 4. Установить shadcn/ui
-npx shadcn@latest init
-
-# 5. Инициализировать Prisma
-npx prisma init
-
-# 6. Создать .env.local (скопировать из шаблона выше и заполнить)
-# Не использовать .env — только .env.local для Next.js
-
-# 7. После написания schema.prisma — применить миграцию
-npx prisma migrate dev --name init
-
-# 8. Открыть Prisma Studio (визуальный просмотр БД)
-npx prisma studio
-
-# 9. Запустить проект
+# Запустить dev-сервер
 npm run dev
 # Открыть: http://localhost:3000
+
+# Применить новую миграцию после изменений schema.prisma
+npx prisma migrate dev --name <название>
+
+# Пересгенерировать Prisma Client (после migrate это делается автоматически)
+npx prisma generate
+
+# Открыть Prisma Studio (визуальный просмотр БД)
+npx prisma studio
+
+# Создать первого пользователя (OWNER)
+npx tsx scripts/create-admin.ts admin@agency.ru YourPassword123!
+
+# Убить все node-процессы (если dev-сервер завис)
+Stop-Process -Name node -Force
+
+# Очистить Turbopack cache (если сервер падает с ошибкой corrupted database)
+Remove-Item -Recurse -Force .next
 ```
 
-### .gitignore — добавить обязательно:
+### .gitignore (актуальное):
 ```
-.env
-.env.local
-.env*.local
+.env*
 node_modules/
 .next/
 public/pdfs/
+.claude/settings.local.json
+*.docx
+/app/generated/prisma
 ```
