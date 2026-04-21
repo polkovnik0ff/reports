@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/app/generated/prisma
+
+# pdf reports storage
+/public/pdfs/
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json
+
+# Binary / non-code files
+*.docx
