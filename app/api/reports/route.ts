@@ -30,17 +30,22 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(reports);
 }
 
+const ATTRIBUTION_VALUES = ["lastsign", "first", "last", "auto", "direct"] as const;
+
 const createSchema = z.object({
-  projectId: z.string().min(1),
-  templateId: z.string().optional(),
-  title: z.string().min(1).max(300),
-  dateFrom: z.string(),
-  dateTo: z.string(),
+  projectId:   z.string().min(1),
+  templateId:  z.string().optional(),
+  title:       z.string().min(1).max(300),
+  dateFrom:    z.string(),
+  dateTo:      z.string(),
   compareFrom: z.string().optional(),
-  compareTo: z.string().optional(),
+  compareTo:   z.string().optional(),
   reportConfig: z.array(z.any()),
-  workDone: z.string().optional(),
-  workPlan: z.string().optional(),
+  workDone:    z.string().optional(),
+  workPlan:    z.string().optional(),
+  attribution: z.enum(ATTRIBUTION_VALUES).default("lastsign"),
+  withRobots:  z.boolean().default(false),
+  crossDevice: z.boolean().default(false),
 });
 
 export async function POST(req: NextRequest) {
@@ -51,12 +56,15 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Неверные данные" }, { status: 400 });
 
-  const { projectId, templateId, title, dateFrom, dateTo, compareFrom, compareTo, reportConfig, workDone, workPlan } = parsed.data;
+  const {
+    projectId, templateId, title, dateFrom, dateTo,
+    compareFrom, compareTo, reportConfig, workDone, workPlan,
+    attribution, withRobots, crossDevice,
+  } = parsed.data;
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return NextResponse.json({ error: "Проект не найден" }, { status: 404 });
 
-  // Embed work text into reportConfig blocks so generator can access them
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const finalConfig: any[] = reportConfig.map((block: any) => {
     if (block.type === "work_done" && workDone) return { ...block, settings: { ...block.settings, content: workDone } };
@@ -80,10 +88,12 @@ export async function POST(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       reportConfig: finalConfig as any,
       status: "GENERATING",
+      attribution,
+      withRobots,
+      crossDevice,
     },
   });
 
-  // Fire-and-forget: do not await
   generateReport(report.id).catch((e) =>
     console.error("[POST /api/reports] generateReport failed:", e)
   );

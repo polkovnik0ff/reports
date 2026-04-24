@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { decryptToken } from "@/lib/crypto";
-import { MetrikaClient } from "@/lib/services/metrika";
+import { MetrikaClient, AttributionModel } from "@/lib/services/metrika";
 import { BlockConfig, BlockType } from "@/lib/blocks/defaults";
 
 function fmt(date: Date): string {
@@ -72,7 +72,11 @@ export async function generateReport(reportId: string): Promise<void> {
 
     const encryptedToken = report.project.connectedAccount.accessToken;
     const token = decryptToken(encryptedToken);
-    const client = new MetrikaClient(token);
+    const client = new MetrikaClient(token, {
+      attribution: report.attribution as AttributionModel,
+      withRobots:  report.withRobots,
+      crossDevice: report.crossDevice,
+    });
 
     const counterId = report.project.metrikaCounterId;
     const date1 = fmt(report.dateFrom);

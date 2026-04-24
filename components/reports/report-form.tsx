@@ -168,6 +168,11 @@ export default function ReportForm() {
   const [compareFrom, setCompareFrom] = useState("");
   const [compareTo, setCompareTo] = useState("");
 
+  // Report settings state
+  const [attribution, setAttribution] = useState<"lastsign" | "first" | "last" | "auto" | "direct">("lastsign");
+  const [withRobots, setWithRobots] = useState(false);
+  const [crossDevice, setCrossDevice] = useState(false);
+
   // Step 2 state
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
@@ -278,6 +283,9 @@ export default function ReportForm() {
           reportConfig: blocks,
           workDone: workDone || undefined,
           workPlan: workPlan || undefined,
+          attribution,
+          withRobots,
+          crossDevice,
         }),
       });
       const data = await res.json();
@@ -340,6 +348,59 @@ export default function ReportForm() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Report settings */}
+              <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm font-medium">Настройки отчёта</p>
+
+                {/* Attribution */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Модель атрибуции</Label>
+                  <select
+                    value={attribution}
+                    onChange={(e) => setAttribution(e.target.value as typeof attribution)}
+                    className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="lastsign">Последний значимый переход</option>
+                    <option value="first">Первый переход</option>
+                    <option value="last">Последний переход</option>
+                    <option value="auto">Автоматическая</option>
+                    <option value="direct">Последний переход из Директа</option>
+                  </select>
+                </div>
+
+                {/* Robots */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Данные</Label>
+                  <div className="flex gap-3">
+                    {([
+                      [false, "Без роботов"],
+                      [true,  "С роботами"],
+                    ] as const).map(([val, label]) => (
+                      <label key={String(val)} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="withRobots"
+                          checked={withRobots === val}
+                          onChange={() => setWithRobots(val)}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cross-device */}
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={crossDevice}
+                    onChange={(e) => setCrossDevice(e.target.checked)}
+                    className="rounded"
+                  />
+                  Учитывать кросс-девайс визиты
+                </label>
               </div>
 
               {/* Period preset */}

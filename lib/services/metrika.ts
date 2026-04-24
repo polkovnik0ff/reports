@@ -6,7 +6,6 @@ export interface MetrikaCounter {
   site: string;
 }
 
-// Raw API response shape (internal use only)
 interface MetrikaRawResponse {
   data: Array<{
     dimensions: Array<{ name: string; id?: string }>;
@@ -31,7 +30,32 @@ interface FetchReportParams {
   group?: string;
 }
 
-// ── Typed result shapes returned to block components ──────────────────────────
+// ── Attribution & request settings ───────────────────────────────────────────
+
+export type AttributionModel = "lastsign" | "first" | "last" | "auto" | "direct";
+
+export interface MetrikaSettings {
+  attribution?: AttributionModel;
+  withRobots?: boolean;
+  crossDevice?: boolean;
+}
+
+const ATTRIBUTION_MAP: Record<AttributionModel, string> = {
+  lastsign: "LastSign",
+  first:    "First",
+  last:     "Last",
+  auto:     "Automatic",
+  direct:   "LastYandexDirect",
+};
+
+const ROBOTS_FILTER = "ym:s:isRobot=='No'";
+
+function mergeFilters(existing: string | undefined, extra: string): string {
+  if (!existing) return extra;
+  return `${existing} AND ${extra}`;
+}
+
+// ── Typed result shapes ───────────────────────────────────────────────────────
 
 export interface SummaryMetrics {
   visits: number;
@@ -89,19 +113,19 @@ export interface DynamicsResult {
   comparison: MetrikaRawResponse | null;
 }
 
-// ── Channel name translations ─────────────────────────────────────────────────
+// ── Name translations ─────────────────────────────────────────────────────────
 
 const CHANNEL_NAMES: Record<string, string> = {
-  organic:    "Переходы из поисковых систем",
-  direct:     "Прямые заходы",
-  referral:   "Переходы по ссылкам на сайтах",
-  ad:         "Переходы по рекламе",
-  social:     "Переходы из социальных сетей",
-  recommend:  "Переходы из рекомендательных систем",
-  internal:   "Внутренние переходы",
-  email:      "Переходы из рассылок",
-  messenger:  "Переходы из мессенджеров",
-  saved:      "Переходы с сохранённых страниц",
+  organic:   "Переходы из поисковых систем",
+  direct:    "Прямые заходы",
+  referral:  "Переходы по ссылкам на сайтах",
+  ad:        "Переходы по рекламе",
+  social:    "Переходы из социальных сетей",
+  recommend: "Переходы из рекомендательных систем",
+  internal:  "Внутренние переходы",
+  email:     "Переходы из рассылок",
+  messenger: "Переходы из мессенджеров",
+  saved:     "Переходы с сохранённых страниц",
 };
 
 const DEVICE_NAMES: Record<string, string> = {
@@ -115,13 +139,31 @@ const DEVICE_NAMES: Record<string, string> = {
 
 export class MetrikaClient {
   private token: string;
+  private settings: MetrikaSettings;
 
-  constructor(accessToken: string) {
+  constructor(accessToken: string, settings: MetrikaSettings = {}) {
     this.token = accessToken;
+    this.settings = settings;
   }
 
   private headers() {
     return { Authorization: `OAuth ${this.token}` };
+  }
+
+  private applySettings(p: FetchReportParams): FetchReportParams {
+    const result = { ...p };
+
+    // Attribution
+    const attr = this.settings.attribution ?? "lastsign";
+    // Metrika accepts attribution as a query param
+    // We'll attach it via URLSearchParams in getReport
+
+    // Robots filter
+    if (!this.settings.withRobots) {
+      result.filters = mergeFilters(result.filters, ROBOTS_FILTER);
+    }
+
+    return result;
   }
 
   async getCounters(): Promise<MetrikaCounter[]> {
@@ -139,17 +181,26 @@ export class MetrikaClient {
   }
 
   async getReport(p: FetchReportParams): Promise<MetrikaRawResponse> {
+    const applied = this.applySettings(p);
+
     const params = new URLSearchParams({
-      ids: String(p.counterId),
-      metrics: p.metrics,
-      date1: p.date1,
-      date2: p.date2,
-      limit: String(p.limit ?? 100),
+      ids:     String(applied.counterId),
+      metrics: applied.metrics,
+      date1:   applied.date1,
+      date2:   applied.date2,
+      limit:   String(applied.limit ?? 100),
     });
-    if (p.dimensions) params.set("dimensions", p.dimensions);
-    if (p.filters) params.set("filters", p.filters);
-    if (p.sort) params.set("sort", p.sort);
-    if (p.group) params.set("group", p.group);
+    if (applied.dimensions) params.set("dimensions", applied.dimensions);
+    if (applied.filters)    params.set("filters", applied.filters);
+    if (applied.sort)       params.set("sort", applied.sort);
+    if (applied.group)      params.set("group", applied.group);
+
+    // Attribution
+    const attr = this.settings.attribution ?? "lastsign";
+    params.set("attribution", ATTRIBUTION_MAP[attr]);
+
+    // Cross-device
+    if (this.settings.crossDevice) params.set("cross_device", "1");
 
     const res = await fetch(`${BASE}/stat/v1/data?${params}`, {
       headers: this.headers(),
@@ -174,7 +225,6 @@ export class MetrikaClient {
     const metrics = "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds";
     const raw = await this.getReport({ counterId, metrics, date1, date2, limit: 1 });
 
-    // Data comes in data[0].metrics (no dimensions query)
     const m = raw.data?.[0]?.metrics ?? raw.totals ?? [];
     const current: SummaryMetrics = {
       visits:      m[0] ?? 0,
@@ -218,7 +268,7 @@ export class MetrikaClient {
     };
     const raw = await this.getReport(params);
 
-    let prevMap = new Map<string, number>();
+    const prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
@@ -232,7 +282,7 @@ export class MetrikaClient {
       return {
         id,
         name:        CHANNEL_NAMES[id] ?? item.dimensions[0]?.name ?? id,
-        visits:      item.metrics[0] ?? 0, // users (посетители)
+        visits:      item.metrics[0] ?? 0,
         bounceRate:  item.metrics[1] ?? 0,
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,
@@ -260,7 +310,7 @@ export class MetrikaClient {
     };
     const raw = await this.getReport(params);
 
-    let prevMap = new Map<string, number>();
+    const prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
@@ -273,7 +323,7 @@ export class MetrikaClient {
       const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
       return {
         id,
-        name: item.dimensions[0]?.name ?? id,
+        name:        item.dimensions[0]?.name ?? id,
         visits:      item.metrics[0] ?? 0,
         bounceRate:  item.metrics[1] ?? 0,
         pageDepth:   item.metrics[2] ?? 0,
@@ -396,7 +446,7 @@ export class MetrikaClient {
     };
     const raw = await this.getReport(params);
 
-    let prevMap = new Map<string, number>();
+    const prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
@@ -434,7 +484,7 @@ export class MetrikaClient {
     };
     const raw = await this.getReport(params);
 
-    let prevMap = new Map<string, number>();
+    const prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
@@ -482,11 +532,9 @@ export class MetrikaClient {
       sort: "-ym:s:bounceRate",
       limit: 10,
     });
-    // Reuse RankedRow but store bounceRate in visits field for table rendering
-    // Better: return raw rows with both fields
     const rows = (raw.data ?? []).map((item) => ({
-      name:      item.dimensions[0]?.name ?? "",
-      visits:    item.metrics[0] ?? 0,
+      name:       item.dimensions[0]?.name ?? "",
+      visits:     item.metrics[0] ?? 0,
       bounceRate: item.metrics[1] ?? 0,
     }));
     return { rows } as unknown as RankedResult;
