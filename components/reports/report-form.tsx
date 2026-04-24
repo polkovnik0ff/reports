@@ -1,0 +1,504 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Loader2, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import TemplateBuilder from "@/components/templates/template-builder";
+import { BlockConfig } from "@/lib/blocks/defaults";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface Project {
+  id: string;
+  name: string;
+  url: string;
+  metrikaCounterId: number;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
+interface FullTemplate {
+  id: string;
+  name: string;
+  blocksConfig: BlockConfig[];
+}
+
+// ── Date helpers ───────────────────────────────────────────────────────────
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfLastMonth(): string {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function endOfLastMonth(): string {
+  const d = new Date();
+  d.setDate(0);
+  return d.toISOString().slice(0, 10);
+}
+
+function domainFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function monthYear(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+}
+
+// ── Step indicator ─────────────────────────────────────────────────────────
+
+const STEPS = ["Проект и период", "Блоки отчёта", "Тексты"];
+
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-8">
+      {STEPS.map((label, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold transition-colors ${
+            i < current
+              ? "bg-primary text-primary-foreground"
+              : i === current
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground"
+          }`}>
+            {i < current ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+          </div>
+          <span className={`text-sm hidden sm:block ${i === current ? "font-medium" : "text-muted-foreground"}`}>
+            {label}
+          </span>
+          {i < STEPS.length - 1 && <div className="w-8 h-px bg-border mx-1" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Generating screen ──────────────────────────────────────────────────────
+
+function GeneratingScreen({ reportId, slug }: { reportId: string; slug: string }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/reports/${reportId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "READY") {
+          clearInterval(interval);
+          router.push(`/r/${slug}`);
+        } else if (data.status === "ERROR") {
+          clearInterval(interval);
+          setError("Ошибка генерации отчёта. Проверьте подключение к Яндекс.Метрике.");
+        }
+      } catch {
+        // network error, keep polling
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [reportId, slug, router]);
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <div className="text-destructive text-lg font-medium">Ошибка генерации</div>
+        <p className="text-muted-foreground max-w-sm">{error}</p>
+        <Button variant="outline" onClick={() => router.push("/reports")}>
+          Вернуться к отчётам
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div>
+        <p className="text-lg font-medium">Генерируем отчёт...</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Получаем данные из Яндекс.Метрики. Это займёт несколько секунд.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main form ──────────────────────────────────────────────────────────────
+
+export default function ReportForm() {
+  const [step, setStep] = useState(0);
+
+  // Step 1 state
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loadingInit, setLoadingInit] = useState(true);
+  const [projectId, setProjectId] = useState("");
+  const [templateId, setTemplateId] = useState("");
+  const [title, setTitle] = useState("");
+  const [periodPreset, setPeriodPreset] = useState<"30days" | "lastMonth" | "custom">("lastMonth");
+  const [dateFrom, setDateFrom] = useState(startOfLastMonth());
+  const [dateTo, setDateTo] = useState(endOfLastMonth());
+  const [compareEnabled, setCompareEnabled] = useState(false);
+  const [comparePreset, setComparePreset] = useState<"prevPeriod" | "prevMonth" | "custom">("prevPeriod");
+  const [compareFrom, setCompareFrom] = useState("");
+  const [compareTo, setCompareTo] = useState("");
+
+  // Step 2 state
+  const [blocks, setBlocks] = useState<BlockConfig[]>([]);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+
+  // Step 3 state
+  const [workDone, setWorkDone] = useState("");
+  const [workPlan, setWorkPlan] = useState("");
+
+  // Submitting
+  const [submitting, setSubmitting] = useState(false);
+  const [generated, setGenerated] = useState<{ id: string; slug: string } | null>(null);
+
+  // Load projects + templates on mount
+  useEffect(() => {
+    Promise.all([fetch("/api/projects"), fetch("/api/templates")])
+      .then(async ([pr, tr]) => {
+        const projectsData: Project[] = pr.ok ? await pr.json() : [];
+        const templatesData: Template[] = tr.ok ? await tr.json() : [];
+        setProjects(projectsData);
+        setTemplates(templatesData);
+        if (projectsData.length > 0) setProjectId(projectsData[0].id);
+        const def = templatesData.find((t) => t.isDefault) ?? templatesData[0];
+        if (def) setTemplateId(def.id);
+      })
+      .finally(() => setLoadingInit(false));
+  }, []);
+
+  // Auto-update title when project or period changes
+  useEffect(() => {
+    const proj = projects.find((p) => p.id === projectId);
+    if (!proj || !dateFrom) return;
+    const domain = domainFromUrl(proj.url);
+    const period = monthYear(dateFrom);
+    setTitle(`Отчёт ${domain} за ${period}`);
+  }, [projectId, dateFrom, projects]);
+
+  // Recalculate dates when preset changes
+  useEffect(() => {
+    if (periodPreset === "30days") {
+      setDateFrom(daysAgo(30));
+      setDateTo(today());
+    } else if (periodPreset === "lastMonth") {
+      setDateFrom(startOfLastMonth());
+      setDateTo(endOfLastMonth());
+    }
+  }, [periodPreset]);
+
+  // Recalculate compare dates
+  useEffect(() => {
+    if (!compareEnabled) {
+      setCompareFrom("");
+      setCompareTo("");
+      return;
+    }
+    if (comparePreset === "prevPeriod") {
+      const diffMs = new Date(dateTo).getTime() - new Date(dateFrom).getTime();
+      const diffDays = Math.round(diffMs / 86400000);
+      setCompareTo(daysAgo(diffDays + 1 - (periodPreset === "30days" ? 0 : 0)));
+      const d = new Date(dateFrom);
+      d.setDate(d.getDate() - diffDays - 1);
+      setCompareFrom(d.toISOString().slice(0, 10));
+    } else if (comparePreset === "prevMonth") {
+      const d1 = new Date(dateFrom);
+      d1.setMonth(d1.getMonth() - 1);
+      const d2 = new Date(dateTo);
+      d2.setMonth(d2.getMonth() - 1);
+      setCompareFrom(d1.toISOString().slice(0, 10));
+      setCompareTo(d2.toISOString().slice(0, 10));
+    }
+  }, [compareEnabled, comparePreset, dateFrom, dateTo, periodPreset]);
+
+  // Load template blocks when templateId changes
+  async function loadTemplateBlocks(id: string) {
+    if (!id) return;
+    setLoadingTemplate(true);
+    try {
+      const res = await fetch(`/api/templates/${id}`);
+      if (res.ok) {
+        const tpl: FullTemplate = await res.json();
+        setBlocks(tpl.blocksConfig);
+      }
+    } finally {
+      setLoadingTemplate(false);
+    }
+  }
+
+  async function handleStep1Next() {
+    if (!projectId) { toast.error("Выберите проект"); return; }
+    if (!dateFrom || !dateTo) { toast.error("Укажите период"); return; }
+    await loadTemplateBlocks(templateId);
+    setStep(1);
+  }
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          templateId: templateId || undefined,
+          title,
+          dateFrom,
+          dateTo,
+          compareFrom: compareEnabled ? compareFrom : undefined,
+          compareTo: compareEnabled ? compareTo : undefined,
+          reportConfig: blocks,
+          workDone: workDone || undefined,
+          workPlan: workPlan || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Ошибка при создании отчёта");
+        return;
+      }
+      setGenerated({ id: data.id, slug: data.slug });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  if (generated) {
+    return <GeneratingScreen reportId={generated.id} slug={generated.slug} />;
+  }
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-semibold mb-6">Новый отчёт</h1>
+      <StepIndicator current={step} />
+
+      {/* ── Step 1: Project & period ─────────────────────────────────── */}
+      {step === 0 && (
+        <div className="flex flex-col gap-5">
+          {loadingInit ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : (
+            <>
+              {/* Project */}
+              <div className="grid gap-1.5">
+                <Label>Проект</Label>
+                <select
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {projects.length === 0 && <option value="">Нет проектов</option>}
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Template */}
+              <div className="grid gap-1.5">
+                <Label>Шаблон</Label>
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}{t.isDefault ? " (по умолчанию)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Period preset */}
+              <div className="grid gap-1.5">
+                <Label>Период</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    ["30days", "Последние 30 дней"],
+                    ["lastMonth", "Прошлый месяц"],
+                    ["custom", "Произвольный"],
+                  ] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setPeriodPreset(val)}
+                      className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                        periodPreset === val
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-muted border-border"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {periodPreset === "custom" && (
+                  <div className="flex gap-2 mt-1">
+                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                  </div>
+                )}
+                {periodPreset !== "custom" && (
+                  <p className="text-xs text-muted-foreground">{dateFrom} — {dateTo}</p>
+                )}
+              </div>
+
+              {/* Compare toggle */}
+              <div className="grid gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={compareEnabled}
+                    onChange={(e) => setCompareEnabled(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Сравнить с периодом</span>
+                </label>
+                {compareEnabled && (
+                  <div className="pl-6 flex flex-col gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {([
+                        ["prevPeriod", "Предыдущий период"],
+                        ["prevMonth", "Предыдущий месяц"],
+                        ["custom", "Произвольный"],
+                      ] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setComparePreset(val)}
+                          className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                            comparePreset === val
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background hover:bg-muted border-border"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {comparePreset === "custom" ? (
+                      <div className="flex gap-2">
+                        <Input type="date" value={compareFrom} onChange={(e) => setCompareFrom(e.target.value)} />
+                        <Input type="date" value={compareTo} onChange={(e) => setCompareTo(e.target.value)} />
+                      </div>
+                    ) : (
+                      compareFrom && <p className="text-xs text-muted-foreground">{compareFrom} — {compareTo}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Title */}
+              <div className="grid gap-1.5">
+                <Label htmlFor="report-title">Название отчёта</Label>
+                <Input
+                  id="report-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Отчёт за апрель 2025"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={handleStep1Next} disabled={projects.length === 0}>
+                  Далее <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 2: Blocks ───────────────────────────────────────────── */}
+      {step === 1 && (
+        <div className="flex flex-col gap-4">
+          {loadingTemplate ? (
+            <div className="space-y-2">
+              {[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : (
+            <TemplateBuilder blocks={blocks} onChange={setBlocks} />
+          )}
+          <div className="flex justify-between pt-2">
+            <Button variant="outline" onClick={() => setStep(0)}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Назад
+            </Button>
+            <Button onClick={() => setStep(2)}>
+              Далее <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 3: Texts ────────────────────────────────────────────── */}
+      {step === 2 && (
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="work-done">Проделанная работа</Label>
+            <textarea
+              id="work-done"
+              value={workDone}
+              onChange={(e) => setWorkDone(e.target.value)}
+              rows={6}
+              placeholder="Опишите что было сделано за период..."
+              className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="work-plan">План работ</Label>
+            <textarea
+              id="work-plan"
+              value={workPlan}
+              onChange={(e) => setWorkPlan(e.target.value)}
+              rows={6}
+              placeholder="Опишите план на следующий период..."
+              className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="flex justify-between pt-2">
+            <Button variant="outline" onClick={() => setStep(1)}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Назад
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Сгенерировать
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
