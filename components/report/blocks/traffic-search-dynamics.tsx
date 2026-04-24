@@ -1,18 +1,12 @@
 "use client";
 
 import { AreaChartBlock } from "./area-chart-block";
-import { MetrikaReportData } from "@/lib/services/metrika";
+import { DynamicsResult } from "@/lib/services/metrika";
 
-interface SearchDynamicsData {
-  current: MetrikaReportData;
-  comparison: MetrikaReportData | null;
-}
-
-export function TrafficSearchDynamicsBlock({ data }: { data: SearchDynamicsData }) {
+export function TrafficSearchDynamicsBlock({ data }: { data: DynamicsResult }) {
   return (
     <AreaChartBlock
-      current={data.current}
-      comparison={data.comparison}
+      data={data}
       currentLabel="Поисковый трафик"
       compareLabel="Период сравнения"
     />

@@ -7,6 +7,10 @@ function fmt(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function fetchBlockData(
   client: MetrikaClient,
   block: BlockConfig,
@@ -41,7 +45,6 @@ async function fetchBlockData(
       return client.getReferrals(counterId, date1, date2);
     case "high_bounce_pages":
       return client.getHighBouncePages(counterId, date1, date2);
-    // Manual blocks — data already in reportConfig, no API call needed
     case "work_done":
     case "work_plan":
     case "custom_text":
@@ -78,29 +81,42 @@ export async function generateReport(reportId: string): Promise<void> {
     const compareDate2 = report.compareTo ? fmt(report.compareTo) : undefined;
 
     const blocks = report.reportConfig as unknown as BlockConfig[];
+    // Only API blocks need sequential fetching; manual blocks return immediately
+    const apiBlockTypes: BlockType[] = [
+      "traffic_summary", "traffic_channels", "traffic_search_engines",
+      "traffic_search_dynamics", "traffic_yoy", "traffic_geography",
+      "traffic_devices", "top_pages", "top_queries", "referrals", "high_bounce_pages",
+    ];
     const enabledBlocks = blocks.filter((b) => b.enabled);
 
     const snapshotData: Record<string, unknown> = {};
 
-    await Promise.allSettled(
-      enabledBlocks.map(async (block) => {
-        try {
-          const data = await fetchBlockData(
-            client,
-            block,
-            counterId,
-            date1,
-            date2,
-            compareDate1,
-            compareDate2
-          );
-          snapshotData[block.id] = { data };
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          snapshotData[block.id] = { error: message };
-        }
-      })
-    );
+    // Sequential fetch with 300ms delay to avoid Metrika 429 quota errors
+    for (let i = 0; i < enabledBlocks.length; i++) {
+      const block = enabledBlocks[i];
+      const isApiBlock = apiBlockTypes.includes(block.type as BlockType);
+
+      if (i > 0 && isApiBlock) {
+        await sleep(300);
+      }
+
+      try {
+        const data = await fetchBlockData(
+          client,
+          block,
+          counterId,
+          date1,
+          date2,
+          compareDate1,
+          compareDate2
+        );
+        snapshotData[block.id] = { data };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[generateReport] block ${block.id} failed:`, message);
+        snapshotData[block.id] = { error: message };
+      }
+    }
 
     await prisma.report.update({
       where: { id: reportId },

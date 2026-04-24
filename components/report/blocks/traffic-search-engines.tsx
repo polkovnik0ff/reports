@@ -1,30 +1,28 @@
 "use client";
 
 import { DonutTable, DonutRow } from "./donut-table";
-import { MetrikaReportData } from "@/lib/services/metrika";
+import { TrafficChannelsResult } from "@/lib/services/metrika";
 
-interface TrafficSearchEnginesData {
-  current: MetrikaReportData;
-  comparison: MetrikaReportData | null;
-}
-
-function getColor(name: string, idx: number): string {
-  const lower = name.toLowerCase();
+function getEngineColor(id: string, idx: number): string {
+  const lower = id.toLowerCase();
   if (lower.includes("yandex") || lower.includes("яндекс")) return "#f97316";
   if (lower.includes("google")) return "#3b82f6";
-  const fallbacks = ["#6b7280", "#a855f7", "#22c55e", "#ec4899", "#14b8a6"];
+  if (lower.includes("bing")) return "#0ea5e9";
+  if (lower.includes("mail")) return "#ec4899";
+  const fallbacks = ["#6b7280", "#a855f7", "#22c55e", "#14b8a6", "#eab308"];
   return fallbacks[idx % fallbacks.length];
 }
 
-export function TrafficSearchEnginesBlock({ data }: { data: TrafficSearchEnginesData }) {
-  const rows: DonutRow[] = (data.current?.data ?? []).map((item, i) => ({
-    name: item.dimensions[0]?.name ?? "Другое",
-    visits: item.metrics[0] ?? 0,
-    bounce: item.metrics[1],
-    depth: item.metrics[2],
-    duration: item.metrics[3],
-    color: getColor(item.dimensions[0]?.name ?? "", i),
+export function TrafficSearchEnginesBlock({ data }: { data: TrafficChannelsResult }) {
+  const rows: DonutRow[] = (data?.rows ?? []).map((item, i) => ({
+    name:        item.name,
+    visits:      item.visits,
+    bounceRate:  item.bounceRate,
+    pageDepth:   item.pageDepth,
+    avgDuration: item.avgDuration,
+    prevVisits:  item.prevVisits,
+    color:       getEngineColor(item.id, i),
   }));
 
-  return <DonutTable rows={rows} />;
+  return <DonutTable rows={rows} firstColLabel="Поисковая система" />;
 }

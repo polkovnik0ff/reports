@@ -1,13 +1,21 @@
 "use client";
 
-import { MetrikaReportData } from "@/lib/services/metrika";
-
-function truncate(s: string, max = 60) {
+function truncate(s: string, max = 70) {
   return s.length <= max ? s : s.slice(0, max) + "…";
 }
 
-export function HighBouncePagesBlock({ data }: { data: MetrikaReportData }) {
-  const rows = data?.data ?? [];
+interface HighBounceRow {
+  name: string;
+  visits: number;
+  bounceRate: number;
+}
+
+interface HighBouncePagesData {
+  rows: HighBounceRow[];
+}
+
+export function HighBouncePagesBlock({ data }: { data: HighBouncePagesData }) {
+  const rows = data?.rows ?? [];
 
   return (
     <div className="overflow-x-auto">
@@ -21,14 +29,14 @@ export function HighBouncePagesBlock({ data }: { data: MetrikaReportData }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((item, i) => (
+          {rows.map((row, i) => (
             <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="text-center py-2 px-3 text-gray-400">{i + 1}</td>
+              <td className="text-center py-2 px-3 text-gray-400 tabular-nums">{i + 1}</td>
               <td className="py-2 px-3 text-gray-800 font-mono text-xs max-w-xs break-all">
-                {truncate(item.dimensions[0]?.name ?? "")}
+                {truncate(row.name)}
               </td>
-              <td className="text-right py-2 px-3 font-medium">{(item.metrics[0] ?? 0).toLocaleString("ru-RU")}</td>
-              <td className="text-right py-2 px-3 text-red-500 font-medium">{(item.metrics[1] ?? 0).toFixed(1)}%</td>
+              <td className="text-right py-2 px-3 font-medium tabular-nums">{row.visits.toLocaleString("ru-RU")}</td>
+              <td className="text-right py-2 px-3 text-red-500 font-medium tabular-nums">{row.bounceRate.toFixed(1)}%</td>
             </tr>
           ))}
         </tbody>

@@ -32,11 +32,6 @@ export function ReportHeader({ title, dateFrom, dateTo, compareFrom, compareTo, 
               В сравнении с: {fmtDate(compareFrom)} — {fmtDate(compareTo)}
             </p>
           )}
-          {generatedAt && (
-            <p className="text-gray-400 text-xs mt-2">
-              Сгенерирован: {fmtDate(generatedAt)}
-            </p>
-          )}
         </div>
         {!isPrint && (
           <button

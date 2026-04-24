@@ -6,7 +6,8 @@ export interface MetrikaCounter {
   site: string;
 }
 
-export interface MetrikaReportData {
+// Raw API response shape (internal use only)
+interface MetrikaRawResponse {
   data: Array<{
     dimensions: Array<{ name: string; id?: string }>;
     metrics: number[];
@@ -29,6 +30,88 @@ interface FetchReportParams {
   limit?: number;
   group?: string;
 }
+
+// ── Typed result shapes returned to block components ──────────────────────────
+
+export interface SummaryMetrics {
+  visits: number;
+  users: number;
+  pageviews: number;
+  bounceRate: number;
+  pageDepth: number;
+  avgDuration: number;
+}
+
+export interface TrafficSummaryResult {
+  current: SummaryMetrics;
+  previous?: SummaryMetrics;
+}
+
+export interface ChannelRow {
+  id: string;
+  name: string;
+  visits: number;
+  bounceRate: number;
+  pageDepth: number;
+  avgDuration: number;
+  prevVisits?: number;
+}
+
+export interface TrafficChannelsResult {
+  rows: ChannelRow[];
+}
+
+export interface DimensionRow {
+  id: string;
+  name: string;
+  visits: number;
+  bounceRate: number;
+  pageDepth: number;
+  avgDuration: number;
+}
+
+export interface DimensionResult {
+  rows: DimensionRow[];
+}
+
+export interface RankedRow {
+  name: string;
+  visits: number;
+  prevVisits?: number;
+}
+
+export interface RankedResult {
+  rows: RankedRow[];
+}
+
+export interface DynamicsResult {
+  current: MetrikaRawResponse;
+  comparison: MetrikaRawResponse | null;
+}
+
+// ── Channel name translations ─────────────────────────────────────────────────
+
+const CHANNEL_NAMES: Record<string, string> = {
+  organic:    "Переходы из поисковых систем",
+  direct:     "Прямые заходы",
+  referral:   "Переходы по ссылкам на сайтах",
+  ad:         "Переходы по рекламе",
+  social:     "Переходы из социальных сетей",
+  recommend:  "Переходы из рекомендательных систем",
+  internal:   "Внутренние переходы",
+  email:      "Переходы из рассылок",
+  messenger:  "Переходы из мессенджеров",
+  saved:      "Переходы с сохранённых страниц",
+};
+
+const DEVICE_NAMES: Record<string, string> = {
+  desktop: "ПК",
+  mobile:  "Смартфоны",
+  tablet:  "Планшеты",
+  tv:      "Телевизоры",
+};
+
+// ── Client ────────────────────────────────────────────────────────────────────
 
 export class MetrikaClient {
   private token: string;
@@ -55,7 +138,7 @@ export class MetrikaClient {
     }));
   }
 
-  async getReport(p: FetchReportParams): Promise<MetrikaReportData> {
+  async getReport(p: FetchReportParams): Promise<MetrikaRawResponse> {
     const params = new URLSearchParams({
       ids: String(p.counterId),
       metrics: p.metrics,
@@ -79,7 +162,7 @@ export class MetrikaClient {
     return res.json();
   }
 
-  // ── Block-specific methods ─────────────────────────────────────────────
+  // ── Block-specific methods ─────────────────────────────────────────────────
 
   async getTrafficSummary(
     counterId: number,
@@ -87,14 +170,35 @@ export class MetrikaClient {
     date2: string,
     compareDate1?: string,
     compareDate2?: string
-  ) {
-    const metrics = "ym:s:visits,ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds";
-    const current = await this.getReport({ counterId, metrics, date1, date2, limit: 1 });
-    let comparison: MetrikaReportData | null = null;
-    if (compareDate1 && compareDate2) {
-      comparison = await this.getReport({ counterId, metrics, date1: compareDate1, date2: compareDate2, limit: 1 });
-    }
-    return { current, comparison };
+  ): Promise<TrafficSummaryResult> {
+    const metrics = "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds";
+    const raw = await this.getReport({ counterId, metrics, date1, date2, limit: 1 });
+
+    // Data comes in data[0].metrics (no dimensions query)
+    const m = raw.data?.[0]?.metrics ?? raw.totals ?? [];
+    const current: SummaryMetrics = {
+      visits:      m[0] ?? 0,
+      users:       m[1] ?? 0,
+      pageviews:   m[2] ?? 0,
+      bounceRate:  m[3] ?? 0,
+      pageDepth:   m[4] ?? 0,
+      avgDuration: m[5] ?? 0,
+    };
+
+    if (!compareDate1 || !compareDate2) return { current };
+
+    const rawPrev = await this.getReport({ counterId, metrics, date1: compareDate1, date2: compareDate2, limit: 1 });
+    const mp = rawPrev.data?.[0]?.metrics ?? rawPrev.totals ?? [];
+    const previous: SummaryMetrics = {
+      visits:      mp[0] ?? 0,
+      users:       mp[1] ?? 0,
+      pageviews:   mp[2] ?? 0,
+      bounceRate:  mp[3] ?? 0,
+      pageDepth:   mp[4] ?? 0,
+      avgDuration: mp[5] ?? 0,
+    };
+
+    return { current, previous };
   }
 
   async getTrafficByChannels(
@@ -103,7 +207,7 @@ export class MetrikaClient {
     date2: string,
     compareDate1?: string,
     compareDate2?: string
-  ) {
+  ): Promise<TrafficChannelsResult> {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
@@ -112,12 +216,31 @@ export class MetrikaClient {
       date2,
       sort: "-ym:s:visits",
     };
-    const current = await this.getReport(params);
-    let comparison: MetrikaReportData | null = null;
+    const raw = await this.getReport(params);
+
+    let prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
-      comparison = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+        prevMap.set(id, item.metrics[0] ?? 0);
+      }
     }
-    return { current, comparison };
+
+    const rows: ChannelRow[] = (raw.data ?? []).map((item) => {
+      const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      return {
+        id,
+        name: CHANNEL_NAMES[id] ?? item.dimensions[0]?.name ?? id,
+        visits:      item.metrics[0] ?? 0,
+        bounceRate:  item.metrics[1] ?? 0,
+        pageDepth:   item.metrics[2] ?? 0,
+        avgDuration: item.metrics[3] ?? 0,
+        ...(prevMap.size > 0 ? { prevVisits: prevMap.get(id) } : {}),
+      };
+    });
+
+    return { rows };
   }
 
   async getTrafficBySearchEngines(
@@ -126,7 +249,7 @@ export class MetrikaClient {
     date2: string,
     compareDate1?: string,
     compareDate2?: string
-  ) {
+  ): Promise<TrafficChannelsResult> {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
@@ -135,37 +258,31 @@ export class MetrikaClient {
       date2,
       sort: "-ym:s:visits",
     };
-    const current = await this.getReport(params);
-    let comparison: MetrikaReportData | null = null;
-    if (compareDate1 && compareDate2) {
-      comparison = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
-    }
-    return { current, comparison };
-  }
+    const raw = await this.getReport(params);
 
-  async getTrafficDynamics(
-    counterId: number,
-    date1: string,
-    date2: string,
-    compareDate1?: string,
-    compareDate2?: string
-  ) {
-    const params: FetchReportParams = {
-      counterId,
-      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
-      dimensions: "ym:s:date",
-      date1,
-      date2,
-      group: "day",
-      sort: "ym:s:date",
-      limit: 400,
-    };
-    const current = await this.getReport(params);
-    let comparison: MetrikaReportData | null = null;
+    let prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
-      comparison = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+        prevMap.set(id, item.metrics[0] ?? 0);
+      }
     }
-    return { current, comparison };
+
+    const rows: ChannelRow[] = (raw.data ?? []).map((item) => {
+      const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      return {
+        id,
+        name: item.dimensions[0]?.name ?? id,
+        visits:      item.metrics[0] ?? 0,
+        bounceRate:  item.metrics[1] ?? 0,
+        pageDepth:   item.metrics[2] ?? 0,
+        avgDuration: item.metrics[3] ?? 0,
+        ...(prevMap.size > 0 ? { prevVisits: prevMap.get(id) } : {}),
+      };
+    });
+
+    return { rows };
   }
 
   async getSearchDynamics(
@@ -174,7 +291,7 @@ export class MetrikaClient {
     date2: string,
     compareDate1?: string,
     compareDate2?: string
-  ) {
+  ): Promise<DynamicsResult> {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:visits",
@@ -187,38 +304,59 @@ export class MetrikaClient {
       limit: 400,
     };
     const current = await this.getReport(params);
-    let comparison: MetrikaReportData | null = null;
+    let comparison: MetrikaRawResponse | null = null;
     if (compareDate1 && compareDate2) {
       comparison = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
     }
     return { current, comparison };
   }
 
-  async getTrafficYoY(counterId: number, date1: string, date2: string) {
-    // Compare with same period one year ago
+  async getTrafficYoY(counterId: number, date1: string, date2: string): Promise<DynamicsResult> {
     const d1 = new Date(date1);
     const d2 = new Date(date2);
     d1.setFullYear(d1.getFullYear() - 1);
     d2.setFullYear(d2.getFullYear() - 1);
     const prevDate1 = d1.toISOString().slice(0, 10);
     const prevDate2 = d2.toISOString().slice(0, 10);
-    return this.getTrafficDynamics(counterId, date1, date2, prevDate1, prevDate2);
+
+    const params: FetchReportParams = {
+      counterId,
+      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      dimensions: "ym:s:date",
+      date1,
+      date2,
+      group: "day",
+      sort: "ym:s:date",
+      limit: 400,
+    };
+    const current = await this.getReport(params);
+    const comparison = await this.getReport({ ...params, date1: prevDate1, date2: prevDate2 });
+    return { current, comparison };
   }
 
-  async getGeography(counterId: number, date1: string, date2: string) {
-    return this.getReport({
+  async getGeography(counterId: number, date1: string, date2: string): Promise<DimensionResult> {
+    const raw = await this.getReport({
       counterId,
       metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:regionArea",
       date1,
       date2,
       sort: "-ym:s:visits",
-      limit: 10,
+      limit: 20,
     });
+    const rows: DimensionRow[] = (raw.data ?? []).map((item) => ({
+      id:          item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "",
+      name:        item.dimensions[0]?.name ?? "Другое",
+      visits:      item.metrics[0] ?? 0,
+      bounceRate:  item.metrics[1] ?? 0,
+      pageDepth:   item.metrics[2] ?? 0,
+      avgDuration: item.metrics[3] ?? 0,
+    }));
+    return { rows };
   }
 
-  async getDevices(counterId: number, date1: string, date2: string) {
-    return this.getReport({
+  async getDevices(counterId: number, date1: string, date2: string): Promise<DimensionResult> {
+    const raw = await this.getReport({
       counterId,
       metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:deviceCategory",
@@ -226,6 +364,18 @@ export class MetrikaClient {
       date2,
       sort: "-ym:s:visits",
     });
+    const rows: DimensionRow[] = (raw.data ?? []).map((item) => {
+      const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      return {
+        id,
+        name:        DEVICE_NAMES[id] ?? item.dimensions[0]?.name ?? id,
+        visits:      item.metrics[0] ?? 0,
+        bounceRate:  item.metrics[1] ?? 0,
+        pageDepth:   item.metrics[2] ?? 0,
+        avgDuration: item.metrics[3] ?? 0,
+      };
+    });
+    return { rows };
   }
 
   async getTopPages(
@@ -234,7 +384,7 @@ export class MetrikaClient {
     date2: string,
     compareDate1?: string,
     compareDate2?: string
-  ) {
+  ): Promise<RankedResult> {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:visits",
@@ -244,12 +394,25 @@ export class MetrikaClient {
       sort: "-ym:s:visits",
       limit: 10,
     };
-    const current = await this.getReport(params);
-    let comparison: MetrikaReportData | null = null;
+    const raw = await this.getReport(params);
+
+    let prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
-      comparison = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        prevMap.set(item.dimensions[0]?.name ?? "", item.metrics[0] ?? 0);
+      }
     }
-    return { current, comparison };
+
+    const rows: RankedRow[] = (raw.data ?? []).map((item) => {
+      const name = item.dimensions[0]?.name ?? "";
+      return {
+        name,
+        visits: item.metrics[0] ?? 0,
+        ...(prevMap.size > 0 ? { prevVisits: prevMap.get(name) } : {}),
+      };
+    });
+    return { rows };
   }
 
   async getTopQueries(
@@ -258,7 +421,7 @@ export class MetrikaClient {
     date2: string,
     compareDate1?: string,
     compareDate2?: string
-  ) {
+  ): Promise<RankedResult> {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:visits",
@@ -269,16 +432,29 @@ export class MetrikaClient {
       sort: "-ym:s:visits",
       limit: 10,
     };
-    const current = await this.getReport(params);
-    let comparison: MetrikaReportData | null = null;
+    const raw = await this.getReport(params);
+
+    let prevMap = new Map<string, number>();
     if (compareDate1 && compareDate2) {
-      comparison = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        prevMap.set(item.dimensions[0]?.name ?? "", item.metrics[0] ?? 0);
+      }
     }
-    return { current, comparison };
+
+    const rows: RankedRow[] = (raw.data ?? []).map((item) => {
+      const name = item.dimensions[0]?.name ?? "";
+      return {
+        name,
+        visits: item.metrics[0] ?? 0,
+        ...(prevMap.size > 0 ? { prevVisits: prevMap.get(name) } : {}),
+      };
+    });
+    return { rows };
   }
 
-  async getReferrals(counterId: number, date1: string, date2: string) {
-    return this.getReport({
+  async getReferrals(counterId: number, date1: string, date2: string): Promise<RankedResult> {
+    const raw = await this.getReport({
       counterId,
       metrics: "ym:s:visits",
       dimensions: "ym:s:referer",
@@ -288,10 +464,15 @@ export class MetrikaClient {
       sort: "-ym:s:visits",
       limit: 10,
     });
+    const rows: RankedRow[] = (raw.data ?? []).map((item) => ({
+      name:   item.dimensions[0]?.name ?? "",
+      visits: item.metrics[0] ?? 0,
+    }));
+    return { rows };
   }
 
-  async getHighBouncePages(counterId: number, date1: string, date2: string) {
-    return this.getReport({
+  async getHighBouncePages(counterId: number, date1: string, date2: string): Promise<RankedResult> {
+    const raw = await this.getReport({
       counterId,
       metrics: "ym:s:visits,ym:s:bounceRate",
       dimensions: "ym:s:startURL",
@@ -301,5 +482,13 @@ export class MetrikaClient {
       sort: "-ym:s:bounceRate",
       limit: 10,
     });
+    // Reuse RankedRow but store bounceRate in visits field for table rendering
+    // Better: return raw rows with both fields
+    const rows = (raw.data ?? []).map((item) => ({
+      name:      item.dimensions[0]?.name ?? "",
+      visits:    item.metrics[0] ?? 0,
+      bounceRate: item.metrics[1] ?? 0,
+    }));
+    return { rows } as unknown as RankedResult;
   }
 }

@@ -10,11 +10,10 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { MetrikaReportData } from "@/lib/services/metrika";
+import { DynamicsResult } from "@/lib/services/metrika";
 
 interface AreaChartBlockProps {
-  current: MetrikaReportData;
-  comparison: MetrikaReportData | null;
+  data: DynamicsResult;
   currentLabel?: string;
   compareLabel?: string;
 }
@@ -25,22 +24,23 @@ function fmtTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function parseDate(intervals: string[][]): string[] {
-  return intervals.map((d) => {
-    const dateStr = d[0];
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
-  });
-}
-
 export function AreaChartBlock({
-  current,
-  comparison,
+  data,
   currentLabel = "Текущий период",
   compareLabel = "Период сравнения",
 }: AreaChartBlockProps) {
-  const intervals = current?.time_intervals ?? [];
-  const labels = intervals.length ? parseDate(intervals) : (current?.data ?? []).map((d) => d.dimensions[0]?.name ?? "");
+  const { current, comparison } = data ?? {};
+
+  // Build labels from dimensions[0].name (date string from Metrika)
+  const labels = (current?.data ?? []).map((d) => {
+    const raw = d.dimensions[0]?.name ?? "";
+    // Metrika returns dates as "2026-03-01" — format to DD.MM
+    const parsed = new Date(raw);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+    }
+    return raw;
+  });
 
   const chartData = labels.map((label, i) => {
     const row = current?.data?.[i];
@@ -52,24 +52,29 @@ export function AreaChartBlock({
     };
   });
 
-  // KPI totals
-  const curTotals = current?.totals ?? current?.data?.reduce(
-    (acc, d) => {
-      d.metrics.forEach((m, i) => { acc[i] = (acc[i] ?? 0) + m; });
-      return acc;
-    },
-    [] as number[]
-  ) ?? [];
-
-  const cmpTotals = comparison?.totals ?? comparison?.data?.reduce(
-    (acc, d) => {
-      d.metrics.forEach((m, i) => { acc[i] = (acc[i] ?? 0) + m; });
-      return acc;
-    },
-    [] as number[]
-  ) ?? [];
-
   const hasComparison = comparison != null && chartData.some((d) => d.compare != null);
+
+  // Aggregate totals for KPI row (sum visits; avg for rates)
+  const sumMetric = (idx: number, src: typeof current): number => {
+    if (!src?.data?.length) return 0;
+    return src.data.reduce((acc, d) => acc + (d.metrics[idx] ?? 0), 0);
+  };
+  const avgMetric = (idx: number, src: typeof current): number => {
+    if (!src?.data?.length) return 0;
+    return sumMetric(idx, src) / src.data.length;
+  };
+
+  const curVisits = sumMetric(0, current);
+  const cmpVisits = comparison ? sumMetric(0, comparison) : null;
+
+  // search_dynamics only has visits (1 metric); yoy has 4 metrics
+  const hasExtra = (current?.data?.[0]?.metrics.length ?? 0) > 1;
+  const curBounce  = hasExtra ? avgMetric(1, current) : null;
+  const curDepth   = hasExtra ? avgMetric(2, current) : null;
+  const curTime    = hasExtra ? avgMetric(3, current) : null;
+  const cmpBounce  = hasExtra && comparison ? avgMetric(1, comparison) : null;
+  const cmpDepth   = hasExtra && comparison ? avgMetric(2, comparison) : null;
+  const cmpTime    = hasExtra && comparison ? avgMetric(3, comparison) : null;
 
   return (
     <div>
@@ -94,9 +99,7 @@ export function AreaChartBlock({
               interval="preserveStartEnd"
             />
             <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-            <Tooltip
-              contentStyle={{ fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 6 }}
-            />
+            <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 6 }} />
             {hasComparison && <Legend wrapperStyle={{ fontSize: 12 }} />}
             <Area
               type="monotone"
@@ -122,24 +125,35 @@ export function AreaChartBlock({
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      {curTotals.length > 1 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Визиты", cur: curTotals[0], cmp: cmpTotals[0], fmt: (n: number) => Math.round(n).toLocaleString("ru-RU") },
-            { label: "Отказы", cur: curTotals[1], cmp: cmpTotals[1], fmt: (n: number) => n.toFixed(1) + "%" },
-            { label: "Глубина", cur: curTotals[2], cmp: cmpTotals[2], fmt: (n: number) => n.toFixed(2) },
-            { label: "Время", cur: curTotals[3], cmp: cmpTotals[3], fmt: (n: number) => fmtTime(n) },
-          ].map(({ label, cur, cmp, fmt }) => (
-            <div key={label} className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 mb-1">{label}</p>
-              <p className="text-lg font-bold text-gray-900">{cur != null ? fmt(cur) : "—"}</p>
-              {cmp != null && (
-                <p className="text-xs text-gray-500">{compareLabel}: {fmt(cmp)}</p>
-              )}
-            </div>
-          ))}
+
+      <div className={`grid gap-4 ${hasExtra ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 md:grid-cols-2"}`}>
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-xs text-gray-500 mb-1">Визиты</p>
+          <p className="text-lg font-bold text-gray-900">{Math.round(curVisits).toLocaleString("ru-RU")}</p>
+          {cmpVisits != null && <p className="text-xs text-gray-500">{compareLabel}: {Math.round(cmpVisits).toLocaleString("ru-RU")}</p>}
         </div>
-      )}
+        {curBounce != null && (
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500 mb-1">Отказы (ср.)</p>
+            <p className="text-lg font-bold text-gray-900">{curBounce.toFixed(1)}%</p>
+            {cmpBounce != null && <p className="text-xs text-gray-500">{compareLabel}: {cmpBounce.toFixed(1)}%</p>}
+          </div>
+        )}
+        {curDepth != null && (
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500 mb-1">Глубина (ср.)</p>
+            <p className="text-lg font-bold text-gray-900">{curDepth.toFixed(2)}</p>
+            {cmpDepth != null && <p className="text-xs text-gray-500">{compareLabel}: {cmpDepth.toFixed(2)}</p>}
+          </div>
+        )}
+        {curTime != null && (
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500 mb-1">Время (ср.)</p>
+            <p className="text-lg font-bold text-gray-900">{fmtTime(curTime)}</p>
+            {cmpTime != null && <p className="text-xs text-gray-500">{compareLabel}: {fmtTime(cmpTime)}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

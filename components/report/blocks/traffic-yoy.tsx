@@ -1,18 +1,12 @@
 "use client";
 
 import { AreaChartBlock } from "./area-chart-block";
-import { MetrikaReportData } from "@/lib/services/metrika";
+import { DynamicsResult } from "@/lib/services/metrika";
 
-interface TrafficYoYData {
-  current: MetrikaReportData;
-  comparison: MetrikaReportData | null;
-}
-
-export function TrafficYoYBlock({ data }: { data: TrafficYoYData }) {
+export function TrafficYoYBlock({ data }: { data: DynamicsResult }) {
   return (
     <AreaChartBlock
-      current={data.current}
-      comparison={data.comparison}
+      data={data}
       currentLabel="Текущий год"
       compareLabel="Прошлый год"
     />

@@ -21,54 +21,47 @@ interface ReportRendererProps {
   snapshotData: Record<string, any>;
 }
 
-function ErrorBlock() {
+function ErrorBlock({ message }: { message?: string }) {
   return (
     <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-6 text-center text-sm text-gray-400 italic">
-      Данные недоступны
+      {message ? `Ошибка: ${message}` : "Данные недоступны"}
     </div>
   );
 }
 
-function renderBlock(block: BlockConfig, blockData: { data?: unknown; error?: string } | null) {
-  if (blockData?.error) return <ErrorBlock />;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string } | null) {
+  if (blockData?.error) return <ErrorBlock message={blockData.error} />;
+  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi"].includes(block.type)) {
+    return <ErrorBlock />;
+  }
 
   const data = blockData?.data;
   const type = block.type as BlockType;
 
   switch (type) {
     case "traffic_summary":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TrafficSummaryBlock data={data as any} />;
+      return <TrafficSummaryBlock data={data} />;
     case "traffic_channels":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TrafficChannelsBlock data={data as any} />;
+      return <TrafficChannelsBlock data={data} />;
     case "traffic_search_engines":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TrafficSearchEnginesBlock data={data as any} />;
+      return <TrafficSearchEnginesBlock data={data} />;
     case "traffic_search_dynamics":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TrafficSearchDynamicsBlock data={data as any} />;
+      return <TrafficSearchDynamicsBlock data={data} />;
     case "traffic_yoy":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TrafficYoYBlock data={data as any} />;
+      return <TrafficYoYBlock data={data} />;
     case "traffic_geography":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TrafficGeographyBlock data={data as any} />;
+      return <TrafficGeographyBlock data={data} />;
     case "traffic_devices":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TrafficDevicesBlock data={data as any} />;
+      return <TrafficDevicesBlock data={data} />;
     case "top_pages":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TopPagesBlock data={data as any} />;
+      return <TopPagesBlock data={data} />;
     case "top_queries":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <TopQueriesBlock data={data as any} />;
+      return <TopQueriesBlock data={data} />;
     case "referrals":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <ReferralsBlock data={data as any} />;
+      return <ReferralsBlock data={data} />;
     case "high_bounce_pages":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <HighBouncePagesBlock data={data as any} />;
+      return <HighBouncePagesBlock data={data} />;
     case "work_done":
     case "work_plan":
     case "custom_text":
