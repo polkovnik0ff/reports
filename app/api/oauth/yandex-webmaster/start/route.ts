@@ -12,11 +12,12 @@ export async function GET() {
   const stateNonce = nanoid(32);
   const cookiePayload = JSON.stringify({ state: stateNonce, service: "YANDEX_WEBMASTER" });
 
+  // Scope for Webmaster is configured in the Yandex OAuth app settings (oauth.yandex.ru)
+  // Do not pass scope explicitly — use whatever permissions the app has been granted
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     redirect_uri: `${appUrl}/api/oauth/yandex/callback`,
-    scope: "webmaster:verify webmaster:info",
     state: stateNonce,
     force_confirm: "yes",
   });
