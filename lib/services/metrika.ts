@@ -40,12 +40,30 @@ export interface MetrikaSettings {
   crossDevice?: boolean;
 }
 
+// attribution query param — works for metrics but NOT for trafficSource dimensions
 const ATTRIBUTION_MAP: Record<AttributionModel, string> = {
   lastsign: "LastSign",
   first:    "First",
   last:     "Last",
   auto:     "Automatic",
   direct:   "LastYandexDirect",
+};
+
+// For trafficSource, attribution is encoded in the dimension name itself
+const CHANNELS_DIMENSION_MAP: Record<AttributionModel, string> = {
+  lastsign: "ym:s:lastsignTrafficSource",
+  first:    "ym:s:firstTrafficSource",
+  last:     "ym:s:lastTrafficSource",
+  auto:     "ym:s:lastsignTrafficSource", // fallback to lastsign
+  direct:   "ym:s:lastsignTrafficSource", // fallback to lastsign
+};
+
+const CHANNELS_DIMENSION_CROSS_DEVICE: Record<AttributionModel, string> = {
+  lastsign: "ym:s:cross_device_last_significantTrafficSource",
+  first:    "ym:s:cross_device_last_significantTrafficSource", // Metrika only exposes lastsign for cross-device
+  last:     "ym:s:cross_device_last_significantTrafficSource",
+  auto:     "ym:s:cross_device_last_significantTrafficSource",
+  direct:   "ym:s:cross_device_last_significantTrafficSource",
 };
 
 const ROBOTS_FILTER = "ym:s:isRobot=='No'";
@@ -152,18 +170,21 @@ export class MetrikaClient {
 
   private applySettings(p: FetchReportParams): FetchReportParams {
     const result = { ...p };
-
-    // Attribution
-    const attr = this.settings.attribution ?? "lastsign";
-    // Metrika accepts attribution as a query param
-    // We'll attach it via URLSearchParams in getReport
-
-    // Robots filter
     if (!this.settings.withRobots) {
       result.filters = mergeFilters(result.filters, ROBOTS_FILTER);
     }
-
     return result;
+  }
+
+  // Returns the correct trafficSource dimension for the current attribution + cross-device settings.
+  // The attribution query param does NOT affect trafficSource breakdowns in Metrika —
+  // the model must be encoded in the dimension name itself.
+  private channelsDimension(): string {
+    const attr = this.settings.attribution ?? "lastsign";
+    if (this.settings.crossDevice) {
+      return CHANNELS_DIMENSION_CROSS_DEVICE[attr];
+    }
+    return CHANNELS_DIMENSION_MAP[attr];
   }
 
   async getCounters(): Promise<MetrikaCounter[]> {
@@ -194,13 +215,6 @@ export class MetrikaClient {
     if (applied.filters)    params.set("filters", applied.filters);
     if (applied.sort)       params.set("sort", applied.sort);
     if (applied.group)      params.set("group", applied.group);
-
-    // Attribution
-    const attr = this.settings.attribution ?? "lastsign";
-    params.set("attribution", ATTRIBUTION_MAP[attr]);
-
-    // Cross-device
-    if (this.settings.crossDevice) params.set("cross_device", "1");
 
     const res = await fetch(`${BASE}/stat/v1/data?${params}`, {
       headers: this.headers(),
@@ -258,10 +272,11 @@ export class MetrikaClient {
     compareDate1?: string,
     compareDate2?: string
   ): Promise<TrafficChannelsResult> {
+    const dim = this.channelsDimension();
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
-      dimensions: "ym:s:trafficSource",
+      dimensions: dim,
       date1,
       date2,
       sort: "-ym:s:users",
