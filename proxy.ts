@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth-edge";
 
-const PUBLIC_PATHS = ["/login", "/r/", "/api/auth/"];
+const PUBLIC_PATHS = ["/login", "/r/", "/api/auth/", "/api/oauth/"];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));

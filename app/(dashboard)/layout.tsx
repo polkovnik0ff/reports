@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Sidebar from "@/components/dashboard/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 
 export default async function DashboardLayout({
   children,
@@ -17,6 +18,7 @@ export default async function DashboardLayout({
         <div className="md:hidden h-14" /> {/* spacer for mobile hamburger */}
         {children}
       </main>
+      <Toaster richColors position="top-right" />
     </div>
   );
 }
