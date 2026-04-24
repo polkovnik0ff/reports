@@ -16,6 +16,7 @@ export interface DonutRow {
 interface DonutTableProps {
   rows: DonutRow[];
   firstColLabel?: string;
+  metricLabel?: string;
 }
 
 function fmtTime(seconds: number) {
@@ -60,7 +61,7 @@ function toDonutSlices(rows: DonutRow[]): DonutRow[] {
   ];
 }
 
-export function DonutTable({ rows, firstColLabel = "Источник" }: DonutTableProps) {
+export function DonutTable({ rows, firstColLabel = "Источник", metricLabel = "Визиты" }: DonutTableProps) {
   const total = rows.reduce((s, r) => s + r.visits, 0);
   const slices = toDonutSlices(rows);
   const hasExtended = rows[0]?.bounceRate != null;
@@ -87,7 +88,7 @@ export function DonutTable({ rows, firstColLabel = "Источник" }: DonutTa
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value) => [Number(value).toLocaleString("ru-RU"), "Визиты"]}
+                formatter={(value) => [Number(value).toLocaleString("ru-RU"), metricLabel]}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -113,7 +114,7 @@ export function DonutTable({ rows, firstColLabel = "Источник" }: DonutTa
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-2 px-3 text-gray-500 font-medium">{firstColLabel}</th>
-              <th className="text-right py-2 px-3 text-gray-500 font-medium">Визиты</th>
+              <th className="text-right py-2 px-3 text-gray-500 font-medium">{metricLabel}</th>
               {rows[0]?.prevVisits !== undefined && <th className="text-right py-2 px-3 text-gray-500 font-medium">Δ</th>}
               {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Отказы</th>}
               {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Глубина</th>}

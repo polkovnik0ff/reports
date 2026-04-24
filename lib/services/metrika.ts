@@ -210,11 +210,11 @@ export class MetrikaClient {
   ): Promise<TrafficChannelsResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:trafficSource",
       date1,
       date2,
-      sort: "-ym:s:visits",
+      sort: "-ym:s:users",
     };
     const raw = await this.getReport(params);
 
@@ -231,8 +231,8 @@ export class MetrikaClient {
       const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
       return {
         id,
-        name: CHANNEL_NAMES[id] ?? item.dimensions[0]?.name ?? id,
-        visits:      item.metrics[0] ?? 0,
+        name:        CHANNEL_NAMES[id] ?? item.dimensions[0]?.name ?? id,
+        visits:      item.metrics[0] ?? 0, // users (посетители)
         bounceRate:  item.metrics[1] ?? 0,
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,

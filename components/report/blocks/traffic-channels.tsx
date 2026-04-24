@@ -33,5 +33,5 @@ export function TrafficChannelsBlock({ data }: { data: TrafficChannelsResult }) 
     color:       getChannelColor(item.id, i),
   }));
 
-  return <DonutTable rows={rows} firstColLabel="Канал" />;
+  return <DonutTable rows={rows} firstColLabel="Канал" metricLabel="Посетители" />;
 }
