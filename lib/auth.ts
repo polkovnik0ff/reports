@@ -15,7 +15,7 @@ function getSecret(): Uint8Array {
 }
 
 export async function createToken(payload: import("./auth-edge").SessionPayload): Promise<string> {
-  return new SignJWT(payload as Record<string, unknown>)
+  return new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(TOKEN_TTL)
