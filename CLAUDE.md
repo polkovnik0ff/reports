@@ -449,13 +449,14 @@ Remove-Item -Recurse -Force .next
 
 ```
 Текущая фаза: 2 — Источники данных + OAuth Яндекса
-Следующий шаг: OAuth Яндекса (api/oauth/yandex/start + callback), страница /sources с реальными данными
+Следующий шаг: страница /projects — список счётчиков Метрики + добавление проекта
 ```
 
 ### Фазы:
 1. ✅ Инит + Prisma + авторизация email/пароль + middleware
 2. Источники данных + OAuth Яндекса + список счётчиков + добавление проектов
-   - ✅ Dashboard layout (sidebar) + stub-страницы /projects /sources /templates /reports /settings
+   - ✅ Dashboard layout (sidebar) + stub-страницы
+   - ✅ OAuth Яндекса (Метрика + Вебмастер), страница /sources с таблицей и удалением
 3. Конструктор шаблонов + генератор отчётов + Метрика + публичная страница
 4. Topvisor + блоки позиций + PDF
 5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
