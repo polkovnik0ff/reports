@@ -66,6 +66,23 @@ const CHANNELS_DIMENSION_CROSS_DEVICE: Record<AttributionModel, string> = {
   direct:   "ym:s:cross_device_last_significantTrafficSource",
 };
 
+// For SearchEngineRoot, attribution is also encoded in the dimension name
+const SEARCH_ENGINE_DIMENSION_MAP: Record<AttributionModel, string> = {
+  lastsign: "ym:s:lastsignSearchEngineRoot",
+  first:    "ym:s:firstSearchEngineRoot",
+  last:     "ym:s:lastSearchEngineRoot",
+  auto:     "ym:s:lastsignSearchEngineRoot",
+  direct:   "ym:s:lastsignSearchEngineRoot",
+};
+
+const SEARCH_ENGINE_DIMENSION_CROSS_DEVICE: Record<AttributionModel, string> = {
+  lastsign: "ym:s:cross_device_last_significantSearchEngineRoot",
+  first:    "ym:s:cross_device_last_significantSearchEngineRoot",
+  last:     "ym:s:cross_device_last_significantSearchEngineRoot",
+  auto:     "ym:s:cross_device_last_significantSearchEngineRoot",
+  direct:   "ym:s:cross_device_last_significantSearchEngineRoot",
+};
+
 const ROBOTS_FILTER = "ym:s:isRobot=='No'";
 
 function mergeFilters(existing: string | undefined, extra: string): string {
@@ -216,6 +233,14 @@ export class MetrikaClient {
     return CHANNELS_DIMENSION_MAP[attr];
   }
 
+  private searchEngineDimension(): string {
+    const attr = this.settings.attribution ?? "lastsign";
+    if (this.settings.crossDevice) {
+      return SEARCH_ENGINE_DIMENSION_CROSS_DEVICE[attr];
+    }
+    return SEARCH_ENGINE_DIMENSION_MAP[attr];
+  }
+
   async getCounters(): Promise<MetrikaCounter[]> {
     const res = await fetch(`${BASE}/management/v1/counters?per_page=200`, {
       headers: this.headers(),
@@ -360,7 +385,7 @@ export class MetrikaClient {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
-      dimensions: "ym:s:SearchEngineRoot",
+      dimensions: this.searchEngineDimension(),
       date1,
       date2,
       sort: "-ym:s:users",
@@ -690,7 +715,7 @@ export class MetrikaClient {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:users",
-      dimensions: "ym:s:date,ym:s:SearchEngineRoot",
+      dimensions: `ym:s:date,${this.searchEngineDimension()}`,
       date1,
       date2,
       group: "day",
