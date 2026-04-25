@@ -360,7 +360,7 @@ export class MetrikaClient {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
-      dimensions: "ym:s:searchEngine",
+      dimensions: "ym:s:SearchEngineRoot",
       date1,
       date2,
       sort: "-ym:s:users",
@@ -382,11 +382,17 @@ export class MetrikaClient {
       }
     }
 
-    const rows: ChannelRow[] = (raw.data ?? []).map((item) => {
+    const EMPTY_NAMES = new Set(["не определено", "not defined", "(not set)", "", "undefined"]);
+
+    const rows: ChannelRow[] = (raw.data ?? []).filter((item) => {
       const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
       const rawName = item.dimensions[0]?.name ?? id;
-      const lowerKey = id.toLowerCase();
-      const name = SEARCH_ENGINE_NAMES[lowerKey] ?? rawName;
+      const name = SEARCH_ENGINE_NAMES[id.toLowerCase()] ?? rawName;
+      return id && !EMPTY_NAMES.has(name.toLowerCase());
+    }).map((item) => {
+      const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      const rawName = item.dimensions[0]?.name ?? id;
+      const name = SEARCH_ENGINE_NAMES[id.toLowerCase()] ?? rawName;
       const prev = prevMap.get(id);
       return {
         id,
@@ -443,10 +449,11 @@ export class MetrikaClient {
 
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:date",
       date1,
       date2,
+      filters: "ym:s:trafficSource=='organic'",
       group: "day",
       sort: "ym:s:date",
       limit: 400,
@@ -683,7 +690,7 @@ export class MetrikaClient {
     const params: FetchReportParams = {
       counterId,
       metrics: "ym:s:users",
-      dimensions: "ym:s:date,ym:s:searchEngine",
+      dimensions: "ym:s:date,ym:s:SearchEngineRoot",
       date1,
       date2,
       group: "day",
@@ -703,7 +710,8 @@ export class MetrikaClient {
       return ENGINE_COLORS[key] ?? "#9ca3af";
     }
 
-    // Collect all dates and engine names
+    const EMPTY_NAMES = new Set(["не определено", "not defined", "(not set)", "", "undefined"]);
+
     const dateSet = new Set<string>();
     const engineSet = new Set<string>();
     const engineIdToName = new Map<string, string>();
@@ -712,6 +720,8 @@ export class MetrikaClient {
       const date = item.dimensions[0]?.name ?? "";
       const engineId = item.dimensions[1]?.id ?? item.dimensions[1]?.name ?? "";
       const engineName = SEARCH_ENGINE_NAMES[engineId.toLowerCase()] ?? item.dimensions[1]?.name ?? engineId;
+      // Skip empty/undefined engines
+      if (!engineId || EMPTY_NAMES.has(engineName.toLowerCase())) continue;
       dateSet.add(date);
       engineSet.add(engineId);
       engineIdToName.set(engineId, engineName);
@@ -719,11 +729,11 @@ export class MetrikaClient {
 
     const dates = Array.from(dateSet).sort();
 
-    // Build per-engine data indexed by date
     const engineData = new Map<string, Map<string, number>>();
     for (const item of raw.data ?? []) {
       const date = item.dimensions[0]?.name ?? "";
       const engineId = item.dimensions[1]?.id ?? item.dimensions[1]?.name ?? "";
+      if (!engineSet.has(engineId)) continue;
       if (!engineData.has(engineId)) engineData.set(engineId, new Map());
       engineData.get(engineId)!.set(date, item.metrics[0] ?? 0);
     }
@@ -734,9 +744,9 @@ export class MetrikaClient {
       data:  dates.map((d) => engineData.get(engineId)?.get(d) ?? 0),
     }));
 
-    // Sort by total desc
+    // Sort by total desc, keep top 6
     series.sort((a, b) => b.data.reduce((s, v) => s + v, 0) - a.data.reduce((s, v) => s + v, 0));
 
-    return { dates, series };
+    return { dates, series: series.slice(0, 6) };
   }
 }

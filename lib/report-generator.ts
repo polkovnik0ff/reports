@@ -32,7 +32,7 @@ async function fetchBlockData(
     case "search_engines_dynamics":
       return client.getSearchEnginesDynamics(counterId, date1, date2);
     case "traffic_search_dynamics":
-      return client.getSearchDynamics(counterId, date1, date2, compareDate1, compareDate2);
+      return client.getSearchEnginesDynamics(counterId, date1, date2);
     case "traffic_yoy":
       return client.getTrafficYoY(counterId, date1, date2);
     case "traffic_geography":

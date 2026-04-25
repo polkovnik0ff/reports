@@ -231,10 +231,10 @@ type BlockType =
   // Метрика
   | 'traffic_summary'       // KPI: визиты, уники, отказы, глубина, время
   | 'traffic_channels'      // Распределение по каналам (donut + таблица)
-  | 'traffic_search_engines'// По поисковым системам (donut + легенда, без таблицы)
-  | 'search_engines_dynamics'// Динамика переходов из поисковых систем (LineChart + таблица)
-  | 'traffic_search_dynamics'// Динамика поискового трафика (area chart + KPI 4 метрики)
-  | 'traffic_yoy'           // Сравнение с прошлым годом (area chart)
+  | 'traffic_search_engines'// По поисковым системам (donut + легенда, без таблицы; dim: ym:s:SearchEngineRoot)
+  | 'search_engines_dynamics'// Динамика переходов из поисковых систем (LineChart по движкам + таблица с динамикой)
+  | 'traffic_search_dynamics'// LineChart: посетители по поисковым системам по дням (те же данные что search_engines_dynamics, без таблицы)
+  | 'traffic_yoy'           // Сравнение с прошлым годом (area chart, только organic-трафик)
   | 'traffic_geography'     // География (donut + таблица регионов)
   | 'traffic_devices'       // Устройства (donut + таблица)
   | 'top_pages'             // Топ посадочных страниц
@@ -469,8 +469,9 @@ Remove-Item -Recurse -Force .next
    - ✅ /r/[slug]: публичная страница (без авторизации), SSR, все блоки Метрики, recharts DonutChart + AreaChart + LineChart, print-стили
    - ✅ Динамика (DiffSup ↑↓) во всех таблицах блоков, lang=ru для Метрики, базовая метрика ym:s:users
    - ✅ Новый блок search_engines_dynamics: LineChart по поисковикам + таблица с динамикой
-   - ✅ KPI под графиком traffic_search_dynamics: 4 метрики с цветной динамикой
-   - ✅ traffic_search_engines: только donut, таблица переехала в search_engines_dynamics
+   - ✅ traffic_search_dynamics переработан: LineChart посетителей по движкам по дням (те же данные что search_engines_dynamics, без таблицы); цвета совпадают с traffic_search_engines
+   - ✅ traffic_search_engines: только donut, таблица переехала в search_engines_dynamics; dim: ym:s:SearchEngineRoot (агрегированный, без детализации типа поиска); топ-6, фильтр пустых/неопределённых
+   - ✅ traffic_yoy: фильтр organic (только поисковый трафик), метрика ym:s:users
    - ✅ traffic_geography: топ-6 + строка "Другие" (взвешенное среднее)
 4. Topvisor + блоки позиций + PDF
 5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
