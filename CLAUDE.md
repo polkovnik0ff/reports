@@ -231,8 +231,9 @@ type BlockType =
   // Метрика
   | 'traffic_summary'       // KPI: визиты, уники, отказы, глубина, время
   | 'traffic_channels'      // Распределение по каналам (donut + таблица)
-  | 'traffic_search_engines'// По поисковым системам (donut + таблица)
-  | 'traffic_search_dynamics'// Динамика поискового трафика (area chart)
+  | 'traffic_search_engines'// По поисковым системам (donut + легенда, без таблицы)
+  | 'search_engines_dynamics'// Динамика переходов из поисковых систем (LineChart + таблица)
+  | 'traffic_search_dynamics'// Динамика поискового трафика (area chart + KPI 4 метрики)
   | 'traffic_yoy'           // Сравнение с прошлым годом (area chart)
   | 'traffic_geography'     // География (donut + таблица регионов)
   | 'traffic_devices'       // Устройства (donut + таблица)
@@ -461,11 +462,16 @@ Remove-Item -Recurse -Force .next
    - Вебмастер: scope не передаём явно — разрешения настраиваются на oauth.yandex.ru уровне приложения
 3. Конструктор шаблонов + генератор отчётов + Метрика + публичная страница
    - ✅ /templates, /templates/new, /templates/[id]: конструктор с dnd-kit, блоки вкл/выкл, комментарии
-   - ✅ DEFAULT_BLOCKS (15 блоков), seed "Стандартный отчёт" в БД
-   - ✅ MetrikaClient (10 методов), generateReport оркестратор, fire-and-forget генерация
+   - ✅ DEFAULT_BLOCKS (16 блоков), seed "Стандартный отчёт" в БД
+   - ✅ MetrikaClient (12 методов), generateReport оркестратор, fire-and-forget генерация
    - ✅ /reports/new: 3-шаговая форма (проект+период → блоки → тексты), polling → /r/[slug]
    - ✅ /reports: история с бейджами статуса, open/copy/delete
-   - ✅ /r/[slug]: публичная страница (без авторизации), SSR, все блоки Метрики, recharts DonutChart + AreaChart, print-стили
+   - ✅ /r/[slug]: публичная страница (без авторизации), SSR, все блоки Метрики, recharts DonutChart + AreaChart + LineChart, print-стили
+   - ✅ Динамика (DiffSup ↑↓) во всех таблицах блоков, lang=ru для Метрики, базовая метрика ym:s:users
+   - ✅ Новый блок search_engines_dynamics: LineChart по поисковикам + таблица с динамикой
+   - ✅ KPI под графиком traffic_search_dynamics: 4 метрики с цветной динамикой
+   - ✅ traffic_search_engines: только donut, таблица переехала в search_engines_dynamics
+   - ✅ traffic_geography: топ-6 + строка "Другие" (взвешенное среднее)
 4. Topvisor + блоки позиций + PDF
 5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
 6. Docker + VDS + мониторинг + бэкапы

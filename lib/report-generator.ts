@@ -29,14 +29,16 @@ async function fetchBlockData(
       return client.getTrafficByChannels(counterId, date1, date2, compareDate1, compareDate2);
     case "traffic_search_engines":
       return client.getTrafficBySearchEngines(counterId, date1, date2, compareDate1, compareDate2);
+    case "search_engines_dynamics":
+      return client.getSearchEnginesDynamics(counterId, date1, date2);
     case "traffic_search_dynamics":
       return client.getSearchDynamics(counterId, date1, date2, compareDate1, compareDate2);
     case "traffic_yoy":
       return client.getTrafficYoY(counterId, date1, date2);
     case "traffic_geography":
-      return client.getGeography(counterId, date1, date2);
+      return client.getGeography(counterId, date1, date2, compareDate1, compareDate2);
     case "traffic_devices":
-      return client.getDevices(counterId, date1, date2);
+      return client.getDevices(counterId, date1, date2, compareDate1, compareDate2);
     case "top_pages":
       return client.getTopPages(counterId, date1, date2, compareDate1, compareDate2);
     case "top_queries":
@@ -88,8 +90,9 @@ export async function generateReport(reportId: string): Promise<void> {
     // Only API blocks need sequential fetching; manual blocks return immediately
     const apiBlockTypes: BlockType[] = [
       "traffic_summary", "traffic_channels", "traffic_search_engines",
-      "traffic_search_dynamics", "traffic_yoy", "traffic_geography",
-      "traffic_devices", "top_pages", "top_queries", "referrals", "high_bounce_pages",
+      "search_engines_dynamics", "traffic_search_dynamics", "traffic_yoy",
+      "traffic_geography", "traffic_devices", "top_pages", "top_queries",
+      "referrals", "high_bounce_pages",
     ];
     const enabledBlocks = blocks.filter((b) => b.enabled);
 

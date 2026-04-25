@@ -113,6 +113,10 @@ export interface DimensionRow {
   bounceRate: number;
   pageDepth: number;
   avgDuration: number;
+  prevVisits?: number;
+  prevBounceRate?: number;
+  prevPageDepth?: number;
+  prevAvgDuration?: number;
 }
 
 export interface DimensionResult {
@@ -134,6 +138,17 @@ export interface DynamicsResult {
   comparison: MetrikaRawResponse | null;
 }
 
+export interface SearchEnginesSeries {
+  name: string;
+  color: string;
+  data: number[];
+}
+
+export interface SearchEnginesDynamicsResult {
+  dates: string[];
+  series: SearchEnginesSeries[];
+}
+
 // ── Name translations ─────────────────────────────────────────────────────────
 
 const CHANNEL_NAMES: Record<string, string> = {
@@ -147,6 +162,17 @@ const CHANNEL_NAMES: Record<string, string> = {
   email:     "Переходы из рассылок",
   messenger: "Переходы из мессенджеров",
   saved:     "Переходы с сохранённых страниц",
+};
+
+const SEARCH_ENGINE_NAMES: Record<string, string> = {
+  yandex:     "Яндекс",
+  google:     "Google",
+  bing:       "Bing",
+  mail:       "Mail.ru",
+  rambler:    "Рамблер",
+  yahoo:      "Yahoo",
+  duckduckgo: "DuckDuckGo",
+  baidu:      "Baidu",
 };
 
 const DEVICE_NAMES: Record<string, string> = {
@@ -213,6 +239,7 @@ export class MetrikaClient {
       date1:   applied.date1,
       date2:   applied.date2,
       limit:   String(applied.limit ?? 100),
+      lang:    "ru",
     });
     if (applied.dimensions) params.set("dimensions", applied.dimensions);
     if (applied.filters)    params.set("filters", applied.filters);
@@ -332,33 +359,48 @@ export class MetrikaClient {
   ): Promise<TrafficChannelsResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:searchEngine",
       date1,
       date2,
-      sort: "-ym:s:visits",
+      sort: "-ym:s:users",
     };
     const raw = await this.getReport(params);
 
-    const prevMap = new Map<string, number>();
+    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    const prevMap = new Map<string, PrevMetrics>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
         const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
-        prevMap.set(id, item.metrics[0] ?? 0);
+        prevMap.set(id, {
+          users:       item.metrics[0] ?? 0,
+          bounceRate:  item.metrics[1] ?? 0,
+          pageDepth:   item.metrics[2] ?? 0,
+          avgDuration: item.metrics[3] ?? 0,
+        });
       }
     }
 
     const rows: ChannelRow[] = (raw.data ?? []).map((item) => {
       const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      const rawName = item.dimensions[0]?.name ?? id;
+      const lowerKey = id.toLowerCase();
+      const name = SEARCH_ENGINE_NAMES[lowerKey] ?? rawName;
+      const prev = prevMap.get(id);
       return {
         id,
-        name:        item.dimensions[0]?.name ?? id,
+        name,
         visits:      item.metrics[0] ?? 0,
         bounceRate:  item.metrics[1] ?? 0,
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,
-        ...(prevMap.size > 0 ? { prevVisits: prevMap.get(id) } : {}),
+        ...(prev != null ? {
+          prevVisits:      prev.users,
+          prevBounceRate:  prev.bounceRate,
+          prevPageDepth:   prev.pageDepth,
+          prevAvgDuration: prev.avgDuration,
+        } : {}),
       };
     });
 
@@ -374,7 +416,7 @@ export class MetrikaClient {
   ): Promise<DynamicsResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits",
+      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:date",
       date1,
       date2,
@@ -414,38 +456,95 @@ export class MetrikaClient {
     return { current, comparison };
   }
 
-  async getGeography(counterId: number, date1: string, date2: string): Promise<DimensionResult> {
-    const raw = await this.getReport({
+  async getGeography(
+    counterId: number,
+    date1: string,
+    date2: string,
+    compareDate1?: string,
+    compareDate2?: string
+  ): Promise<DimensionResult> {
+    const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:regionArea",
       date1,
       date2,
-      sort: "-ym:s:visits",
+      sort: "-ym:s:users",
       limit: 20,
+    };
+    const raw = await this.getReport(params);
+
+    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    const prevMap = new Map<string, PrevMetrics>();
+    if (compareDate1 && compareDate2) {
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+        prevMap.set(id, {
+          users:       item.metrics[0] ?? 0,
+          bounceRate:  item.metrics[1] ?? 0,
+          pageDepth:   item.metrics[2] ?? 0,
+          avgDuration: item.metrics[3] ?? 0,
+        });
+      }
+    }
+
+    const rows: DimensionRow[] = (raw.data ?? []).map((item) => {
+      const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      const prev = prevMap.get(id);
+      return {
+        id,
+        name:        item.dimensions[0]?.name ?? "Другое",
+        visits:      item.metrics[0] ?? 0,
+        bounceRate:  item.metrics[1] ?? 0,
+        pageDepth:   item.metrics[2] ?? 0,
+        avgDuration: item.metrics[3] ?? 0,
+        ...(prev != null ? {
+          prevVisits:      prev.users,
+          prevBounceRate:  prev.bounceRate,
+          prevPageDepth:   prev.pageDepth,
+          prevAvgDuration: prev.avgDuration,
+        } : {}),
+      };
     });
-    const rows: DimensionRow[] = (raw.data ?? []).map((item) => ({
-      id:          item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "",
-      name:        item.dimensions[0]?.name ?? "Другое",
-      visits:      item.metrics[0] ?? 0,
-      bounceRate:  item.metrics[1] ?? 0,
-      pageDepth:   item.metrics[2] ?? 0,
-      avgDuration: item.metrics[3] ?? 0,
-    }));
     return { rows };
   }
 
-  async getDevices(counterId: number, date1: string, date2: string): Promise<DimensionResult> {
-    const raw = await this.getReport({
+  async getDevices(
+    counterId: number,
+    date1: string,
+    date2: string,
+    compareDate1?: string,
+    compareDate2?: string
+  ): Promise<DimensionResult> {
+    const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:deviceCategory",
       date1,
       date2,
-      sort: "-ym:s:visits",
-    });
+      sort: "-ym:s:users",
+    };
+    const raw = await this.getReport(params);
+
+    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    const prevMap = new Map<string, PrevMetrics>();
+    if (compareDate1 && compareDate2) {
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+        prevMap.set(id, {
+          users:       item.metrics[0] ?? 0,
+          bounceRate:  item.metrics[1] ?? 0,
+          pageDepth:   item.metrics[2] ?? 0,
+          avgDuration: item.metrics[3] ?? 0,
+        });
+      }
+    }
+
     const rows: DimensionRow[] = (raw.data ?? []).map((item) => {
       const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      const prev = prevMap.get(id);
       return {
         id,
         name:        DEVICE_NAMES[id] ?? item.dimensions[0]?.name ?? id,
@@ -453,6 +552,12 @@ export class MetrikaClient {
         bounceRate:  item.metrics[1] ?? 0,
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,
+        ...(prev != null ? {
+          prevVisits:      prev.users,
+          prevBounceRate:  prev.bounceRate,
+          prevPageDepth:   prev.pageDepth,
+          prevAvgDuration: prev.avgDuration,
+        } : {}),
       };
     });
     return { rows };
@@ -467,11 +572,11 @@ export class MetrikaClient {
   ): Promise<RankedResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits",
+      metrics: "ym:s:users",
       dimensions: "ym:s:startURL",
       date1,
       date2,
-      sort: "-ym:s:visits",
+      sort: "-ym:s:users",
       limit: 10,
     };
     const raw = await this.getReport(params);
@@ -504,12 +609,12 @@ export class MetrikaClient {
   ): Promise<RankedResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:visits",
+      metrics: "ym:s:users",
       dimensions: "ym:s:searchPhrase",
       date1,
       date2,
       filters: "ym:s:trafficSource=='organic'",
-      sort: "-ym:s:visits",
+      sort: "-ym:s:users",
       limit: 10,
     };
     const raw = await this.getReport(params);
@@ -536,12 +641,12 @@ export class MetrikaClient {
   async getReferrals(counterId: number, date1: string, date2: string): Promise<RankedResult> {
     const raw = await this.getReport({
       counterId,
-      metrics: "ym:s:visits",
+      metrics: "ym:s:users",
       dimensions: "ym:s:referer",
       date1,
       date2,
       filters: "ym:s:trafficSource=='referral'",
-      sort: "-ym:s:visits",
+      sort: "-ym:s:users",
       limit: 10,
     });
     const rows: RankedRow[] = (raw.data ?? []).map((item) => ({
@@ -554,7 +659,7 @@ export class MetrikaClient {
   async getHighBouncePages(counterId: number, date1: string, date2: string): Promise<RankedResult> {
     const raw = await this.getReport({
       counterId,
-      metrics: "ym:s:visits,ym:s:bounceRate",
+      metrics: "ym:s:users,ym:s:bounceRate",
       dimensions: "ym:s:startURL",
       date1,
       date2,
@@ -568,5 +673,70 @@ export class MetrikaClient {
       bounceRate: item.metrics[1] ?? 0,
     }));
     return { rows } as unknown as RankedResult;
+  }
+
+  async getSearchEnginesDynamics(
+    counterId: number,
+    date1: string,
+    date2: string
+  ): Promise<SearchEnginesDynamicsResult> {
+    const params: FetchReportParams = {
+      counterId,
+      metrics: "ym:s:users",
+      dimensions: "ym:s:date,ym:s:searchEngine",
+      date1,
+      date2,
+      group: "day",
+      sort: "ym:s:date",
+      limit: 400,
+    };
+    const raw = await this.getReport(params);
+
+    const ENGINE_COLORS: Record<string, string> = {
+      yandex: "#FF7A00",
+      google: "#4285F4",
+      bing:   "#008373",
+      mail:   "#005FF9",
+    };
+    function engineColor(id: string): string {
+      const key = id.toLowerCase();
+      return ENGINE_COLORS[key] ?? "#9ca3af";
+    }
+
+    // Collect all dates and engine names
+    const dateSet = new Set<string>();
+    const engineSet = new Set<string>();
+    const engineIdToName = new Map<string, string>();
+
+    for (const item of raw.data ?? []) {
+      const date = item.dimensions[0]?.name ?? "";
+      const engineId = item.dimensions[1]?.id ?? item.dimensions[1]?.name ?? "";
+      const engineName = SEARCH_ENGINE_NAMES[engineId.toLowerCase()] ?? item.dimensions[1]?.name ?? engineId;
+      dateSet.add(date);
+      engineSet.add(engineId);
+      engineIdToName.set(engineId, engineName);
+    }
+
+    const dates = Array.from(dateSet).sort();
+
+    // Build per-engine data indexed by date
+    const engineData = new Map<string, Map<string, number>>();
+    for (const item of raw.data ?? []) {
+      const date = item.dimensions[0]?.name ?? "";
+      const engineId = item.dimensions[1]?.id ?? item.dimensions[1]?.name ?? "";
+      if (!engineData.has(engineId)) engineData.set(engineId, new Map());
+      engineData.get(engineId)!.set(date, item.metrics[0] ?? 0);
+    }
+
+    const series: SearchEnginesSeries[] = Array.from(engineSet).map((engineId) => ({
+      name:  engineIdToName.get(engineId) ?? engineId,
+      color: engineColor(engineId),
+      data:  dates.map((d) => engineData.get(engineId)?.get(d) ?? 0),
+    }));
+
+    // Sort by total desc
+    series.sort((a, b) => b.data.reduce((s, v) => s + v, 0) - a.data.reduce((s, v) => s + v, 0));
+
+    return { dates, series };
   }
 }

@@ -24,6 +24,43 @@ function fmtTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function pctDiff(cur: number, cmp: number): number | null {
+  if (cmp === 0) return null;
+  return ((cur - cmp) / Math.abs(cmp)) * 100;
+}
+
+function KpiCard({
+  label, cur, cmp, fmt, invertSign = false,
+}: {
+  label: string;
+  cur: number;
+  cmp: number | null;
+  fmt: (v: number) => string;
+  invertSign?: boolean;
+}) {
+  const diff = cmp != null ? pctDiff(cur, cmp) : null;
+  const isGood = diff == null ? null : invertSign ? diff < 0 : diff > 0;
+  const color = isGood == null ? "text-gray-900" : isGood ? "text-green-600" : "text-red-500";
+  const arrow = isGood == null ? null : isGood ? "↑" : "↓";
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-3">
+      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className={`text-lg font-bold ${diff != null ? color : "text-gray-900"}`}>
+        {fmt(cur)}
+        {diff != null && arrow && (
+          <sup style={{ fontSize: "0.65em", fontWeight: 600, marginLeft: "3px" }}>
+            {arrow}{Math.abs(diff).toFixed(1)}%
+          </sup>
+        )}
+      </p>
+      {cmp != null && (
+        <p className="text-xs text-gray-400">{fmt(cmp)}</p>
+      )}
+    </div>
+  );
+}
+
 export function AreaChartBlock({
   data,
   currentLabel = "Текущий период",
@@ -127,31 +164,36 @@ export function AreaChartBlock({
       </div>
 
       <div className={`grid gap-4 ${hasExtra ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 md:grid-cols-2"}`}>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500 mb-1">Визиты</p>
-          <p className="text-lg font-bold text-gray-900">{Math.round(curVisits).toLocaleString("ru-RU")}</p>
-          {cmpVisits != null && <p className="text-xs text-gray-500">{compareLabel}: {Math.round(cmpVisits).toLocaleString("ru-RU")}</p>}
-        </div>
+        <KpiCard
+          label="Посетители"
+          cur={Math.round(curVisits)}
+          cmp={cmpVisits != null ? Math.round(cmpVisits) : null}
+          fmt={(v) => v.toLocaleString("ru-RU")}
+        />
         {curBounce != null && (
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">Отказы (ср.)</p>
-            <p className="text-lg font-bold text-gray-900">{curBounce.toFixed(1)}%</p>
-            {cmpBounce != null && <p className="text-xs text-gray-500">{compareLabel}: {cmpBounce.toFixed(1)}%</p>}
-          </div>
+          <KpiCard
+            label="Отказы"
+            cur={curBounce}
+            cmp={cmpBounce ?? null}
+            fmt={(v) => `${v.toFixed(1)}%`}
+            invertSign
+          />
         )}
         {curDepth != null && (
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">Глубина (ср.)</p>
-            <p className="text-lg font-bold text-gray-900">{curDepth.toFixed(2)}</p>
-            {cmpDepth != null && <p className="text-xs text-gray-500">{compareLabel}: {cmpDepth.toFixed(2)}</p>}
-          </div>
+          <KpiCard
+            label="Глубина просмотра"
+            cur={curDepth}
+            cmp={cmpDepth ?? null}
+            fmt={(v) => v.toFixed(2)}
+          />
         )}
         {curTime != null && (
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">Время (ср.)</p>
-            <p className="text-lg font-bold text-gray-900">{fmtTime(curTime)}</p>
-            {cmpTime != null && <p className="text-xs text-gray-500">{compareLabel}: {fmtTime(cmpTime)}</p>}
-          </div>
+          <KpiCard
+            label="Время на сайте"
+            cur={curTime}
+            cmp={cmpTime ?? null}
+            fmt={fmtTime}
+          />
         )}
       </div>
     </div>

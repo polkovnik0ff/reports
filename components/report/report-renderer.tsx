@@ -5,6 +5,7 @@ import { BlockWrapper } from "./block-wrapper";
 import { TrafficSummaryBlock } from "./blocks/traffic-summary";
 import { TrafficChannelsBlock } from "./blocks/traffic-channels";
 import { TrafficSearchEnginesBlock } from "./blocks/traffic-search-engines";
+import { SearchEnginesDynamicsBlock } from "./blocks/search-engines-dynamics";
 import { TrafficSearchDynamicsBlock } from "./blocks/traffic-search-dynamics";
 import { TrafficYoYBlock } from "./blocks/traffic-yoy";
 import { TrafficGeographyBlock } from "./blocks/traffic-geography";
@@ -30,9 +31,9 @@ function ErrorBlock({ message }: { message?: string }) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string } | null) {
+function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string } | null, snapshotData: Record<string, any>) {
   if (blockData?.error) return <ErrorBlock message={blockData.error} />;
-  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi"].includes(block.type)) {
+  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi", "search_engines_dynamics"].includes(block.type)) {
     return <ErrorBlock />;
   }
 
@@ -46,6 +47,13 @@ function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string
       return <TrafficChannelsBlock data={data} />;
     case "traffic_search_engines":
       return <TrafficSearchEnginesBlock data={data} />;
+    case "search_engines_dynamics":
+      return (
+        <SearchEnginesDynamicsBlock
+          dynamicsData={data ?? null}
+          tableData={snapshotData?.["traffic_search_engines"]?.data ?? null}
+        />
+      );
     case "traffic_search_dynamics":
       return <TrafficSearchDynamicsBlock data={data} />;
     case "traffic_yoy":
@@ -95,7 +103,7 @@ export function ReportRenderer({ reportConfig, snapshotData }: ReportRendererPro
             commentAbove={block.commentAbove}
             commentBelow={block.commentBelow}
           >
-            {renderBlock(block, blockData)}
+            {renderBlock(block, blockData, snapshotData)}
           </BlockWrapper>
         );
       })}

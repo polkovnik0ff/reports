@@ -18,13 +18,17 @@ function getDeviceColor(id: string, idx: number): string {
 
 export function TrafficDevicesBlock({ data }: { data: DimensionResult }) {
   const rows: DonutRow[] = (data?.rows ?? []).map((item, i) => ({
-    name:        item.name,
-    visits:      item.visits,
-    bounceRate:  item.bounceRate,
-    pageDepth:   item.pageDepth,
-    avgDuration: item.avgDuration,
-    color:       getDeviceColor(item.id, i),
+    name:            item.name,
+    visits:          item.visits,
+    bounceRate:      item.bounceRate,
+    pageDepth:       item.pageDepth,
+    avgDuration:     item.avgDuration,
+    prevVisits:      item.prevVisits,
+    prevBounceRate:  item.prevBounceRate,
+    prevPageDepth:   item.prevPageDepth,
+    prevAvgDuration: item.prevAvgDuration,
+    color:           getDeviceColor(item.id, i),
   }));
 
-  return <DonutTable rows={rows} firstColLabel="Устройство" />;
+  return <DonutTable rows={rows} firstColLabel="Устройство" metricLabel="Посетители" />;
 }

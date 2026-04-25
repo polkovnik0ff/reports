@@ -2,6 +2,7 @@ export type BlockType =
   | "traffic_summary"
   | "traffic_channels"
   | "traffic_search_engines"
+  | "search_engines_dynamics"
   | "traffic_search_dynamics"
   | "traffic_yoy"
   | "traffic_geography"
@@ -31,6 +32,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   traffic_summary: "Общая посещаемость",
   traffic_channels: "Распределение по каналам",
   traffic_search_engines: "Распределение по поисковым системам",
+  search_engines_dynamics: "Динамика переходов из поисковых систем",
   traffic_search_dynamics: "Динамика поискового трафика",
   traffic_yoy: "Сравнение с прошлым годом",
   traffic_geography: "География посетителей",
@@ -48,19 +50,20 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
 };
 
 export const DEFAULT_BLOCKS: BlockConfig[] = [
-  { id: "traffic_summary", type: "traffic_summary", enabled: true, order: 1, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "traffic_channels", type: "traffic_channels", enabled: true, order: 2, commentAbove: "", commentBelow: "", settings: { metric: "visits", showDynamics: "percent" } },
-  { id: "traffic_search_engines", type: "traffic_search_engines", enabled: true, order: 3, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "traffic_search_dynamics", type: "traffic_search_dynamics", enabled: true, order: 4, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "traffic_yoy", type: "traffic_yoy", enabled: false, order: 5, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "traffic_geography", type: "traffic_geography", enabled: true, order: 6, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "traffic_devices", type: "traffic_devices", enabled: true, order: 7, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "top_pages", type: "top_pages", enabled: true, order: 8, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "top_queries", type: "top_queries", enabled: true, order: 9, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "referrals", type: "referrals", enabled: true, order: 10, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "high_bounce_pages", type: "high_bounce_pages", enabled: false, order: 11, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "positions_summary", type: "positions_summary", enabled: false, order: 12, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "positions_table", type: "positions_table", enabled: false, order: 13, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "work_done", type: "work_done", enabled: true, order: 14, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "work_plan", type: "work_plan", enabled: true, order: 15, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "traffic_summary",          type: "traffic_summary",          enabled: true,  order: 1,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "traffic_channels",         type: "traffic_channels",         enabled: true,  order: 2,  commentAbove: "", commentBelow: "", settings: { metric: "visits", showDynamics: "percent" } },
+  { id: "traffic_search_engines",   type: "traffic_search_engines",   enabled: true,  order: 3,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "search_engines_dynamics",  type: "search_engines_dynamics",  enabled: true,  order: 4,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "traffic_search_dynamics",  type: "traffic_search_dynamics",  enabled: true,  order: 5,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "traffic_yoy",              type: "traffic_yoy",              enabled: false, order: 6,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "traffic_geography",        type: "traffic_geography",        enabled: true,  order: 7,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "traffic_devices",          type: "traffic_devices",          enabled: true,  order: 8,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "top_pages",                type: "top_pages",                enabled: true,  order: 9,  commentAbove: "", commentBelow: "", settings: {} },
+  { id: "top_queries",              type: "top_queries",              enabled: true,  order: 10, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "referrals",                type: "referrals",                enabled: true,  order: 11, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "high_bounce_pages",        type: "high_bounce_pages",        enabled: false, order: 12, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "positions_summary",        type: "positions_summary",        enabled: false, order: 13, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "positions_table",          type: "positions_table",          enabled: false, order: 14, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "work_done",                type: "work_done",                enabled: true,  order: 15, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "work_plan",                type: "work_plan",                enabled: true,  order: 16, commentAbove: "", commentBelow: "", settings: {} },
 ];

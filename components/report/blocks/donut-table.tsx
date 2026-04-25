@@ -19,6 +19,7 @@ interface DonutTableProps {
   rows: DonutRow[];
   firstColLabel?: string;
   metricLabel?: string;
+  hideTable?: boolean;
 }
 
 function fmtTime(seconds: number) {
@@ -58,7 +59,7 @@ function toDonutSlices(rows: DonutRow[]): DonutRow[] {
   ];
 }
 
-export function DonutTable({ rows, firstColLabel = "Источник", metricLabel = "Визиты" }: DonutTableProps) {
+export function DonutTable({ rows, firstColLabel = "Источник", metricLabel = "Визиты", hideTable = false }: DonutTableProps) {
   const slices = toDonutSlices(rows);
   const hasExtended = rows[0]?.bounceRate != null;
 
@@ -102,7 +103,7 @@ export function DonutTable({ rows, firstColLabel = "Источник", metricLab
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {!hideTable && <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200">
@@ -148,7 +149,7 @@ export function DonutTable({ rows, firstColLabel = "Источник", metricLab
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   );
 }

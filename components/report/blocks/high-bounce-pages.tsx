@@ -24,7 +24,7 @@ export function HighBouncePagesBlock({ data }: { data: HighBouncePagesData }) {
           <tr className="border-b border-gray-200">
             <th className="text-center py-2 px-3 text-gray-500 font-medium w-10">№</th>
             <th className="text-left py-2 px-3 text-gray-500 font-medium">URL</th>
-            <th className="text-right py-2 px-3 text-gray-500 font-medium">Визиты</th>
+            <th className="text-right py-2 px-3 text-gray-500 font-medium">Посетители</th>
             <th className="text-right py-2 px-3 text-gray-500 font-medium">Отказы</th>
           </tr>
         </thead>
