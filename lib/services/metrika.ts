@@ -97,6 +97,9 @@ export interface ChannelRow {
   pageDepth: number;
   avgDuration: number;
   prevVisits?: number;
+  prevBounceRate?: number;
+  prevPageDepth?: number;
+  prevAvgDuration?: number;
 }
 
 export interface TrafficChannelsResult {
@@ -283,17 +286,24 @@ export class MetrikaClient {
     };
     const raw = await this.getReport(params);
 
-    const prevMap = new Map<string, number>();
+    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    const prevMap = new Map<string, PrevMetrics>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
         const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
-        prevMap.set(id, item.metrics[0] ?? 0);
+        prevMap.set(id, {
+          users:       item.metrics[0] ?? 0,
+          bounceRate:  item.metrics[1] ?? 0,
+          pageDepth:   item.metrics[2] ?? 0,
+          avgDuration: item.metrics[3] ?? 0,
+        });
       }
     }
 
     const rows: ChannelRow[] = (raw.data ?? []).map((item) => {
       const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+      const prev = prevMap.get(id);
       return {
         id,
         name:        CHANNEL_NAMES[id] ?? item.dimensions[0]?.name ?? id,
@@ -301,7 +311,12 @@ export class MetrikaClient {
         bounceRate:  item.metrics[1] ?? 0,
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,
-        ...(prevMap.size > 0 ? { prevVisits: prevMap.get(id) } : {}),
+        ...(prev != null ? {
+          prevVisits:      prev.users,
+          prevBounceRate:  prev.bounceRate,
+          prevPageDepth:   prev.pageDepth,
+          prevAvgDuration: prev.avgDuration,
+        } : {}),
       };
     });
 
