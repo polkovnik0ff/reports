@@ -37,7 +37,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   traffic_yoy: "Сравнение с прошлым годом",
   traffic_geography: "География посетителей",
   traffic_devices: "Тип устройств",
-  top_pages: "Популярные посадочные страницы",
+  top_pages: "Популярные посадочные страницы из поисковых систем",
   top_queries: "Популярные поисковые фразы",
   referrals: "Переходы с сайтов",
   high_bounce_pages: "Страницы с высоким отказом",

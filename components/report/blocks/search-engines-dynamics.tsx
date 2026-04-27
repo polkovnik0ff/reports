@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { SearchEnginesDynamicsResult, TrafficChannelsResult } from "@/lib/services/metrika";
 import { DonutRow } from "./donut-table";
+import { getEngineColor } from "@/lib/utils/engine-colors";
 
 function fmtTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -35,16 +36,6 @@ function DiffSup({ cur, prev }: { cur: number; prev?: number }) {
       {arrow}{Math.abs(diff).toFixed(1)}%
     </sup>
   );
-}
-
-function getEngineColor(id: string, idx: number): string {
-  const lower = (id ?? "").toLowerCase();
-  if (lower.includes("яндекс") || lower.includes("yandex")) return "#FF7A00";
-  if (lower.includes("google")) return "#4285F4";
-  if (lower.includes("bing")) return "#008373";
-  if (lower.includes("mail") || lower.includes("мейл")) return "#005FF9";
-  const fallbacks = ["#9ca3af", "#a855f7", "#22c55e", "#14b8a6", "#eab308"];
-  return fallbacks[idx % fallbacks.length];
 }
 
 interface Props {

@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { DynamicsResult } from "@/lib/services/metrika";
+import { DynamicsResult, YoYKpi } from "@/lib/services/metrika";
 
 interface AreaChartBlockProps {
   data: DynamicsResult;
@@ -34,14 +34,14 @@ function KpiCard({
 }: {
   label: string;
   cur: number;
-  cmp: number | null;
+  cmp?: number;
   fmt: (v: number) => string;
   invertSign?: boolean;
 }) {
   const diff = cmp != null ? pctDiff(cur, cmp) : null;
   const isGood = diff == null ? null : invertSign ? diff < 0 : diff > 0;
   const color = isGood == null ? "text-gray-900" : isGood ? "text-green-600" : "text-red-500";
-  const arrow = isGood == null ? null : isGood ? "↑" : "↓";
+  const arrow = diff == null ? null : diff > 0 ? "↑" : "↓";
 
   return (
     <div className="bg-gray-50 rounded-lg p-3">
@@ -66,12 +66,10 @@ export function AreaChartBlock({
   currentLabel = "Текущий период",
   compareLabel = "Период сравнения",
 }: AreaChartBlockProps) {
-  const { current, comparison } = data ?? {};
+  const { current, comparison, currentKpi, comparisonKpi } = data ?? {};
 
-  // Build labels from dimensions[0].name (date string from Metrika)
   const labels = (current?.data ?? []).map((d) => {
     const raw = d.dimensions[0]?.name ?? "";
-    // Metrika returns dates as "2026-03-01" — format to DD.MM
     const parsed = new Date(raw);
     if (!isNaN(parsed.getTime())) {
       return parsed.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
@@ -80,7 +78,7 @@ export function AreaChartBlock({
   });
 
   const chartData = labels.map((label, i) => {
-    const row = current?.data?.[i];
+    const row    = current?.data?.[i];
     const cmpRow = comparison?.data?.[i];
     return {
       label,
@@ -90,28 +88,7 @@ export function AreaChartBlock({
   });
 
   const hasComparison = comparison != null && chartData.some((d) => d.compare != null);
-
-  // Aggregate totals for KPI row (sum visits; avg for rates)
-  const sumMetric = (idx: number, src: typeof current): number => {
-    if (!src?.data?.length) return 0;
-    return src.data.reduce((acc, d) => acc + (d.metrics[idx] ?? 0), 0);
-  };
-  const avgMetric = (idx: number, src: typeof current): number => {
-    if (!src?.data?.length) return 0;
-    return sumMetric(idx, src) / src.data.length;
-  };
-
-  const curVisits = sumMetric(0, current);
-  const cmpVisits = comparison ? sumMetric(0, comparison) : null;
-
-  // search_dynamics only has visits (1 metric); yoy has 4 metrics
-  const hasExtra = (current?.data?.[0]?.metrics.length ?? 0) > 1;
-  const curBounce  = hasExtra ? avgMetric(1, current) : null;
-  const curDepth   = hasExtra ? avgMetric(2, current) : null;
-  const curTime    = hasExtra ? avgMetric(3, current) : null;
-  const cmpBounce  = hasExtra && comparison ? avgMetric(1, comparison) : null;
-  const cmpDepth   = hasExtra && comparison ? avgMetric(2, comparison) : null;
-  const cmpTime    = hasExtra && comparison ? avgMetric(3, comparison) : null;
+  const hasKpi = currentKpi != null;
 
   return (
     <div>
@@ -163,39 +140,35 @@ export function AreaChartBlock({
         </ResponsiveContainer>
       </div>
 
-      <div className={`grid gap-4 ${hasExtra ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 md:grid-cols-2"}`}>
-        <KpiCard
-          label="Посетители"
-          cur={Math.round(curVisits)}
-          cmp={cmpVisits != null ? Math.round(cmpVisits) : null}
-          fmt={(v) => v.toLocaleString("ru-RU")}
-        />
-        {curBounce != null && (
+      {hasKpi && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <KpiCard
+            label="Посетители"
+            cur={currentKpi!.users}
+            cmp={comparisonKpi?.users}
+            fmt={(v) => v.toLocaleString("ru-RU")}
+          />
+          <KpiCard
+            label="Визиты"
+            cur={currentKpi!.visits}
+            cmp={comparisonKpi?.visits}
+            fmt={(v) => v.toLocaleString("ru-RU")}
+          />
           <KpiCard
             label="Отказы"
-            cur={curBounce}
-            cmp={cmpBounce ?? null}
+            cur={currentKpi!.bounceRate}
+            cmp={comparisonKpi?.bounceRate}
             fmt={(v) => `${v.toFixed(1)}%`}
             invertSign
           />
-        )}
-        {curDepth != null && (
-          <KpiCard
-            label="Глубина просмотра"
-            cur={curDepth}
-            cmp={cmpDepth ?? null}
-            fmt={(v) => v.toFixed(2)}
-          />
-        )}
-        {curTime != null && (
           <KpiCard
             label="Время на сайте"
-            cur={curTime}
-            cmp={cmpTime ?? null}
+            cur={currentKpi!.avgDuration}
+            cmp={comparisonKpi?.avgDuration}
             fmt={fmtTime}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

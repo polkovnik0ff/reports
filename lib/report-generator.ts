@@ -18,7 +18,8 @@ async function fetchBlockData(
   date1: string,
   date2: string,
   compareDate1?: string,
-  compareDate2?: string
+  compareDate2?: string,
+  siteUrl?: string
 ): Promise<unknown> {
   const type = block.type as BlockType;
 
@@ -44,9 +45,9 @@ async function fetchBlockData(
     case "top_queries":
       return client.getTopQueries(counterId, date1, date2, compareDate1, compareDate2);
     case "referrals":
-      return client.getReferrals(counterId, date1, date2);
+      return client.getReferrals(counterId, date1, date2, compareDate1, compareDate2);
     case "high_bounce_pages":
-      return client.getHighBouncePages(counterId, date1, date2);
+      return client.getHighBouncePages(counterId, date1, date2, siteUrl, compareDate1, compareDate2);
     case "work_done":
     case "work_plan":
     case "custom_text":
@@ -115,7 +116,8 @@ export async function generateReport(reportId: string): Promise<void> {
           date1,
           date2,
           compareDate1,
-          compareDate2
+          compareDate2,
+          report.project.url
         );
         snapshotData[block.id] = { data };
       } catch (err) {

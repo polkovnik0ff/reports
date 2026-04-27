@@ -34,27 +34,44 @@ interface FullTemplate {
 
 // ── Date helpers ───────────────────────────────────────────────────────────
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
+function toYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+function formatDisplay(iso: string): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
 }
 
 function startOfLastMonth(): string {
   const d = new Date();
   d.setDate(1);
   d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 10);
+  return toYMD(d);
 }
 
 function endOfLastMonth(): string {
   const d = new Date();
   d.setDate(0);
-  return d.toISOString().slice(0, 10);
+  return toYMD(d);
+}
+
+// Returns start of the month that is `n` months before the month of `isoDate`
+function startOfMonthOffset(isoDate: string, n: number): string {
+  const [y, m] = isoDate.split("-").map(Number);
+  const d = new Date(y, m - 1 - n, 1);
+  return toYMD(d);
+}
+
+// Returns end of the month that is `n` months before the month of `isoDate`
+function endOfMonthOffset(isoDate: string, n: number): string {
+  const [y, m] = isoDate.split("-").map(Number);
+  const d = new Date(y, m - n, 0); // day 0 = last day of previous month
+  return toYMD(d);
 }
 
 function domainFromUrl(url: string): string {
@@ -160,18 +177,18 @@ export default function ReportForm() {
   const [projectId, setProjectId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [title, setTitle] = useState("");
-  const [periodPreset, setPeriodPreset] = useState<"30days" | "lastMonth" | "custom">("lastMonth");
+  const [periodPreset, setPeriodPreset] = useState<"lastMonth" | "custom">("lastMonth");
   const [dateFrom, setDateFrom] = useState(startOfLastMonth());
   const [dateTo, setDateTo] = useState(endOfLastMonth());
   const [compareEnabled, setCompareEnabled] = useState(false);
-  const [comparePreset, setComparePreset] = useState<"prevPeriod" | "prevMonth" | "custom">("prevPeriod");
+  const [comparePreset, setComparePreset] = useState<"prevMonth" | "custom">("prevMonth");
   const [compareFrom, setCompareFrom] = useState("");
   const [compareTo, setCompareTo] = useState("");
 
   // Report settings state
   const [attribution, setAttribution] = useState<"lastsign" | "first" | "last" | "auto" | "direct">("lastsign");
-  const [withRobots, setWithRobots] = useState(false);
-  const [crossDevice, setCrossDevice] = useState(false);
+  const [withRobots, setWithRobots] = useState(true);
+  const [crossDevice, setCrossDevice] = useState(true);
 
   // Step 2 state
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
@@ -211,10 +228,7 @@ export default function ReportForm() {
 
   // Recalculate dates when preset changes
   useEffect(() => {
-    if (periodPreset === "30days") {
-      setDateFrom(daysAgo(30));
-      setDateTo(today());
-    } else if (periodPreset === "lastMonth") {
+    if (periodPreset === "lastMonth") {
       setDateFrom(startOfLastMonth());
       setDateTo(endOfLastMonth());
     }
@@ -227,22 +241,11 @@ export default function ReportForm() {
       setCompareTo("");
       return;
     }
-    if (comparePreset === "prevPeriod") {
-      const diffMs = new Date(dateTo).getTime() - new Date(dateFrom).getTime();
-      const diffDays = Math.round(diffMs / 86400000);
-      setCompareTo(daysAgo(diffDays + 1 - (periodPreset === "30days" ? 0 : 0)));
-      const d = new Date(dateFrom);
-      d.setDate(d.getDate() - diffDays - 1);
-      setCompareFrom(d.toISOString().slice(0, 10));
-    } else if (comparePreset === "prevMonth") {
-      const d1 = new Date(dateFrom);
-      d1.setMonth(d1.getMonth() - 1);
-      const d2 = new Date(dateTo);
-      d2.setMonth(d2.getMonth() - 1);
-      setCompareFrom(d1.toISOString().slice(0, 10));
-      setCompareTo(d2.toISOString().slice(0, 10));
+    if (comparePreset === "prevMonth") {
+      setCompareFrom(startOfMonthOffset(dateFrom, 1));
+      setCompareTo(endOfMonthOffset(dateFrom, 1));
     }
-  }, [compareEnabled, comparePreset, dateFrom, dateTo, periodPreset]);
+  }, [compareEnabled, comparePreset, dateFrom, dateTo]);
 
   // Load template blocks when templateId changes
   async function loadTemplateBlocks(id: string) {
@@ -375,8 +378,8 @@ export default function ReportForm() {
                   <Label className="text-xs text-muted-foreground">Данные</Label>
                   <div className="flex gap-3">
                     {([
-                      [false, "Без роботов"],
                       [true,  "С роботами"],
+                      [false, "Без роботов"],
                     ] as const).map(([val, label]) => (
                       <label key={String(val)} className="flex items-center gap-1.5 cursor-pointer text-sm">
                         <input
@@ -408,7 +411,6 @@ export default function ReportForm() {
                 <Label>Период</Label>
                 <div className="flex gap-2 flex-wrap">
                   {([
-                    ["30days", "Последние 30 дней"],
                     ["lastMonth", "Прошлый месяц"],
                     ["custom", "Произвольный"],
                   ] as const).map(([val, label]) => (
@@ -433,7 +435,7 @@ export default function ReportForm() {
                   </div>
                 )}
                 {periodPreset !== "custom" && (
-                  <p className="text-xs text-muted-foreground">{dateFrom} — {dateTo}</p>
+                  <p className="text-xs text-muted-foreground">{formatDisplay(dateFrom)} — {formatDisplay(dateTo)}</p>
                 )}
               </div>
 
@@ -452,7 +454,6 @@ export default function ReportForm() {
                   <div className="pl-6 flex flex-col gap-2">
                     <div className="flex gap-2 flex-wrap">
                       {([
-                        ["prevPeriod", "Предыдущий период"],
                         ["prevMonth", "Предыдущий месяц"],
                         ["custom", "Произвольный"],
                       ] as const).map(([val, label]) => (
@@ -476,7 +477,7 @@ export default function ReportForm() {
                         <Input type="date" value={compareTo} onChange={(e) => setCompareTo(e.target.value)} />
                       </div>
                     ) : (
-                      compareFrom && <p className="text-xs text-muted-foreground">{compareFrom} — {compareTo}</p>
+                      compareFrom && <p className="text-xs text-muted-foreground">{formatDisplay(compareFrom)} — {formatDisplay(compareTo)}</p>
                     )}
                   </div>
                 )}

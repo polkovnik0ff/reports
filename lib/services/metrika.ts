@@ -1,3 +1,5 @@
+import { getEngineColor } from "@/lib/utils/engine-colors";
+
 const BASE = "https://api-metrika.yandex.net";
 
 export interface MetrikaCounter {
@@ -14,6 +16,7 @@ interface MetrikaRawResponse {
   totals: number[];
   min: number[];
   max: number[];
+  total_rows?: number;
   query: Record<string, unknown>;
   time_intervals?: string[][];
 }
@@ -27,6 +30,7 @@ interface FetchReportParams {
   filters?: string;
   sort?: string;
   limit?: number;
+  offset?: number;
   group?: string;
 }
 
@@ -150,9 +154,19 @@ export interface RankedResult {
   rows: RankedRow[];
 }
 
+export interface YoYKpi {
+  users: number;
+  visits: number;
+  bounceRate: number;
+  pageDepth: number;
+  avgDuration: number;
+}
+
 export interface DynamicsResult {
   current: MetrikaRawResponse;
   comparison: MetrikaRawResponse | null;
+  currentKpi?: YoYKpi;
+  comparisonKpi?: YoYKpi;
 }
 
 export interface SearchEnginesSeries {
@@ -270,6 +284,7 @@ export class MetrikaClient {
     if (applied.filters)    params.set("filters", applied.filters);
     if (applied.sort)       params.set("sort", applied.sort);
     if (applied.group)      params.set("group", applied.group);
+    if (applied.offset)     params.set("offset", String(applied.offset));
 
     const res = await fetch(`${BASE}/stat/v1/data?${params}`, {
       headers: this.headers(),
@@ -280,6 +295,25 @@ export class MetrikaClient {
       throw new Error(`Metrika stat error ${res.status}: ${text}`);
     }
     return res.json();
+  }
+
+  // Fetches all pages for a report query, up to maxRows total rows
+  async getAllReportPages(p: FetchReportParams, pageSize = 10000): Promise<MetrikaRawResponse> {
+    const first = await this.getReport({ ...p, limit: pageSize, offset: 1 });
+    const total = first.total_rows ?? first.data?.length ?? 0;
+    if (total <= pageSize) return first;
+
+    const pages: MetrikaRawResponse[] = [first];
+    let offset = pageSize + 1;
+    while (offset <= total) {
+      const page = await this.getReport({ ...p, limit: pageSize, offset });
+      pages.push(page);
+      offset += pageSize;
+    }
+    return {
+      ...first,
+      data: pages.flatMap((pg) => pg.data ?? []),
+    };
   }
 
   // ── Block-specific methods ─────────────────────────────────────────────────
@@ -465,27 +499,46 @@ export class MetrikaClient {
   }
 
   async getTrafficYoY(counterId: number, date1: string, date2: string): Promise<DynamicsResult> {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-    d1.setFullYear(d1.getFullYear() - 1);
-    d2.setFullYear(d2.getFullYear() - 1);
-    const prevDate1 = d1.toISOString().slice(0, 10);
-    const prevDate2 = d2.toISOString().slice(0, 10);
+    const [y1, m1, day1] = date1.split("-").map(Number);
+    const [y2, m2, day2] = date2.split("-").map(Number);
+    const prevDate1 = `${y1 - 1}-${String(m1).padStart(2, "0")}-${String(day1).padStart(2, "0")}`;
+    const prevDate2 = `${y2 - 1}-${String(m2).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
 
-    const params: FetchReportParams = {
+    const channelDim = this.channelsDimension();
+    const filter = `${channelDim}=='organic'`;
+
+    // Graph: visits by day (visits sum correctly across days, unlike users)
+    const chartParams: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:visits",
       dimensions: "ym:s:date",
       date1,
       date2,
-      filters: "ym:s:trafficSource=='organic'",
+      filters: filter,
       group: "day",
       sort: "ym:s:date",
-      limit: 400,
     };
-    const current = await this.getReport(params);
-    const comparison = await this.getReport({ ...params, date1: prevDate1, date2: prevDate2 });
-    return { current, comparison };
+    const current    = await this.getAllReportPages(chartParams);
+    const comparison = await this.getAllReportPages({ ...chartParams, date1: prevDate1, date2: prevDate2 });
+
+    // KPI: correct deduped users/visits/metrics via totals (no date dimension)
+    const kpiParams: FetchReportParams = {
+      counterId,
+      metrics: "ym:s:users,ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      date1,
+      date2,
+      filters: filter,
+      limit: 1,
+    };
+    const kpiRaw     = await this.getReport(kpiParams);
+    const kpiPrevRaw = await this.getReport({ ...kpiParams, date1: prevDate1, date2: prevDate2 });
+
+    const toKpi = (raw: MetrikaRawResponse): YoYKpi => {
+      const t = raw.totals ?? [];
+      return { users: t[0] ?? 0, visits: t[1] ?? 0, bounceRate: t[2] ?? 0, pageDepth: t[3] ?? 0, avgDuration: t[4] ?? 0 };
+    };
+
+    return { current, comparison, currentKpi: toKpi(kpiRaw), comparisonKpi: toKpi(kpiPrevRaw) };
   }
 
   async getGeography(
@@ -521,24 +574,31 @@ export class MetrikaClient {
       }
     }
 
-    const rows: DimensionRow[] = (raw.data ?? []).map((item) => {
-      const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
-      const prev = prevMap.get(id);
-      return {
-        id,
-        name:        item.dimensions[0]?.name ?? "Другое",
-        visits:      item.metrics[0] ?? 0,
-        bounceRate:  item.metrics[1] ?? 0,
-        pageDepth:   item.metrics[2] ?? 0,
-        avgDuration: item.metrics[3] ?? 0,
-        ...(prev != null ? {
-          prevVisits:      prev.users,
-          prevBounceRate:  prev.bounceRate,
-          prevPageDepth:   prev.pageDepth,
-          prevAvgDuration: prev.avgDuration,
-        } : {}),
-      };
-    });
+    const UNDEFINED_GEO = new Set(["не определено", "not defined", "(not set)", "undefined"]);
+
+    const rows: DimensionRow[] = (raw.data ?? [])
+      .filter((item) => {
+        const name = (item.dimensions[0]?.name ?? "").toLowerCase().trim();
+        return !UNDEFINED_GEO.has(name);
+      })
+      .map((item) => {
+        const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
+        const prev = prevMap.get(id);
+        return {
+          id,
+          name:        item.dimensions[0]?.name ?? "Другое",
+          visits:      item.metrics[0] ?? 0,
+          bounceRate:  item.metrics[1] ?? 0,
+          pageDepth:   item.metrics[2] ?? 0,
+          avgDuration: item.metrics[3] ?? 0,
+          ...(prev != null ? {
+            prevVisits:      prev.users,
+            prevBounceRate:  prev.bounceRate,
+            prevPageDepth:   prev.pageDepth,
+            prevAvgDuration: prev.avgDuration,
+          } : {}),
+        };
+      });
     return { rows };
   }
 
@@ -604,11 +664,12 @@ export class MetrikaClient {
   ): Promise<RankedResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users",
+      metrics: "ym:s:visits",
       dimensions: "ym:s:startURL",
       date1,
       date2,
-      sort: "-ym:s:users",
+      filters: `${this.channelsDimension()}=='organic'`,
+      sort: "-ym:s:visits",
       limit: 10,
     };
     const raw = await this.getReport(params);
@@ -670,40 +731,100 @@ export class MetrikaClient {
     return { rows };
   }
 
-  async getReferrals(counterId: number, date1: string, date2: string): Promise<RankedResult> {
-    const raw = await this.getReport({
+  async getReferrals(
+    counterId: number,
+    date1: string,
+    date2: string,
+    compareDate1?: string,
+    compareDate2?: string
+  ): Promise<RankedResult> {
+    const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users",
-      dimensions: "ym:s:referer",
+      metrics: "ym:s:visits",
+      dimensions: "ym:s:refererDomain",
       date1,
       date2,
-      filters: "ym:s:trafficSource=='referral'",
-      sort: "-ym:s:users",
+      filters: `${this.channelsDimension()}=='referral'`,
+      sort: "-ym:s:visits",
       limit: 10,
+    };
+    const raw = await this.getReport(params);
+
+    const prevMap = new Map<string, number>();
+    if (compareDate1 && compareDate2) {
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        prevMap.set(item.dimensions[0]?.name ?? "", item.metrics[0] ?? 0);
+      }
+    }
+
+    const rows: RankedRow[] = (raw.data ?? []).map((item) => {
+      const name = item.dimensions[0]?.name ?? "";
+      return {
+        name,
+        visits: item.metrics[0] ?? 0,
+        ...(prevMap.size > 0 ? { prevVisits: prevMap.get(name) } : {}),
+      };
     });
-    const rows: RankedRow[] = (raw.data ?? []).map((item) => ({
-      name:   item.dimensions[0]?.name ?? "",
-      visits: item.metrics[0] ?? 0,
-    }));
     return { rows };
   }
 
-  async getHighBouncePages(counterId: number, date1: string, date2: string): Promise<RankedResult> {
-    const raw = await this.getReport({
+  async getHighBouncePages(
+    counterId: number,
+    date1: string,
+    date2: string,
+    siteUrl?: string,
+    compareDate1?: string,
+    compareDate2?: string
+  ): Promise<RankedResult> {
+    // Extract host from siteUrl to filter only own pages
+    let siteHost = "";
+    if (siteUrl) {
+      try { siteHost = new URL(siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`).hostname.replace(/^www\./, ""); } catch { /* ignore */ }
+    }
+
+    const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users,ym:s:bounceRate",
+      metrics: "ym:s:visits,ym:s:bounceRate",
       dimensions: "ym:s:startURL",
       date1,
       date2,
-      filters: "ym:s:bounceRate>70",
-      sort: "-ym:s:bounceRate",
-      limit: 10,
-    });
-    const rows = (raw.data ?? []).map((item) => ({
-      name:       item.dimensions[0]?.name ?? "",
-      visits:     item.metrics[0] ?? 0,
-      bounceRate: item.metrics[1] ?? 0,
-    }));
+      sort: "-ym:s:visits",
+      limit: 200,
+    };
+    const raw = await this.getReport(params);
+
+    const prevMap = new Map<string, { visits: number; bounceRate: number }>();
+    if (compareDate1 && compareDate2) {
+      const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
+      for (const item of rawPrev.data ?? []) {
+        const name = item.dimensions[0]?.name ?? "";
+        prevMap.set(name, { visits: item.metrics[0] ?? 0, bounceRate: item.metrics[1] ?? 0 });
+      }
+    }
+
+    type BounceRow = { name: string; visits: number; bounceRate: number; prevVisits?: number; prevBounceRate?: number };
+    let rows: BounceRow[] = (raw.data ?? [])
+      .filter((item) => {
+        const url = item.dimensions[0]?.name ?? "";
+        if (!siteHost) return true;
+        try { return new URL(url).hostname.replace(/^www\./, "").includes(siteHost); } catch { return false; }
+      })
+      .map((item) => {
+        const name = item.dimensions[0]?.name ?? "";
+        const prev = prevMap.get(name);
+        return {
+          name,
+          visits:     item.metrics[0] ?? 0,
+          bounceRate: item.metrics[1] ?? 0,
+          ...(prev ? { prevVisits: prev.visits, prevBounceRate: prev.bounceRate } : {}),
+        };
+      });
+
+    // Two-level sort: bounceRate desc, then visits desc
+    rows.sort((a, b) => b.bounceRate - a.bounceRate || b.visits - a.visits);
+    rows = rows.slice(0, 10);
+
     return { rows } as unknown as RankedResult;
   }
 
@@ -720,20 +841,8 @@ export class MetrikaClient {
       date2,
       group: "day",
       sort: "ym:s:date",
-      limit: 400,
     };
-    const raw = await this.getReport(params);
-
-    const ENGINE_COLORS: Record<string, string> = {
-      yandex: "#FF7A00",
-      google: "#4285F4",
-      bing:   "#008373",
-      mail:   "#005FF9",
-    };
-    function engineColor(id: string): string {
-      const key = id.toLowerCase();
-      return ENGINE_COLORS[key] ?? "#9ca3af";
-    }
+    const raw = await this.getAllReportPages(params);
 
     const EMPTY_NAMES = new Set(["не определено", "not defined", "(not set)", "", "undefined"]);
 
@@ -765,7 +874,7 @@ export class MetrikaClient {
 
     const series: SearchEnginesSeries[] = Array.from(engineSet).map((engineId) => ({
       name:  engineIdToName.get(engineId) ?? engineId,
-      color: engineColor(engineId),
+      color: getEngineColor(engineId, Array.from(engineSet).indexOf(engineId)),
       data:  dates.map((d) => engineData.get(engineId)?.get(d) ?? 0),
     }));
 

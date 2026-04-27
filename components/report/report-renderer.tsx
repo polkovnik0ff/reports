@@ -55,7 +55,12 @@ function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string
         />
       );
     case "traffic_search_dynamics":
-      return <TrafficSearchDynamicsBlock data={data} />;
+      return (
+        <TrafficSearchDynamicsBlock
+          data={data}
+          tableData={snapshotData?.["traffic_search_engines"]?.data ?? null}
+        />
+      );
     case "traffic_yoy":
       return <TrafficYoYBlock data={data} />;
     case "traffic_geography":
