@@ -4,5 +4,5 @@ import { RankedTable } from "./ranked-table";
 import { RankedResult } from "@/lib/services/metrika";
 
 export function ReferralsBlock({ data }: { data: RankedResult }) {
-  return <RankedTable data={data} labelHeader="Источник" truncateUrl />;
+  return <RankedTable data={data} labelHeader="Источник" truncateUrl linkType="domain" />;
 }

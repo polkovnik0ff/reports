@@ -1,5 +1,5 @@
-import ReportForm from "@/components/reports/report-form";
+import { redirect } from "next/navigation";
 
 export default function NewReportPage() {
-  return <ReportForm />;
+  redirect("/projects");
 }

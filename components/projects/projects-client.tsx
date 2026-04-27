@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   FolderOpen,
@@ -349,6 +350,7 @@ function EditProjectDialog({
 // ── Main page component ────────────────────────────────────────────────────
 
 export default function ProjectsClient() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -442,7 +444,8 @@ export default function ProjectsClient() {
               {projects.map((project) => (
                 <tr
                   key={project.id}
-                  className="hover:bg-muted/30 transition-colors"
+                  className="hover:bg-muted/30 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/projects/${project.id}`)}
                 >
                   <td className="px-4 py-3">
                     <div className="font-medium">{project.name}</div>
@@ -450,6 +453,7 @@ export default function ProjectsClient() {
                       href={project.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
                       className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 w-fit"
                     >
                       {project.url}
@@ -466,7 +470,10 @@ export default function ProjectsClient() {
                     {project._count.reports}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
+                    <div
+                      className="flex items-center justify-end gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <EditProjectDialog
                         project={project}
                         onSaved={handleSaved}

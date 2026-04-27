@@ -36,8 +36,15 @@ function pctDiff(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
-function DiffSup({ cur, prev }: { cur: number; prev?: number }) {
-  if (prev == null) return null;
+function DiffSup({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
+  if (prev == null) {
+    if (!hasCompare) return null;
+    return (
+      <sup style={{ fontSize: "0.65em", fontWeight: 600, color: "#16a34a", marginLeft: "3px" }}>
+        ↑100%
+      </sup>
+    );
+  }
   const diff = pctDiff(cur, prev);
   if (diff == null) return null;
   const up = diff > 0;
@@ -209,14 +216,14 @@ export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
                   </td>
                   <td className="text-right py-2 px-3 font-medium tabular-nums">
                     {r.visits.toLocaleString("ru-RU")}
-                    <DiffSup cur={r.visits} prev={r.prevVisits} />
+                    <DiffSup cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
                   </td>
                   {hasExtended && (
                     <td className="text-right py-2 px-3 tabular-nums">
                       {r.bounceRate != null ? (
                         <>
                           {r.bounceRate.toFixed(1)}%
-                          <DiffSup cur={r.bounceRate} prev={r.prevBounceRate} />
+                          <DiffSup cur={r.bounceRate} prev={r.prevBounceRate} hasCompare={hasCompare} />
                         </>
                       ) : "—"}
                     </td>
@@ -226,7 +233,7 @@ export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
                       {r.pageDepth != null ? (
                         <>
                           {r.pageDepth.toFixed(2)}
-                          <DiffSup cur={r.pageDepth} prev={r.prevPageDepth} />
+                          <DiffSup cur={r.pageDepth} prev={r.prevPageDepth} hasCompare={hasCompare} />
                         </>
                       ) : "—"}
                     </td>
@@ -236,7 +243,7 @@ export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
                       {r.avgDuration != null ? (
                         <>
                           {fmtTime(r.avgDuration)}
-                          <DiffSup cur={r.avgDuration} prev={r.prevAvgDuration} />
+                          <DiffSup cur={r.avgDuration} prev={r.prevAvgDuration} hasCompare={hasCompare} />
                         </>
                       ) : "—"}
                     </td>

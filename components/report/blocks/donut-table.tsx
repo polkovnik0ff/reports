@@ -33,8 +33,15 @@ function pctDiff(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
-function DiffSup({ cur, prev }: { cur: number; prev?: number }) {
-  if (prev == null) return null;
+function DiffSup({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
+  if (prev == null) {
+    if (!hasCompare) return null;
+    return (
+      <sup style={{ fontSize: "0.65em", fontWeight: 600, color: "#16a34a", marginLeft: "3px" }}>
+        ↑100%
+      </sup>
+    );
+  }
   const diff = pctDiff(cur, prev);
   if (diff == null) return null;
   const up = diff > 0;
@@ -62,6 +69,7 @@ function toDonutSlices(rows: DonutRow[]): DonutRow[] {
 export function DonutTable({ rows, firstColLabel = "Источник", metricLabel = "Визиты", hideTable = false }: DonutTableProps) {
   const slices = toDonutSlices(rows);
   const hasExtended = rows[0]?.bounceRate != null;
+  const hasCompare = rows.some((r) => r.prevVisits != null);
 
   return (
     <div>
@@ -96,7 +104,7 @@ export function DonutTable({ rows, firstColLabel = "Источник", metricLab
               <span className="text-gray-700">{r.name}</span>
               <span className="ml-auto font-medium text-gray-900 pl-4 tabular-nums">
                 {r.visits.toLocaleString("ru-RU")}
-                <DiffSup cur={r.visits} prev={r.prevVisits} />
+                <DiffSup cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
               </span>
             </div>
           ))}
@@ -125,24 +133,24 @@ export function DonutTable({ rows, firstColLabel = "Источник", metricLab
                 </td>
                 <td className="text-right py-2 px-3 font-medium tabular-nums">
                   {r.visits.toLocaleString("ru-RU")}
-                  <DiffSup cur={r.visits} prev={r.prevVisits} />
+                  <DiffSup cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
                 </td>
                 {r.bounceRate != null && (
                   <td className="text-right py-2 px-3 tabular-nums">
                     {r.bounceRate.toFixed(1)}%
-                    <DiffSup cur={r.bounceRate} prev={r.prevBounceRate} />
+                    <DiffSup cur={r.bounceRate} prev={r.prevBounceRate} hasCompare={hasCompare} />
                   </td>
                 )}
                 {r.pageDepth != null && (
                   <td className="text-right py-2 px-3 tabular-nums">
                     {r.pageDepth.toFixed(2)}
-                    <DiffSup cur={r.pageDepth} prev={r.prevPageDepth} />
+                    <DiffSup cur={r.pageDepth} prev={r.prevPageDepth} hasCompare={hasCompare} />
                   </td>
                 )}
                 {r.avgDuration != null && (
                   <td className="text-right py-2 px-3 tabular-nums">
                     {fmtTime(r.avgDuration)}
-                    <DiffSup cur={r.avgDuration} prev={r.prevAvgDuration} />
+                    <DiffSup cur={r.avgDuration} prev={r.prevAvgDuration} hasCompare={hasCompare} />
                   </td>
                 )}
               </tr>

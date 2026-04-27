@@ -6,7 +6,6 @@ import {
   FolderOpen,
   Database,
   LayoutTemplate,
-  FileText,
   Settings,
   LogOut,
   Menu,
@@ -25,7 +24,6 @@ const navItems = [
   { href: "/projects", label: "Проекты", icon: FolderOpen },
   { href: "/sources", label: "Источники данных", icon: Database },
   { href: "/templates", label: "Шаблоны", icon: LayoutTemplate },
-  { href: "/reports", label: "Отчёты", icon: FileText },
   { href: "/settings", label: "Настройки", icon: Settings },
 ];
 

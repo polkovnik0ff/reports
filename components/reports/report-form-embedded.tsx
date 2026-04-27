@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,13 +12,6 @@ import TemplateBuilder from "@/components/templates/template-builder";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface Project {
-  id: string;
-  name: string;
-  url: string;
-  metrikaCounterId: number;
-}
 
 interface Template {
   id: string;
@@ -60,26 +53,16 @@ function endOfLastMonth(): string {
   return toYMD(d);
 }
 
-// Returns start of the month that is `n` months before the month of `isoDate`
 function startOfMonthOffset(isoDate: string, n: number): string {
   const [y, m] = isoDate.split("-").map(Number);
   const d = new Date(y, m - 1 - n, 1);
   return toYMD(d);
 }
 
-// Returns end of the month that is `n` months before the month of `isoDate`
 function endOfMonthOffset(isoDate: string, n: number): string {
   const [y, m] = isoDate.split("-").map(Number);
-  const d = new Date(y, m - n, 0); // day 0 = last day of previous month
+  const d = new Date(y, m - n, 0);
   return toYMD(d);
-}
-
-function domainFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
 }
 
 function monthYear(dateStr: string): string {
@@ -88,7 +71,7 @@ function monthYear(dateStr: string): string {
 
 // ── Step indicator ─────────────────────────────────────────────────────────
 
-const STEPS = ["Проект и период", "Блоки отчёта", "Тексты"];
+const STEPS = ["Период", "Блоки отчёта", "Тексты"];
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -145,8 +128,8 @@ function GeneratingScreen({ reportId, slug }: { reportId: string; slug: string }
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <div className="text-destructive text-lg font-medium">Ошибка генерации</div>
         <p className="text-muted-foreground max-w-sm">{error}</p>
-        <Button variant="outline" onClick={() => router.push("/projects")}>
-          К проектам
+        <Button variant="outline" onClick={() => router.back()}>
+          Назад
         </Button>
       </div>
     );
@@ -167,14 +150,19 @@ function GeneratingScreen({ reportId, slug }: { reportId: string; slug: string }
 
 // ── Main form ──────────────────────────────────────────────────────────────
 
-export default function ReportForm() {
+interface Props {
+  projectId: string;
+  projectName: string;
+  projectUrl: string;
+}
+
+export default function ReportFormEmbedded({ projectId, projectName, projectUrl }: Props) {
+  const router = useRouter();
   const [step, setStep] = useState(0);
 
-  // Step 1 state
-  const [projects, setProjects] = useState<Project[]>([]);
+  // Step 0 state
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
-  const [projectId, setProjectId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [title, setTitle] = useState("");
   const [periodPreset, setPeriodPreset] = useState<"lastMonth" | "custom">("lastMonth");
@@ -190,11 +178,11 @@ export default function ReportForm() {
   const [withRobots, setWithRobots] = useState(true);
   const [crossDevice, setCrossDevice] = useState(true);
 
-  // Step 2 state
+  // Step 1 state
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
 
-  // Step 3 state
+  // Step 2 state
   const [workDone, setWorkDone] = useState("");
   const [workPlan, setWorkPlan] = useState("");
 
@@ -202,29 +190,29 @@ export default function ReportForm() {
   const [submitting, setSubmitting] = useState(false);
   const [generated, setGenerated] = useState<{ id: string; slug: string } | null>(null);
 
-  // Load projects + templates on mount
+  function domainFromUrl(url: string): string {
+    try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+  }
+
+  // Load templates on mount
   useEffect(() => {
-    Promise.all([fetch("/api/projects"), fetch("/api/templates")])
-      .then(async ([pr, tr]) => {
-        const projectsData: Project[] = pr.ok ? await pr.json() : [];
+    fetch("/api/templates")
+      .then(async (tr) => {
         const templatesData: Template[] = tr.ok ? await tr.json() : [];
-        setProjects(projectsData);
         setTemplates(templatesData);
-        if (projectsData.length > 0) setProjectId(projectsData[0].id);
         const def = templatesData.find((t) => t.isDefault) ?? templatesData[0];
         if (def) setTemplateId(def.id);
       })
       .finally(() => setLoadingInit(false));
   }, []);
 
-  // Auto-update title when project or period changes
+  // Auto-update title when period changes
   useEffect(() => {
-    const proj = projects.find((p) => p.id === projectId);
-    if (!proj || !dateFrom) return;
-    const domain = domainFromUrl(proj.url);
+    if (!dateFrom) return;
+    const domain = domainFromUrl(projectUrl);
     const period = monthYear(dateFrom);
     setTitle(`Отчёт ${domain} за ${period}`);
-  }, [projectId, dateFrom, projects]);
+  }, [dateFrom, projectUrl]);
 
   // Recalculate dates when preset changes
   useEffect(() => {
@@ -247,7 +235,6 @@ export default function ReportForm() {
     }
   }, [compareEnabled, comparePreset, dateFrom, dateTo]);
 
-  // Load template blocks when templateId changes
   async function loadTemplateBlocks(id: string) {
     if (!id) return;
     setLoadingTemplate(true);
@@ -262,8 +249,7 @@ export default function ReportForm() {
     }
   }
 
-  async function handleStep1Next() {
-    if (!projectId) { toast.error("Выберите проект"); return; }
+  async function handleStep0Next() {
     if (!dateFrom || !dateTo) { toast.error("Укажите период"); return; }
     await loadTemplateBlocks(templateId);
     setStep(1);
@@ -310,10 +296,20 @@ export default function ReportForm() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-6">Новый отчёт</h1>
+      <div className="mb-6">
+        <button
+          onClick={() => router.push(`/projects/${projectId}`)}
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {projectName}
+        </button>
+        <h1 className="text-2xl font-semibold">Новый отчёт</h1>
+      </div>
+
       <StepIndicator current={step} />
 
-      {/* ── Step 1: Project & period ─────────────────────────────────── */}
+      {/* ── Step 0: Period & settings ────────────────────────────────── */}
       {step === 0 && (
         <div className="flex flex-col gap-5">
           {loadingInit ? (
@@ -322,21 +318,6 @@ export default function ReportForm() {
             </div>
           ) : (
             <>
-              {/* Project */}
-              <div className="grid gap-1.5">
-                <Label>Проект</Label>
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {projects.length === 0 && <option value="">Нет проектов</option>}
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
               {/* Template */}
               <div className="grid gap-1.5">
                 <Label>Шаблон</Label>
@@ -495,7 +476,7 @@ export default function ReportForm() {
               </div>
 
               <div className="flex justify-end pt-2">
-                <Button onClick={handleStep1Next} disabled={projects.length === 0}>
+                <Button onClick={handleStep0Next}>
                   Далее <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
@@ -504,7 +485,7 @@ export default function ReportForm() {
         </div>
       )}
 
-      {/* ── Step 2: Blocks ───────────────────────────────────────────── */}
+      {/* ── Step 1: Blocks ───────────────────────────────────────────── */}
       {step === 1 && (
         <div className="flex flex-col gap-4">
           {loadingTemplate ? (
@@ -525,7 +506,7 @@ export default function ReportForm() {
         </div>
       )}
 
-      {/* ── Step 3: Texts ────────────────────────────────────────────── */}
+      {/* ── Step 2: Texts ────────────────────────────────────────────── */}
       {step === 2 && (
         <div className="flex flex-col gap-4">
           <div className="grid gap-1.5">

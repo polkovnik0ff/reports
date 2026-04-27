@@ -1,5 +1,5 @@
-import ReportsClient from "@/components/reports/reports-client";
+import { redirect } from "next/navigation";
 
 export default function ReportsPage() {
-  return <ReportsClient />;
+  redirect("/projects");
 }

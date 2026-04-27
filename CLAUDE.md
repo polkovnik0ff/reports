@@ -210,7 +210,7 @@ model Report {
   compareFrom  DateTime?
   compareTo    DateTime?
   reportConfig Json         // BlockConfig[] — копия на момент генерации
-  snapshotData Json?        // все данные из API — никогда не изменяется
+  snapshotData Json?        // все данные из API — заменяется при регенерации через редактор
   pdfPath      String?
   status       ReportStatus @default(GENERATING)
   generatedAt  DateTime?
@@ -259,14 +259,23 @@ type BlockType =
 app/
   (auth)/login/              # Страница входа
   (dashboard)/
-    layout.tsx               # Sidebar: Проекты / Источники / Шаблоны / Отчёты / Настройки
-    projects/                # Список проектов + добавить (модалка со счётчиками)
+    layout.tsx               # Sidebar: Проекты / Источники / Шаблоны / Настройки (Отчёты убраны)
+    projects/
+      page.tsx               # Список проектов (строки кликабельны → /projects/[id])
+      [id]/
+        page.tsx             # Страница проекта: инфо + список отчётов + кнопка "+ Новый отчёт"
+        reports/
+          new/page.tsx       # Форма создания отчёта (без выбора проекта, 3 шага)
     sources/                 # Источники данных: подключить/отключить аккаунты
     templates/               # Список + конструктор шаблонов (drag-and-drop)
     reports/
-      page.tsx               # История отчётов
-      new/page.tsx           # Генератор (период → настройки → текст → генерировать)
+      page.tsx               # redirect → /projects
+      new/page.tsx           # redirect → /projects
     settings/                # Topvisor API keys, белый лейбл, смена пароля
+  (editor)/                  # Отдельный layout без sidebar (только auth + toaster)
+    layout.tsx
+    projects/[id]/reports/[reportId]/
+      edit/page.tsx          # Редактор отчёта: split-pane (панель слева + iframe справа)
   r/[slug]/                  # Публичная страница отчёта (без авторизации)
   api/
     auth/                    # login, logout, me
@@ -275,7 +284,8 @@ app/
     oauth/yandex/            # start, callback
     templates/               # CRUD
     work-templates/          # CRUD
-    reports/                 # создать (→ генерация), список, детали, удалить
+    reports/                 # GET (список, ?projectId=), POST (создать → генерация)
+    reports/[id]/            # GET (?full=1 возвращает reportConfig), PATCH (обновить → регенерация), DELETE
     pdf/[slug]/              # Playwright → PDF
     settings/                # get/patch настроек + /topvisor/projects
 
@@ -286,6 +296,8 @@ lib/
   prisma.ts                  # PrismaClient синглтон с PrismaPg adapter
   report-generator.ts        # оркестратор генерации снапшота
   pdf.ts                     # Playwright headless → PDF
+  utils/
+    engine-colors.ts         # getEngineColor(id, idx) — единые цвета поисковиков
   services/
     metrika.ts               # клиент Яндекс Метрика Reporting API
     topvisor.ts              # клиент Topvisor API v2
@@ -293,7 +305,20 @@ lib/
 
 components/
   report/                    # компоненты блоков (для публичной страницы)
+    blocks/
+      donut-table.tsx        # DonutTable — donut + таблица (channels, geo, devices, search engines)
+      ranked-table.tsx       # RankedTable — пронумерованная таблица (top_pages, referrals, top_queries)
+      high-bounce-pages.tsx  # таблица страниц с высоким отказом
+      area-chart-block.tsx   # YoY area chart
+      traffic-search-dynamics.tsx  # LineChart поисковиков по дням + сводная таблица
+      search-engines-dynamics.tsx  # LineChart + таблица с динамикой по движкам
   builder/                   # конструктор шаблона (drag-and-drop)
+  reports/
+    report-form-embedded.tsx # форма создания отчёта (без выбора проекта)
+    report-editor.tsx        # редактор отчёта: split-pane с табами и iframe preview
+  projects/
+    projects-client.tsx      # список проектов (строки → /projects/[id])
+    project-page-client.tsx  # страница проекта с отчётами
   ui/                        # shadcn компоненты
 
 proxy.ts                     # защита роутов (Next.js 16, кроме /login и /r/*)
@@ -431,6 +456,54 @@ async function generatePdf(slug: string): Promise<string> {
   ```
 - В скриптах `dotenv.config()` вызывать **до** импорта Prisma (иначе `DATABASE_URL` не установлен).
 
+### Работа с live-отчётами (отладка данных)
+
+Когда пользователь скидывает ссылку вида `http://localhost:3000/r/<slug>`, данные можно получить напрямую из БД:
+
+```javascript
+// Таблица называется "Report" (с заглавной), колонки в camelCase
+// Пример: получить снапшот и настройки отчёта
+node -e "
+require('dotenv').config({ path: '.env.local' });
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.query(\"SELECT \\\"dateFrom\\\", \\\"dateTo\\\", attribution, \\\"crossDevice\\\", \\\"withRobots\\\", \\\"snapshotData\\\"::text FROM \\\"Report\\\" WHERE slug = '<slug>'\", (err, res) => {
+  const row = res.rows[0];
+  const snap = JSON.parse(row.snapshotData);
+  console.log('keys:', Object.keys(snap));
+  process.exit(0);
+});
+"
+```
+
+Для прямых запросов к Метрике — получить токен через скрипт:
+```typescript
+// scripts/test-something.ts
+import dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
+import { decryptToken } from '../lib/crypto';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../app/generated/prisma/client';
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter } as any);
+// prisma.report.findFirst({ where: { slug: '...' }, include: { project: { include: { connectedAccount: true } } } })
+// token = decryptToken(report.project.connectedAccount.accessToken)
+// counterId = report.project.metrikaCounterId
+```
+
+**Важно:** `dateFrom`/`dateTo` в БД хранятся как UTC timestamp. При конвертации в строку для Метрики использовать `fmt()` из `report-generator.ts` (`toISOString().slice(0,10)`) — это даёт правильный результат для дат без времени. Локальные даты в компонентах формировать через `getFullYear/getMonth/getDate`, не через `toISOString()`.
+
+### Единые цвета поисковых систем
+
+Все цвета поисковиков — в `lib/utils/engine-colors.ts`, функция `getEngineColor(id, idx)`.
+Никогда не дублировать цвета в компонентах — импортировать из этого файла.
+
+### Метрика API — особенности
+
+- **users vs visits по дням:** `ym:s:users` при группировке по дням не дедуплицируется — один человек за 365 дней даёт 365. Для KPI-карточек с уникальными пользователями нужен запрос через `totals` без dimension-а date (или breakdown по каналу без date).
+- **Фильтр organic:** использовать `channelsDimension()=='organic'`, а НЕ `ym:s:trafficSource=='organic'`. Последний не учитывает атрибуцию и кросс-девайс и даёт другие цифры.
+- **Длинные периоды:** использовать `getAllReportPages()` вместо `getReport()` для запросов с group=day за год+.
+- **Сортировка:** Метрика API не поддерживает многоуровневую сортировку. Брать больше строк (200+) и сортировать на сервере.
+
 ### Остановка dev-сервера на Windows
 
 Если `npm run dev` не стартует (порт занят), убить через PowerShell:
@@ -449,7 +522,7 @@ Remove-Item -Recurse -Force .next
 **Обновить эту строку при переходе между фазами.**
 
 ```
-Текущая фаза: 3 — ЗАВЕРШЕНА
+Текущая фаза: 3 — ЗАВЕРШЕНА (включая доработки UX и редактор)
 Следующая фаза: 4 — Topvisor + блоки позиций + PDF
 ```
 
@@ -469,10 +542,28 @@ Remove-Item -Recurse -Force .next
    - ✅ /r/[slug]: публичная страница (без авторизации), SSR, все блоки Метрики, recharts DonutChart + AreaChart + LineChart, print-стили
    - ✅ Динамика (DiffSup ↑↓) во всех таблицах блоков, lang=ru для Метрики, базовая метрика ym:s:users
    - ✅ Новый блок search_engines_dynamics: LineChart по поисковикам + таблица с динамикой
-   - ✅ traffic_search_dynamics переработан: LineChart посетителей по движкам по дням (те же данные что search_engines_dynamics, без таблицы); цвета совпадают с traffic_search_engines
-   - ✅ traffic_search_engines: только donut, таблица переехала в search_engines_dynamics; dim: ym:s:SearchEngineRoot (агрегированный, без детализации типа поиска); топ-6, фильтр пустых/неопределённых
-   - ✅ traffic_yoy: фильтр organic (только поисковый трафик), метрика ym:s:users
-   - ✅ traffic_geography: топ-6 + строка "Другие" (взвешенное среднее)
+   - ✅ traffic_search_dynamics переработан: LineChart посетителей по движкам по дням + сводная таблица
+   - ✅ traffic_search_engines: только donut; dim: ym:s:SearchEngineRoot; топ-6, фильтр пустых
+   - ✅ traffic_yoy: фильтр organic, график по visits, KPI через totals, getAllReportPages
+   - ✅ traffic_geography: топ-6 + "Другие", фильтр "Не определено"
+   - ✅ Единые цвета поисковых систем: lib/utils/engine-colors.ts
+   - ✅ Форма создания: кросс-девайс и "с роботами" по умолчанию; пресеты; UTC-баг исправлен; dd.mm.yyyy
+   - ✅ top_pages: фильтр organic, метрика visits, кликабельные ссылки
+   - ✅ referrals: refererDomain, фильтр referral, атрибуция/кросс-девайс, кликабельные домены
+   - ✅ high_bounce_pages: топ-200 → фильтр своего домена → сортировка bounceRate+visits → топ-10; ссылки
+   - ✅ DiffSup ↑100% — когда элемент есть в текущем периоде, но отсутствует в сравниваемом
+   **Реструктуризация роутов (отчёты вложены в проекты):**
+   - ✅ /projects/[id] — страница проекта со списком отчётов
+   - ✅ /projects/[id]/reports/new — форма создания без выбора проекта
+   - ✅ "Отчёты" убраны из sidebar
+   - ✅ /reports → redirect /projects
+   **Редактор отчётов:**
+   - ✅ /projects/[id]/reports/[reportId]/edit — full-screen split-pane редактор
+   - ✅ Левая панель: 3 таба (Параметры / Блоки / Тексты) + кнопка "Сгенерировать"
+   - ✅ Правая панель: iframe с /r/[slug], обновляется после регенерации
+   - ✅ PATCH /api/reports/[id] — обновляет поля + запускает generateReport заново
+   - ✅ GET /api/reports/[id]?full=1 — возвращает reportConfig и все настройки для редактора
+   - ✅ (editor) route group — отдельный layout без sidebar
 4. Topvisor + блоки позиций + PDF
 5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
 6. Docker + VDS + мониторинг + бэкапы
