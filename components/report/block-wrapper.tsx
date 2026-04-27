@@ -12,7 +12,7 @@ export function BlockWrapper({ title, commentAbove, commentBelow, children }: Bl
     <div className="mb-10">
       {commentAbove && (
         <div
-          className="mb-4 text-sm italic text-muted-foreground leading-relaxed"
+          className="prose-report mb-4 text-sm text-muted-foreground"
           dangerouslySetInnerHTML={{ __html: commentAbove }}
         />
       )}
@@ -23,7 +23,7 @@ export function BlockWrapper({ title, commentAbove, commentBelow, children }: Bl
       {children}
       {commentBelow && (
         <div
-          className="mt-4 text-sm italic text-muted-foreground leading-relaxed"
+          className="prose-report mt-4 text-sm text-muted-foreground"
           dangerouslySetInnerHTML={{ __html: commentBelow }}
         />
       )}

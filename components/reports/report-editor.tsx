@@ -7,6 +7,7 @@ import { Loader2, ArrowLeft, RefreshCw, ExternalLink, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import TemplateBuilder from "@/components/templates/template-builder";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
@@ -440,25 +441,19 @@ export default function ReportEditor({
             {tab === "texts" && (
               <div className="flex flex-col gap-4">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="work-done">Проделанная работа</Label>
-                  <textarea
-                    id="work-done"
-                    value={workDone}
-                    onChange={(e) => setWorkDone(e.target.value)}
-                    rows={8}
-                    placeholder="Опишите что было сделано за период..."
-                    className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  <Label>Проделанная работа</Label>
+                  <RichTextEditor
+                    content={workDone}
+                    onChange={setWorkDone}
+                    placeholder="Опишите что было сделано за отчётный период..."
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="work-plan">План работ</Label>
-                  <textarea
-                    id="work-plan"
-                    value={workPlan}
-                    onChange={(e) => setWorkPlan(e.target.value)}
-                    rows={8}
-                    placeholder="Опишите план на следующий период..."
-                    className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  <Label>План работ</Label>
+                  <RichTextEditor
+                    content={workPlan}
+                    onChange={setWorkPlan}
+                    placeholder="Опишите план работ на следующий период..."
                   />
                 </div>
               </div>

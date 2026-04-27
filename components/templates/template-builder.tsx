@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import { BlockConfig, BLOCK_LABELS, BlockType } from "@/lib/blocks/defaults";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { cn } from "@/lib/utils";
 
 // ── Toggle switch ──────────────────────────────────────────────────────────
@@ -134,28 +135,22 @@ function SortableBlock({
             <label className="text-xs text-muted-foreground font-medium">
               Комментарий над блоком
             </label>
-            <textarea
-              value={block.commentAbove}
-              onChange={(e) =>
-                onCommentChange(block.id, "commentAbove", e.target.value)
-              }
-              rows={2}
-              placeholder="Текст перед блоком (необязательно)"
-              className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            <RichTextEditor
+              content={block.commentAbove}
+              onChange={(value) => onCommentChange(block.id, "commentAbove", value)}
+              placeholder="Комментарий над блоком..."
+              minHeight="100px"
             />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground font-medium">
               Комментарий под блоком
             </label>
-            <textarea
-              value={block.commentBelow}
-              onChange={(e) =>
-                onCommentChange(block.id, "commentBelow", e.target.value)
-              }
-              rows={2}
-              placeholder="Текст после блока (необязательно)"
-              className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            <RichTextEditor
+              content={block.commentBelow}
+              onChange={(value) => onCommentChange(block.id, "commentBelow", value)}
+              placeholder="Комментарий под блоком..."
+              minHeight="100px"
             />
           </div>
         </div>

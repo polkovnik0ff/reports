@@ -11,7 +11,7 @@ export function RichTextBlock({ content }: RichTextBlockProps) {
 
   return (
     <div
-      className="prose-report"
+      className="prose-report leading-relaxed"
       dangerouslySetInnerHTML={{ __html: content }}
     />
   );

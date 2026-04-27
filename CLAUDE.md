@@ -288,6 +288,7 @@ app/
     reports/[id]/            # GET (?full=1 возвращает reportConfig), PATCH (обновить → регенерация), DELETE
     pdf/[slug]/              # Playwright → PDF
     settings/                # get/patch настроек + /topvisor/projects
+    upload/                  # POST multipart/form-data → сохраняет в /public/uploads/, возвращает { url }
 
 lib/
   auth-edge.ts               # edge-safe: verifyToken, SessionPayload (только jose)
@@ -319,7 +320,8 @@ components/
   projects/
     projects-client.tsx      # список проектов (строки → /projects/[id])
     project-page-client.tsx  # страница проекта с отчётами
-  ui/                        # shadcn компоненты
+  ui/
+    rich-text-editor.tsx     # RichTextEditor — Tiptap, тулбар, загрузка изображений, таблицы
 
 proxy.ts                     # защита роутов (Next.js 16, кроме /login и /r/*)
 scripts/
@@ -504,6 +506,19 @@ const prisma = new PrismaClient({ adapter } as any);
 - **Длинные периоды:** использовать `getAllReportPages()` вместо `getReport()` для запросов с group=day за год+.
 - **Сортировка:** Метрика API не поддерживает многоуровневую сортировку. Брать больше строк (200+) и сортировать на сервере.
 
+### Rich-text редактор (Tiptap)
+
+- Компонент: `components/ui/rich-text-editor.tsx`, экспорт `RichTextEditor`.
+- **Props:** `content: string` (HTML), `onChange: (html) => void`, `placeholder?`, `className?`, `minHeight?` (default `"200px"`).
+- **Расширения:** StarterKit, Underline, TextStyle, TextAlign, Link, Placeholder, Image, Highlight, TaskList/TaskItem, Table/TableRow/TableCell/TableHeader.
+- **Тулбар:** B/I/U/S/Highlight, H1/H2/H3, выравнивание, списки (маркер/нумер/задачи), ссылка (инлайн-инпут), загрузка изображения, таблица, очистка форматирования.
+- **Контекстная панель таблицы:** появляется когда курсор внутри таблицы — добавить/удалить строки и столбцы, удалить таблицу.
+- **Изображения:** загрузка через `POST /api/upload` (multipart), файл сохраняется в `public/uploads/`. Ограничения: JPEG/PNG/WebP, макс. 3 МБ. Папка в `.gitignore`.
+- **SSR:** обязательно `immediatelyRender: false` в `useEditor` — иначе hydration mismatch в Next.js.
+- **Защита от цикла:** `suppressNextUpdate` ref — при внешнем обновлении `content` блокирует один вызов `onUpdate`, чтобы не было петли parent→editor→onChange→parent.
+- **Стили:** `.rich-text-content .tiptap` в `globals.css` — контент редактора. `.prose-report` — рендер HTML в публичном отчёте и комментариях блоков.
+- **Где используется:** шаг 3 формы создания (work_done/work_plan), таб «Тексты» редактора отчёта, поля комментариев в конструкторе шаблона (`template-builder.tsx`).
+
 ### Остановка dev-сервера на Windows
 
 Если `npm run dev` не стартует (порт занят), убить через PowerShell:
@@ -564,6 +579,12 @@ Remove-Item -Recurse -Force .next
    - ✅ PATCH /api/reports/[id] — обновляет поля + запускает generateReport заново
    - ✅ GET /api/reports/[id]?full=1 — возвращает reportConfig и все настройки для редактора
    - ✅ (editor) route group — отдельный layout без sidebar
+   **Rich-text редактор:**
+   - ✅ components/ui/rich-text-editor.tsx — Tiptap, полный тулбар (B/I/U/S/Highlight, H1-H3, выравнивание, списки, ссылка, изображение, таблица)
+   - ✅ Загрузка изображений: POST /api/upload → public/uploads/, JPEG/PNG/WebP, макс. 3 МБ
+   - ✅ Расширения: Image, Highlight, TaskList, Table (с контекстной панелью строк/колонок)
+   - ✅ Замена textarea во всех текстовых полях: форма создания (шаг 3), редактор отчёта (таб Тексты), конструктор шаблона (комментарии блоков)
+   - ✅ Стили prose-report обновлены (h1/h2/h3/ul/ol/a/mark/table/taskList); стили редактора в globals.css
 4. Topvisor + блоки позиций + PDF
 5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
 6. Docker + VDS + мониторинг + бэкапы
