@@ -247,6 +247,9 @@ type BlockType =
   // Яндекс Вебмастер
   | 'webmaster_queries'     // Топ запросов: показы/клики/CTR/позиция (Webmaster API v4)
   | 'webmaster_indexing'    // Индексация: в индексе / исключено / ошибки сканирования
+  // Google Search Console
+  | 'gsc_queries'           // Топ запросов GSC: клики/показы/CTR/позиция
+  | 'gsc_pages'             // Топ страниц GSC: клики/показы/CTR/позиция
   // Ручные
   | 'work_done'             // Проделанная работа (rich-text)
   | 'work_plan'             // Планируемая работа (rich-text)
@@ -588,7 +591,7 @@ Remove-Item -Recurse -Force .next
    - ✅ Расширения: Image, Highlight, TaskList, Table (с контекстной панелью строк/колонок)
    - ✅ Замена textarea во всех текстовых полях: форма создания (шаг 3), редактор отчёта (таб Тексты), конструктор шаблона (комментарии блоков)
    - ✅ Стили prose-report обновлены (h1/h2/h3/ul/ol/a/mark/table/taskList); стили редактора в globals.css
-4. Topvisor + Вебмастер + блоки позиций/индексации + PDF
+4. Topvisor + Вебмастер + Google Search Console + блоки позиций/индексации + PDF
    **Topvisor:**
    - [ ] lib/services/topvisor.ts — клиент API v2: get/projects_2/projects, get/positions_2/history
    - [ ] lib/blocks/positions_summary.ts — сводка: всего запросов, видимость, ТОП-1/3/5/10
@@ -607,6 +610,22 @@ Remove-Item -Recurse -Force .next
    - [ ] components/report/blocks/webmaster-indexing.tsx — KPI-карточки + динамика
    - [ ] Привязка host-id Вебмастера к Project (сейчас хранится только metrіkaCounterId)
          Вариант: добавить поле webmasterHostId: String? в модель Project
+   **Google Search Console:**
+   - [ ] OAuth через Google — добавить в /sources (ConnectedService.GOOGLE_SEARCH_CONSOLE уже есть в enum)
+         Scopes: https://www.googleapis.com/auth/webmasters.readonly
+         OAuth endpoints: accounts.google.com/o/oauth2/v2/auth, oauth2.googleapis.com/token
+   - [ ] lib/services/gsc.ts — клиент Search Console API v1 (токен из ConnectedAccount)
+         Методы: searchAnalytics (query, page, country, device), sitemaps
+         Базовый URL: https://www.googleapis.com/webmasters/v3/sites/{siteUrl}/searchAnalytics/query
+         Тело запроса: { startDate, endDate, dimensions, rowLimit }
+   - [ ] lib/blocks/gsc_queries.ts — топ запросов GSC: клики/показы/CTR/позиция
+   - [ ] lib/blocks/gsc_pages.ts — топ страниц GSC: клики/показы/CTR/позиция
+   - [ ] components/report/blocks/gsc-queries.tsx — таблица (аналог webmaster-queries но из Google)
+   - [ ] components/report/blocks/gsc-pages.tsx — таблица страниц
+   - [ ] Привязка siteUrl GSC к Project: добавить поле gscSiteUrl: String? в модель Project
+         siteUrl в GSC — строка вида "https://example.com/" или "sc-domain:example.com"
+   - [ ] Refresh token: GSC токены живут 1 час — нужен refresh через oauth2.googleapis.com/token
+         (хранить refreshToken в ConnectedAccount.refreshToken, шифровать AES-256)
    **PDF:**
    - [ ] lib/pdf.ts — Playwright headless, сохранение в public/pdfs/${slug}.pdf
    - [ ] GET /api/pdf/[slug] — генерация по запросу, возвращает файл
