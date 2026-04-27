@@ -244,6 +244,9 @@ type BlockType =
   // Topvisor
   | 'positions_summary'     // Сводка: всего запросов, видимость, ТОП-1/3/5/10
   | 'positions_table'       // Таблица позиций по группам
+  // Яндекс Вебмастер
+  | 'webmaster_queries'     // Топ запросов: показы/клики/CTR/позиция (Webmaster API v4)
+  | 'webmaster_indexing'    // Индексация: в индексе / исключено / ошибки сканирования
   // Ручные
   | 'work_done'             // Проделанная работа (rich-text)
   | 'work_plan'             // Планируемая работа (rich-text)
@@ -585,7 +588,29 @@ Remove-Item -Recurse -Force .next
    - ✅ Расширения: Image, Highlight, TaskList, Table (с контекстной панелью строк/колонок)
    - ✅ Замена textarea во всех текстовых полях: форма создания (шаг 3), редактор отчёта (таб Тексты), конструктор шаблона (комментарии блоков)
    - ✅ Стили prose-report обновлены (h1/h2/h3/ul/ol/a/mark/table/taskList); стили редактора в globals.css
-4. Topvisor + блоки позиций + PDF
+4. Topvisor + Вебмастер + блоки позиций/индексации + PDF
+   **Topvisor:**
+   - [ ] lib/services/topvisor.ts — клиент API v2: get/projects_2/projects, get/positions_2/history
+   - [ ] lib/blocks/positions_summary.ts — сводка: всего запросов, видимость, ТОП-1/3/5/10
+   - [ ] lib/blocks/positions_table.ts — таблица позиций по группам
+   - [ ] components/report/blocks/positions-summary.tsx
+   - [ ] components/report/blocks/positions-table.tsx
+   - [ ] Настройки Topvisor в /settings: UserId + API Key (шифруются AES-256)
+   **Яндекс Вебмастер:**
+   - [ ] lib/services/webmaster.ts — клиент Webmaster API v4 (токен из ConnectedAccount)
+         Методы: getSearchQueries, getIndexingStats
+   - [ ] lib/blocks/webmaster_queries.ts — топ запросов: показы/клики/CTR/позиция
+         API: GET /v4/user/site/{host-id}/search-queries/popular?order_by=IMPRESSIONS
+   - [ ] lib/blocks/webmaster_indexing.ts — сводка индексации: в индексе / исключено / ошибки
+         API: GET /v4/user/site/{host-id}/indexing/stats
+   - [ ] components/report/blocks/webmaster-queries.tsx — таблица запросов (показы/клики/CTR/позиция)
+   - [ ] components/report/blocks/webmaster-indexing.tsx — KPI-карточки + динамика
+   - [ ] Привязка host-id Вебмастера к Project (сейчас хранится только metrіkaCounterId)
+         Вариант: добавить поле webmasterHostId: String? в модель Project
+   **PDF:**
+   - [ ] lib/pdf.ts — Playwright headless, сохранение в public/pdfs/${slug}.pdf
+   - [ ] GET /api/pdf/[slug] — генерация по запросу, возвращает файл
+   - [ ] Кнопка «Скачать PDF» на публичной странице /r/[slug]
 5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
 6. Docker + VDS + мониторинг + бэкапы
 
