@@ -37,6 +37,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jose": "^6.2.2",
+    "lightningcss": "^1.32.0",
     "lucide-react": "^1.8.0",
     "nanoid": "^5.1.9",
     "next": "16.2.4",
