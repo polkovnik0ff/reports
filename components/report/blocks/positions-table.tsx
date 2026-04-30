@@ -2,6 +2,12 @@
 
 import { PositionsTableData, PositionsKeyword } from "@/lib/services/topvisor";
 
+function fmtDate(iso: string | null): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
 function posDiff(cur: number | null, prev: number | null): number | null {
   if (cur === null || prev === null) return null;
   return prev - cur; // positive = improved (moved up)
@@ -22,7 +28,7 @@ function DiffBadge({ delta }: { delta: number | null }) {
   );
 }
 
-function KeywordRow({ kw }: { kw: PositionsKeyword }) {
+function KeywordRow({ kw, hasCompare }: { kw: PositionsKeyword; hasCompare: boolean }) {
   const delta = posDiff(kw.position, kw.prevPosition);
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
@@ -31,7 +37,7 @@ function KeywordRow({ kw }: { kw: PositionsKeyword }) {
         {posLabel(kw.position)}
         <DiffBadge delta={delta} />
       </td>
-      {kw.prevPosition !== null && (
+      {hasCompare && (
         <td className="py-2 px-3 text-sm text-right tabular-nums text-muted-foreground">
           {posLabel(kw.prevPosition)}
         </td>
@@ -45,8 +51,10 @@ interface Props {
 }
 
 export function PositionsTableBlock({ data }: Props) {
-  const hasCompare = data.groups.some((g) => g.keywords.some((k) => k.prevPosition !== null))
-    || data.ungrouped.some((k) => k.prevPosition !== null);
+  const hasCompare = data.compareScanDate !== null && (
+    data.groups.some((g) => g.keywords.some((k) => k.prevPosition !== null))
+    || data.ungrouped.some((k) => k.prevPosition !== null)
+  );
 
   const allGroups = [
     ...data.groups,
@@ -60,31 +68,43 @@ export function PositionsTableBlock({ data }: Props) {
   }
 
   return (
-    <div className="space-y-6">
-      {allGroups.map((group) => (
-        <div key={group.id} className="rounded-xl border overflow-hidden">
-          <div className="bg-muted/40 px-4 py-2.5 border-b">
-            <span className="text-sm font-semibold">{group.name}</span>
-            <span className="ml-2 text-xs text-muted-foreground">({group.keywords.length})</span>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span>Данные на <span className="font-medium text-foreground">{fmtDate(data.scanDate)}</span></span>
+        {hasCompare && data.compareScanDate && (
+          <span>· сравнение с <span className="font-medium text-foreground">{fmtDate(data.compareScanDate)}</span></span>
+        )}
+      </div>
+      <div className="space-y-6">
+        {allGroups.map((group) => (
+          <div key={group.id} className="rounded-xl border overflow-hidden">
+            <div className="bg-muted/40 px-4 py-2.5 border-b">
+              <span className="text-sm font-semibold">{group.name}</span>
+              <span className="ml-2 text-xs text-muted-foreground">({group.keywords.length})</span>
+            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/20">
+                  <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Запрос</th>
+                  <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">
+                    {data.scanDate ? fmtDate(data.scanDate) : "Позиция"}
+                  </th>
+                  {hasCompare && (
+                    <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">
+                      {data.compareScanDate ? fmtDate(data.compareScanDate) : "Пред."}
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {group.keywords.map((kw, i) => (
+                  <KeywordRow key={kw.id ?? i} kw={kw} hasCompare={hasCompare} />
+                ))}
+              </tbody>
+            </table>
           </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/20">
-                <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Запрос</th>
-                <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">Позиция</th>
-                {hasCompare && (
-                  <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">Пред.</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {group.keywords.map((kw) => (
-                <KeywordRow key={kw.id} kw={kw} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

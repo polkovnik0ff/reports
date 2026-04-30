@@ -159,15 +159,11 @@ export async function generateReport(reportId: string): Promise<void> {
             data = await fetchPositionsSummary(
               topvisorClient,
               report.topvisorProjectId,
-              date2,
-              compareDate2
             );
           } else {
             data = await fetchPositionsTable(
               topvisorClient,
               report.topvisorProjectId,
-              date2,
-              compareDate2
             );
           }
           snapshotData[block.id] = { data };

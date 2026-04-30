@@ -14,17 +14,24 @@ export interface TopvisorProject {
   site: string;
 }
 
-// positionsData is a map: "YYYY-MM-DD:projectId:regionIndex" → { position: number | "--" }
+// positionsData: "YYYY-MM-DD:projectId:regionIndex" → { position: string | "--" }
+// position comes as a string from API ("5", "32", "--")
 export interface TopvisorKeyword {
   id?: number;
   name: string;
   group_id?: number | null;
-  positionsData: Record<string, { position: number | "--" }> | [] | null;
+  positionsData: Record<string, { position: string | number }> | [] | null;
 }
 
 export interface TopvisorGroup {
   id: number;
   name: string;
+}
+
+interface TopvisorExistsDatesResult {
+  existsDates: string[] | null;
+  keywords: [];
+  headers: { dates: string[] };
 }
 
 export interface TopvisorHistoryResult {
@@ -34,13 +41,6 @@ export interface TopvisorHistoryResult {
   visibility?: number | null;
   headers?: {
     dates?: string[];
-    projects?: {
-      id: number;
-      searchers?: {
-        key: number;
-        regions?: { index: string | number }[];
-      }[];
-    }[];
   };
 }
 
@@ -58,6 +58,8 @@ export interface PositionsSummaryData {
   prevTop5: number | null;
   prevTop10: number | null;
   prevVisibility: number | null;
+  scanDate: string | null;       // actual last scan date used
+  compareScanDate: string | null; // actual compare scan date used
 }
 
 export interface PositionsKeyword {
@@ -76,6 +78,8 @@ export interface PositionsGroup {
 export interface PositionsTableData {
   groups: PositionsGroup[];
   ungrouped: PositionsKeyword[];
+  scanDate: string | null;
+  compareScanDate: string | null;
 }
 
 // ── Client ───────────────────────────────────────────────────────────────────
@@ -115,9 +119,26 @@ export class TopvisorClient {
     });
   }
 
-  // Fetches keyword positions for 1 or 2 specific dates.
-  // dates[0] = current date, dates[1] = compare date (optional)
-  // regionIndex defaults to 1 (Yandex Moscow / first region)
+  // Returns sorted list of dates when positions were actually scanned.
+  // Uses a wide range to capture all historical scans.
+  async getExistsDates(projectId: number, regionIndex = 1): Promise<string[]> {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await this.request<TopvisorExistsDatesResult>(
+      "get/positions_2/history",
+      {
+        project_id: projectId,
+        regions_indexes: [regionIndex],
+        type_range: 1,
+        date1: "2020-01-01",
+        date2: today,
+        show_headers: true,
+        show_exists_dates: true,
+      }
+    );
+    return result.existsDates ?? [];
+  }
+
+  // Fetches keyword positions for specific dates (actual scan dates).
   async getPositionsHistory(
     projectId: number,
     dates: string[],
@@ -137,7 +158,7 @@ export class TopvisorClient {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Extracts numeric position from positionsData for a given date key pattern
+// Extracts numeric position. API returns positions as strings ("5", "--").
 function extractPosition(
   positionsData: TopvisorKeyword["positionsData"],
   datePrefix: string
@@ -145,9 +166,10 @@ function extractPosition(
   if (!positionsData || Array.isArray(positionsData)) return null;
   const entry = Object.entries(positionsData).find(([key]) => key.startsWith(datePrefix));
   if (!entry) return null;
-  const pos = entry[1]?.position;
-  if (typeof pos === "number" && pos >= 1) return pos;
-  return null; // "--" means not in TOP-100
+  const raw = entry[1]?.position;
+  if (raw === "--" || raw === null || raw === undefined) return null;
+  const n = typeof raw === "number" ? raw : parseInt(String(raw), 10);
+  return Number.isFinite(n) && n >= 1 ? n : null;
 }
 
 function countTopsFromKeywords(
@@ -163,25 +185,20 @@ function countTopsFromKeywords(
 
 export function buildSummaryData(
   result: TopvisorHistoryResult,
-  hasCompare: boolean
+  scanDate: string,
+  compareScanDate: string | null
 ): PositionsSummaryData {
-  const { keywords, tops, visibility } = result;
-  const dates = result.headers?.dates ?? [];
-  const date0 = dates[0] ?? "";
-  const date1 = dates[1] ?? "";
+  const { keywords, visibility } = result;
 
-  // Try to use tops from API first (only reliable when 1 date, no compare)
-  const apiTops = !hasCompare ? (tops?.["0"] ?? tops?.["all"] ?? null) : null;
+  const top1  = countTopsFromKeywords(keywords, scanDate, 1);
+  const top3  = countTopsFromKeywords(keywords, scanDate, 3);
+  const top5  = countTopsFromKeywords(keywords, scanDate, 5);
+  const top10 = countTopsFromKeywords(keywords, scanDate, 10);
 
-  const top1  = apiTops ? (apiTops["1"]  ?? 0) : countTopsFromKeywords(keywords, date0, 1);
-  const top3  = apiTops ? (apiTops["3"]  ?? 0) : countTopsFromKeywords(keywords, date0, 3);
-  const top5  = apiTops ? (apiTops["5"]  ?? 0) : countTopsFromKeywords(keywords, date0, 5);
-  const top10 = apiTops ? (apiTops["10"] ?? 0) : countTopsFromKeywords(keywords, date0, 10);
-
-  const prevTop1  = hasCompare ? countTopsFromKeywords(keywords, date1, 1)  : null;
-  const prevTop3  = hasCompare ? countTopsFromKeywords(keywords, date1, 3)  : null;
-  const prevTop5  = hasCompare ? countTopsFromKeywords(keywords, date1, 5)  : null;
-  const prevTop10 = hasCompare ? countTopsFromKeywords(keywords, date1, 10) : null;
+  const prevTop1  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 1)  : null;
+  const prevTop3  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 3)  : null;
+  const prevTop5  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 5)  : null;
+  const prevTop10 = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 10) : null;
 
   return {
     totalKeywords: keywords.length,
@@ -195,17 +212,17 @@ export function buildSummaryData(
     prevTop5,
     prevTop10,
     prevVisibility: null,
+    scanDate,
+    compareScanDate,
   };
 }
 
 export function buildTableData(
   result: TopvisorHistoryResult,
-  hasCompare: boolean
+  scanDate: string,
+  compareScanDate: string | null
 ): PositionsTableData {
   const { keywords, groups } = result;
-  const dates = result.headers?.dates ?? [];
-  const date0 = dates[0] ?? "";
-  const date1 = dates[1] ?? "";
 
   const groupMap = new Map<number, PositionsGroup>();
   for (const g of groups ?? []) {
@@ -215,8 +232,8 @@ export function buildTableData(
   const ungrouped: PositionsKeyword[] = [];
 
   for (const kw of keywords) {
-    const position     = extractPosition(kw.positionsData, date0);
-    const prevPosition = hasCompare ? extractPosition(kw.positionsData, date1) : null;
+    const position     = extractPosition(kw.positionsData, scanDate);
+    const prevPosition = compareScanDate ? extractPosition(kw.positionsData, compareScanDate) : null;
 
     const entry: PositionsKeyword = {
       id: kw.id,
@@ -234,5 +251,5 @@ export function buildTableData(
 
   const groupsArr = Array.from(groupMap.values()).filter((g) => g.keywords.length > 0);
 
-  return { groups: groupsArr, ungrouped };
+  return { groups: groupsArr, ungrouped, scanDate, compareScanDate };
 }

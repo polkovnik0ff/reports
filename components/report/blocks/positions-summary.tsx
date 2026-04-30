@@ -2,6 +2,12 @@
 
 import { PositionsSummaryData } from "@/lib/services/topvisor";
 
+function fmtDate(iso: string | null): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
 function diff(cur: number, prev: number | null): number | null {
   if (prev === null) return null;
   return cur - prev;
@@ -38,38 +44,48 @@ interface Props {
 }
 
 export function PositionsSummaryBlock({ data }: Props) {
+  const hasCompare = data.prevTop1 !== null;
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      <KpiCard
-        label="Запросов"
-        value={data.totalKeywords.toLocaleString("ru-RU")}
-      />
-      {data.visibility !== null && (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span>Данные на <span className="font-medium text-foreground">{fmtDate(data.scanDate)}</span></span>
+        {hasCompare && data.compareScanDate && (
+          <span>· сравнение с <span className="font-medium text-foreground">{fmtDate(data.compareScanDate)}</span></span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <KpiCard
-          label="Видимость"
-          value={`${data.visibility.toFixed(1)} %`}
+          label="Запросов"
+          value={data.totalKeywords.toLocaleString("ru-RU")}
         />
-      )}
-      <KpiCard
-        label="ТОП-1"
-        value={String(data.top1)}
-        delta={diff(data.top1, data.prevTop1)}
-      />
-      <KpiCard
-        label="ТОП-3"
-        value={String(data.top3)}
-        delta={diff(data.top3, data.prevTop3)}
-      />
-      <KpiCard
-        label="ТОП-5"
-        value={String(data.top5)}
-        delta={diff(data.top5, data.prevTop5)}
-      />
-      <KpiCard
-        label="ТОП-10"
-        value={String(data.top10)}
-        delta={diff(data.top10, data.prevTop10)}
-      />
+        {data.visibility !== null && (
+          <KpiCard
+            label="Видимость"
+            value={`${data.visibility.toFixed(1)} %`}
+          />
+        )}
+        <KpiCard
+          label="ТОП-1"
+          value={String(data.top1)}
+          delta={diff(data.top1, data.prevTop1)}
+        />
+        <KpiCard
+          label="ТОП-3"
+          value={String(data.top3)}
+          delta={diff(data.top3, data.prevTop3)}
+        />
+        <KpiCard
+          label="ТОП-5"
+          value={String(data.top5)}
+          delta={diff(data.top5, data.prevTop5)}
+        />
+        <KpiCard
+          label="ТОП-10"
+          value={String(data.top10)}
+          delta={diff(data.top10, data.prevTop10)}
+        />
+      </div>
     </div>
   );
 }
