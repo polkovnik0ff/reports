@@ -32,8 +32,8 @@ export function TopvisorProjectSelect({ value, onChange, label = "Проект T
           setError("Ошибка загрузки проектов Topvisor");
           return;
         }
-        const data: TopvisorProject[] = await r.json();
-        setProjects(data);
+        const data = await r.json();
+        setProjects(Array.isArray(data) ? data : []);
       })
       .catch(() => setError("Ошибка загрузки проектов Topvisor"))
       .finally(() => setLoading(false));

@@ -15,7 +15,8 @@ export async function GET() {
   try {
     const client = new TopvisorClient(creds.userId, creds.apiKey);
     const projects = await client.getProjects();
-    return NextResponse.json(projects);
+    console.log("[topvisor/projects] result:", JSON.stringify(projects).slice(0, 500));
+    return NextResponse.json(Array.isArray(projects) ? projects : []);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Ошибка Topvisor API";
     return NextResponse.json({ error: message }, { status: 502 });
