@@ -21,6 +21,7 @@ import { useState } from "react";
 import { GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import { BlockConfig, BLOCK_LABELS, BlockType } from "@/lib/blocks/defaults";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
 import { cn } from "@/lib/utils";
 
 // ── Toggle switch ──────────────────────────────────────────────────────────
@@ -59,10 +60,14 @@ function SortableBlock({
   block,
   onToggle,
   onCommentChange,
+  onSettingsChange,
+  topvisorProjectId,
 }: {
   block: BlockConfig;
   onToggle: (id: string, enabled: boolean) => void;
   onCommentChange: (id: string, field: "commentAbove" | "commentBelow", value: string) => void;
+  onSettingsChange?: (id: string, settings: Record<string, unknown>) => void;
+  topvisorProjectId?: number | null;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -128,10 +133,28 @@ function SortableBlock({
         <Toggle enabled={block.enabled} onChange={(v) => onToggle(block.id, v)} />
       </div>
 
-      {/* Expanded comment fields */}
+      {/* Expanded: settings + comment fields */}
       {expanded && (
         <div className="px-3 pb-3 pt-0 flex flex-col gap-3 border-t bg-muted/20">
-          <div className="flex flex-col gap-1 pt-3">
+          {/* Positions block settings */}
+          {(block.type === "positions_summary" || block.type === "positions_table") &&
+            onSettingsChange && (
+              <div className="pt-3 border-b pb-3">
+                <p className="text-xs text-muted-foreground font-medium mb-2">Настройки позиций</p>
+                <TopvisorScanSettings
+                  topvisorProjectId={topvisorProjectId ?? null}
+                  value={{
+                    scanDate: block.settings?.scanDate as string | undefined,
+                    compareScanDate: block.settings?.compareScanDate as string | undefined,
+                    groupIds: block.settings?.groupIds as number[] | undefined,
+                  }}
+                  onChange={(v) =>
+                    onSettingsChange(block.id, { ...block.settings, ...v })
+                  }
+                />
+              </div>
+            )}
+          <div className="flex flex-col gap-1 pt-1">
             <label className="text-xs text-muted-foreground font-medium">
               Комментарий над блоком
             </label>
@@ -164,9 +187,10 @@ function SortableBlock({
 interface TemplateBuilderProps {
   blocks: BlockConfig[];
   onChange: (blocks: BlockConfig[]) => void;
+  topvisorProjectId?: number | null;
 }
 
-export default function TemplateBuilder({ blocks, onChange }: TemplateBuilderProps) {
+export default function TemplateBuilder({ blocks, onChange, topvisorProjectId }: TemplateBuilderProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -199,6 +223,10 @@ export default function TemplateBuilder({ blocks, onChange }: TemplateBuilderPro
     onChange(blocks.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
   }
 
+  function handleSettingsChange(id: string, settings: Record<string, unknown>) {
+    onChange(blocks.map((b) => (b.id === id ? { ...b, settings } : b)));
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -213,6 +241,8 @@ export default function TemplateBuilder({ blocks, onChange }: TemplateBuilderPro
               block={block}
               onToggle={handleToggle}
               onCommentChange={handleCommentChange}
+              onSettingsChange={handleSettingsChange}
+              topvisorProjectId={topvisorProjectId}
             />
           ))}
         </div>

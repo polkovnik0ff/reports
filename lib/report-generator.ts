@@ -154,16 +154,23 @@ export async function generateReport(reportId: string): Promise<void> {
         }
 
         try {
+          const posSettings = {
+            scanDate: block.settings?.scanDate as string | undefined,
+            compareScanDate: block.settings?.compareScanDate as string | undefined,
+            groupIds: block.settings?.groupIds as number[] | undefined,
+          };
           let data: unknown;
           if (block.type === "positions_summary") {
             data = await fetchPositionsSummary(
               topvisorClient,
               report.topvisorProjectId,
+              posSettings,
             );
           } else {
             data = await fetchPositionsTable(
               topvisorClient,
               report.topvisorProjectId,
+              posSettings,
             );
           }
           snapshotData[block.id] = { data };

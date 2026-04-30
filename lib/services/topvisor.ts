@@ -14,6 +14,11 @@ export interface TopvisorProject {
   site: string;
 }
 
+export interface TopvisorGroupInfo {
+  id: number;
+  name: string;
+}
+
 // positionsData: "YYYY-MM-DD:projectId:regionIndex" → { position: string | "--" }
 // position comes as a string from API ("5", "32", "--")
 export interface TopvisorKeyword {
@@ -119,8 +124,15 @@ export class TopvisorClient {
     });
   }
 
+  // Returns all keyword groups for a project.
+  async getGroups(projectId: number): Promise<TopvisorGroupInfo[]> {
+    const result = await this.request<TopvisorGroupInfo[]>("get/keywords_2/groups", {
+      project_id: projectId,
+    });
+    return Array.isArray(result) ? result : [];
+  }
+
   // Returns sorted list of dates when positions were actually scanned.
-  // Uses a wide range to capture all historical scans.
   async getExistsDates(projectId: number, regionIndex = 1): Promise<string[]> {
     const today = new Date().toISOString().slice(0, 10);
     const result = await this.request<TopvisorExistsDatesResult>(
@@ -138,21 +150,50 @@ export class TopvisorClient {
     return result.existsDates ?? [];
   }
 
-  // Fetches keyword positions for specific dates (actual scan dates).
+  // Fetches keyword positions for specific dates.
+  // groupIds: if provided, filters to only those groups (fetches group_id map first).
   async getPositionsHistory(
     projectId: number,
     dates: string[],
-    regionIndex = 1
+    regionIndex = 1,
+    groupIds?: number[]
   ): Promise<TopvisorHistoryResult> {
-    return this.request<TopvisorHistoryResult>("get/positions_2/history", {
-      project_id: projectId,
-      regions_indexes: [regionIndex],
-      type_range: 0,
-      dates,
-      show_headers: true,
-      show_tops: true,
-      show_visibility: true,
-    });
+    // positions_2/history doesn't return group_id — fetch from keywords_2/keywords and merge.
+    const [posResult, keywordsWithGroups] = await Promise.all([
+      this.request<TopvisorHistoryResult>("get/positions_2/history", {
+        project_id: projectId,
+        regions_indexes: [regionIndex],
+        type_range: 0,
+        dates,
+        show_headers: true,
+        show_tops: true,
+        show_visibility: true,
+        ...(groupIds && groupIds.length > 0 ? { groups_ids: groupIds } : {}),
+      }),
+      this.request<{ id: number; name: string; group_id: number | null }[]>(
+        "get/keywords_2/keywords",
+        { project_id: projectId, fields: ["id", "name", "group_id"] }
+      ).catch(() => [] as { id: number; name: string; group_id: number | null }[]),
+    ]);
+
+    // Build name→group_id map (positions history returns keywords by name, no id)
+    const nameToGroupId = new Map<string, number | null>();
+    for (const kw of keywordsWithGroups) {
+      nameToGroupId.set(kw.name, kw.group_id ?? null);
+    }
+
+    // Merge group_id into position keywords
+    const keywords = (posResult.keywords ?? []).map((kw) => ({
+      ...kw,
+      group_id: nameToGroupId.get(kw.name) ?? null,
+    }));
+
+    // Collect groups referenced by the filtered keywords
+    const usedGroupIds = new Set(keywords.map((k) => k.group_id).filter(Boolean));
+    const allGroups = await this.getGroups(projectId);
+    const groups = allGroups.filter((g) => usedGroupIds.has(g.id));
+
+    return { ...posResult, keywords, groups };
   }
 }
 

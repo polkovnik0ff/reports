@@ -444,7 +444,11 @@ export default function ReportEditor({
 
             {/* ── Blocks tab ─────────────────────────────────────────── */}
             {tab === "blocks" && (
-              <TemplateBuilder blocks={blocks} onChange={setBlocks} />
+              <TemplateBuilder
+                blocks={blocks}
+                onChange={setBlocks}
+                topvisorProjectId={topvisorProjectId}
+              />
             )}
 
             {/* ── Texts tab ──────────────────────────────────────────── */}
