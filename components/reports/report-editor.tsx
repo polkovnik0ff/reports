@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import TemplateBuilder from "@/components/templates/template-builder";
 import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
+import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Date helpers ───────────────────────────────────────────────────────────
@@ -121,6 +122,20 @@ export default function ReportEditor({
   const [crossDevice, setCrossDevice] = useState(initialCrossDevice);
   const [topvisorProjectId, setTopvisorProjectId] = useState<number | null>(initialTopvisorProjectId ?? null);
 
+  // Topvisor positions settings (shared for both positions blocks)
+  const firstPosBlock = initialBlocks.find(
+    (b) => b.type === "positions_summary" || b.type === "positions_table"
+  );
+  const [topvisorScanSettings, setTopvisorScanSettings] = useState<{
+    scanDate?: string;
+    compareScanDate?: string;
+    groupIds?: number[];
+  }>({
+    scanDate: firstPosBlock?.settings?.scanDate as string | undefined,
+    compareScanDate: firstPosBlock?.settings?.compareScanDate as string | undefined,
+    groupIds: firstPosBlock?.settings?.groupIds as number[] | undefined,
+  });
+
   // Blocks tab state
   const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks);
 
@@ -182,10 +197,13 @@ export default function ReportEditor({
   async function handleGenerate() {
     setGenerating(true);
 
-    // Merge workDone/workPlan into blocks
+    // Merge workDone/workPlan and topvisor scan settings into blocks
     const finalBlocks = blocks.map((block) => {
       if (block.type === "work_done" && workDone) return { ...block, settings: { ...block.settings, content: workDone } };
       if (block.type === "work_plan" && workPlan) return { ...block, settings: { ...block.settings, content: workPlan } };
+      if (block.type === "positions_summary" || block.type === "positions_table") {
+        return { ...block, settings: { ...block.settings, ...topvisorScanSettings } };
+      }
       return block;
     });
 
@@ -355,9 +373,27 @@ export default function ReportEditor({
 
                   <TopvisorProjectSelect
                     value={topvisorProjectId}
-                    onChange={setTopvisorProjectId}
+                    onChange={(id) => {
+                      setTopvisorProjectId(id);
+                      // Reset scan settings when project changes
+                      if (id !== topvisorProjectId) {
+                        setTopvisorScanSettings({});
+                      }
+                    }}
                   />
                 </div>
+
+                {/* Topvisor positions settings */}
+                {topvisorProjectId && (
+                  <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                    <p className="text-sm font-medium">Позиции (Topvisor)</p>
+                    <TopvisorScanSettings
+                      topvisorProjectId={topvisorProjectId}
+                      value={topvisorScanSettings}
+                      onChange={setTopvisorScanSettings}
+                    />
+                  </div>
+                )}
 
                 {/* Period */}
                 <div className="grid gap-1.5">
@@ -444,11 +480,7 @@ export default function ReportEditor({
 
             {/* ── Blocks tab ─────────────────────────────────────────── */}
             {tab === "blocks" && (
-              <TemplateBuilder
-                blocks={blocks}
-                onChange={setBlocks}
-                topvisorProjectId={topvisorProjectId}
-              />
+              <TemplateBuilder blocks={blocks} onChange={setBlocks} />
             )}
 
             {/* ── Texts tab ──────────────────────────────────────────── */}
