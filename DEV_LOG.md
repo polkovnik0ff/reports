@@ -458,3 +458,28 @@ Sample: [{name: "изготовление фасадов зданий", pos: 2, 
 Коммит: `a6b2c03` — запушено.
 
 ---
+
+### Запрос 11 — Перенести настройки позиций на первую вкладку (Параметры)
+
+**Пользователь:** «В настройках блоков ничего нет, так что не работает. и это не очень удобно. давай перенесем это на первую страницу настроек»
+
+**Причина:** В `template-builder.tsx` `TopvisorScanSettings` не получал `topvisorProjectId` так как блок разворачивался до загрузки данных — компонент рендерился, но показывал `null` (без Topvisor проекта он не делает запрос).
+
+**Решение:** перенести настройки в таб «Параметры» в `report-editor.tsx`.
+
+**Архитектура:** настройки общие для обоих positions-блоков (summary + table). Хранятся в отдельном state `topvisorScanSettings`. При генерации мёрджатся в `block.settings` каждого positions блока.
+
+**Изменения:**
+- `report-editor.tsx`:
+  - Добавлен state `topvisorScanSettings` (инициализация из первого positions блока)
+  - Секция «Позиции (Topvisor)» в таб «Параметры» — показывается только если `topvisorProjectId` задан
+  - При смене проекта — сброс `topvisorScanSettings`
+  - `handleGenerate` — мёрджит `topvisorScanSettings` в settings positions блоков
+  - `TemplateBuilder` — убран проп `topvisorProjectId`
+- `template-builder.tsx`:
+  - Убраны `TopvisorScanSettings` импорт, `onSettingsChange`, `topvisorProjectId`, `handleSettingsChange`
+  - Возвращён к исходному виду (только комментарии блоков)
+
+Коммит: `9c07614` — запушено.
+
+---
