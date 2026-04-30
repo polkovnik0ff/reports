@@ -386,3 +386,75 @@ Sample: [{name: "изготовление фасадов зданий", pos: 2, 
 Коммит: `f5db131` — запушено.
 
 ---
+
+### Запрос 10 — Выбор дат сканирования и групп в настройках блоков позиций
+
+**Пользователь:** «А теперь давай сделаем так, что бы я мог выбирать даты в настройках отчета(отчета и сравнения). так же, что бы я мог выбирать группы для отображения в отчете»
+
+#### Исследование API
+
+- `get/keywords_2/groups` — возвращает группы проекта с id и name ✅
+- `get/keywords_2/keywords` с `fields: ['id','name','group_id']` — возвращает все ключевые слова с group_id ✅
+- `positions_2/history` **не возвращает** group_id в keywords, и не возвращает groups — нужно мёрджить вручную
+- `groups_ids` в теле запроса к `positions_2/history` и `show_groups: true` — не работают, group_id не появляется в ответе
+
+#### Архитектурное решение
+
+Настройки хранятся в `block.settings`:
+```ts
+{ scanDate?: string; compareScanDate?: string; groupIds?: number[] }
+```
+
+Если `scanDate` не задана — автоматически берутся последние две даты из `existsDates` (поведение по умолчанию). Если задана — использует явно указанную.
+
+#### Изменения
+
+**`lib/services/topvisor.ts`:**
+- Новый тип `TopvisorGroupInfo`
+- Новый метод `getGroups(projectId)` — через `get/keywords_2/groups`
+- `getPositionsHistory()` теперь параллельно делает 2 запроса: позиции + `keywords_2/keywords` для group_id
+- Мёрджит `group_id` по совпадению имени ключевого слова
+- Фильтрует `groups` под реально использованные group_id
+
+**`lib/blocks/positions_summary.ts` и `positions_table.ts`:**
+- Принимают `settings: { scanDate?, compareScanDate?, groupIds? }`
+- Если `settings.scanDate` задан — не делают запрос `getExistsDates` (2 запроса → 1)
+- Передают `groupIds` в `getPositionsHistory`
+
+**`lib/report-generator.ts`:**
+- Читает `block.settings.scanDate`, `compareScanDate`, `groupIds` и передаёт в fetcher
+
+**Новый API `GET /api/settings/topvisor/project-meta?projectId=N`:**
+- Параллельно запрашивает `getExistsDates` + `getGroups`
+- Возвращает `{ existsDates: string[], groups: {id, name}[] }`
+
+**Новый компонент `TopvisorScanSettings`:**
+- Загружает meta при маунте (если `topvisorProjectId` задан)
+- Dropdown "Дата сканирования" — даты в порядке убывания, `fmtDate(dd.mm.yyyy)`
+- Dropdown "Сравнение (дата)" — те же даты минус выбранную, опция "без сравнения"
+- Чекбокс-список "Группы запросов" — показывается только если есть группы
+- Кнопка "Все группы" — снимает фильтр (groupIds = undefined)
+
+**`components/templates/template-builder.tsx`:**
+- `SortableBlock` получает `onSettingsChange` и `topvisorProjectId`
+- В expanded-секции для positions блоков — секция "Настройки позиций" с `TopvisorScanSettings`
+- `TemplateBuilder` получает `topvisorProjectId?: number | null`
+
+**`components/reports/report-editor.tsx`:**
+- Передаёт `topvisorProjectId` в `TemplateBuilder`
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/topvisor.ts` | getGroups(), getPositionsHistory() с мёрджем group_id, TopvisorGroupInfo |
+| `lib/blocks/positions_summary.ts` | принимает settings с scanDate/compareScanDate/groupIds |
+| `lib/blocks/positions_table.ts` | аналогично |
+| `lib/report-generator.ts` | читает block.settings для positions |
+| `app/api/settings/topvisor/project-meta/route.ts` | новый endpoint |
+| `components/topvisor/topvisor-scan-settings.tsx` | новый компонент |
+| `components/templates/template-builder.tsx` | настройки позиций в expanded |
+| `components/reports/report-editor.tsx` | передаёт topvisorProjectId в TemplateBuilder |
+
+Коммит: `a6b2c03` — запушено.
+
+---
