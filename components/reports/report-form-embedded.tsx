@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import TemplateBuilder from "@/components/templates/template-builder";
 import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
+import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -180,6 +181,11 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
   const [withRobots, setWithRobots] = useState(true);
   const [crossDevice, setCrossDevice] = useState(true);
   const [topvisorProjectId, setTopvisorProjectId] = useState<number | null>(null);
+  const [topvisorScanSettings, setTopvisorScanSettings] = useState<{
+    scanDate?: string;
+    compareScanDate?: string;
+    groupIds?: number[];
+  }>({});
 
   // Step 1 state
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
@@ -261,6 +267,14 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
   async function handleSubmit() {
     setSubmitting(true);
     try {
+      // Merge topvisor scan settings into positions blocks
+      const finalBlocks = blocks.map((block) => {
+        if (block.type === "positions_summary" || block.type === "positions_table") {
+          return { ...block, settings: { ...block.settings, ...topvisorScanSettings } };
+        }
+        return block;
+      });
+
       const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -272,7 +286,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
           dateTo,
           compareFrom: compareEnabled ? compareFrom : undefined,
           compareTo: compareEnabled ? compareTo : undefined,
-          reportConfig: blocks,
+          reportConfig: finalBlocks,
           workDone: workDone || undefined,
           workPlan: workPlan || undefined,
           attribution,
@@ -393,9 +407,24 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
                 {/* Topvisor project */}
                 <TopvisorProjectSelect
                   value={topvisorProjectId}
-                  onChange={setTopvisorProjectId}
+                  onChange={(id) => {
+                    setTopvisorProjectId(id);
+                    if (id !== topvisorProjectId) setTopvisorScanSettings({});
+                  }}
                 />
               </div>
+
+              {/* Topvisor positions settings */}
+              {topvisorProjectId && (
+                <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                  <p className="text-sm font-medium">Позиции (Topvisor)</p>
+                  <TopvisorScanSettings
+                    topvisorProjectId={topvisorProjectId}
+                    value={topvisorScanSettings}
+                    onChange={setTopvisorScanSettings}
+                  />
+                </div>
+              )}
 
               {/* Period preset */}
               <div className="grid gap-1.5">
