@@ -83,8 +83,13 @@ export class TopvisorClient {
     const url = `${BASE_URL}/v2/json/${method}`;
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": "seo-reports/1.0" },
-      body: JSON.stringify({ id: this.userId, key: this.apiKey, ...body }),
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "seo-reports/1.0",
+        "User-Id": this.userId,
+        "Authorization": `bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
