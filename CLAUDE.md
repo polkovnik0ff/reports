@@ -432,6 +432,12 @@ async function generatePdf(slug: string): Promise<string> {
 - API key (не OAuth). UserId + API Key в `AccountSettings` (зашифрованы)
 - Endpoint: `https://api.topvisor.com/v2/json/`
 - Нужные методы: `get/projects_2/projects` (список), `get/positions_2/history` (позиции)
+- **Авторизация через заголовки** (не через body): `User-Id` и `Authorization: bearer <key>`
+- **`get/positions_2/history` — обязательные параметры:** `project_id`, `regions_indexes` (массив, минимум 1 элемент; `0` невалиден — начинается с 1), `type_range` (0 = конкретные даты, 1 = диапазон), `dates` (при type_range=0) или `date1`/`date2` (при type_range=1)
+- **Структура `positionsData` в ответе** — объект, ключ = `"YYYY-MM-DD:projectId:regionIndex"`, значение = `{"position": number | "--"}`. `"--"` = не в ТОП-100, число = позиция. При отсутствии данных за дату — пустой массив `[]`.
+- **`regions_indexes: [1]`** = индекс региона (строка `"1"` в headers, число `1` в запросе), типично Яндекс Москва. Значение берётся из `headers.projects[0].searchers[0].regions[0].index` ответа.
+- **`fields` параметр нельзя передавать** как объект с ключами `keywords`/`groups` — это вызывает ошибку 2003. Для простых запросов вообще не передавать `fields`.
+- **`tops`** в ответе = null если нет позиций в ТОП-100. Считать tops из `keywords` вручную надёжнее.
 
 ---
 
@@ -610,12 +616,14 @@ Remove-Item -Recurse -Force .next
    - ✅ Стили prose-report обновлены (h1/h2/h3/ul/ol/a/mark/table/taskList); стили редактора в globals.css
 4. Topvisor + Вебмастер + Google Search Console + блоки позиций/индексации + PDF
    **Topvisor:**
-   - [ ] lib/services/topvisor.ts — клиент API v2: get/projects_2/projects, get/positions_2/history
-   - [ ] lib/blocks/positions_summary.ts — сводка: всего запросов, видимость, ТОП-1/3/5/10
-   - [ ] lib/blocks/positions_table.ts — таблица позиций по группам
-   - [ ] components/report/blocks/positions-summary.tsx
-   - [ ] components/report/blocks/positions-table.tsx
-   - [ ] Настройки Topvisor в /settings: UserId + API Key (шифруются AES-256)
+   - ✅ lib/services/topvisor.ts — клиент API v2 с правильной авторизацией (заголовки User-Id + Authorization)
+   - ✅ lib/blocks/positions_summary.ts — сводка: всего запросов, видимость, ТОП-1/3/5/10
+   - ✅ lib/blocks/positions_table.ts — таблица позиций по группам
+   - ✅ components/report/blocks/positions-summary.tsx
+   - ✅ components/report/blocks/positions-table.tsx
+   - ✅ Настройки Topvisor в /settings: UserId + API Key (шифруются AES-256)
+   - ✅ topvisorProjectId в модели Report (migration 20260430125550)
+   - ✅ positionsData парсинг: объект {"YYYY-MM-DD:pid:regionIdx": {"position": num|"--"}}; extractPosition() по datePrefix
    **Яндекс Вебмастер:**
    - [ ] lib/services/webmaster.ts — клиент Webmaster API v4 (токен из ConnectedAccount)
          Методы: getSearchQueries, getIndexingStats

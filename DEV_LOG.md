@@ -215,3 +215,103 @@ GET /api/settings/topvisor/projects 200 in 655ms
 - ✅ `git push origin main` — запушено, `e6dc389..254462a main -> main`
 
 ---
+
+## Сессия 2026-04-30 (продолжение — восстановлено из summary)
+
+### Контекст начала сессии (сводка из предыдущего контекста)
+В предыдущем контексте была реализована:
+- Tiptap rich-text editor (`components/ui/rich-text-editor.tsx`)
+- Загрузка изображений (`app/api/upload/route.ts`)
+- Topvisor интеграция (все файлы из запроса 3)
+- Исправлена авторизация Topvisor: переход с body-полей `{id, key}` на заголовки `User-Id` + `Authorization: bearer`
+- Применена миграция `20260430125550_add_topvisor_project_id`
+- Ошибка при генерации отчёта: `"Cannot destructure property 'keywords' of 'result' as it is null"` — blocks `positions_summary` и `positions_table`
+
+---
+
+### Запрос 8 — Продолжить исправление Topvisor positions + зафиксировать в DEV_LOG
+
+**Пользователь:** «Продолжаем работать. 1 - продолжи выполнение прошлого задания. 2 - прочитай claude.md и зафиксируй всё нужное в DEV_LOG.md»
+
+#### Проблема
+`getPositionsHistory` в `lib/services/topvisor.ts` возвращает `result: null` при запросе позиций, вызывая краш в `buildSummaryData`/`buildTableData`.
+
+Корневая причина: неверные параметры запроса к Topvisor API.
+
+#### Исследование API через прямые запросы (node --env-file=.env.local)
+
+**Попытка 1:** `npx tsx scripts/test-topvisor.ts` → ❌ `DATABASE_URL is not set`
+- tsx обрабатывает импорты (включая `lib/prisma.ts`) до исполнения `dotenv.config()`
+- Решение: использовать `node --env-file=.env.local << 'HEREDOC'` (обходит tsx)
+
+**Попытка 2:** Запрос с `fields: ['id', 'name', 'site', 'searchers']` к `get/projects_2/projects` → ❌ ошибка 2004
+- `searchers` — не допустимое поле для `projects_2/projects`
+
+**Попытка 3:** `get/searchers_2/searchers` → ❌ ошибка 1003 "Call to undefined method"
+- Такого метода не существует
+
+**Попытка 4:** `regions_indexes: [0]` → ❌ ошибка 2003 "Error item in regions_indexes: 0"
+- Индекс 0 невалиден (начинается с 1)
+
+**Попытка 5:** `fields: { keywords: [...], groups: [...] }` (объект) → ❌ ошибка "В запросе отсутствует обязательный параметр: fields[n].name"
+- Такой формат `fields` не поддерживается для `positions_2/history`; нельзя передавать как объект
+
+**Попытка 6:** Без `fields`, `regions_indexes: [1]`, `type_range=0`, `dates: ['2026-04-30']` → ✅ Успех!
+- Возвращает `result.keywords` с `positionsData`
+- `positionsData` — **объект**, ключ = `"2026-04-30:23765732:1"`, значение = `{"position": "--"}`
+- `"--"` = не в ТОП-100, число = позиция
+- При `type_range=1` с range без данных → `positionsData: []` (пустой массив)
+- `headers.projects[0].searchers[0].regions[0].index = "1"` (строка)
+
+**Итого — правильная структура `positionsData`:**
+```json
+{
+  "2026-04-30:23765732:1": { "position": "--" },
+  "2026-03-31:23765732:1": { "position": 5 }
+}
+```
+
+#### Исправления в lib/services/topvisor.ts
+
+Полностью переписан файл:
+1. `TopvisorKeyword.positionsData` тип изменён с `(number | null)[][]` на `Record<string, { position: number | "--" }> | [] | null`
+2. Добавлена функция `extractPosition(positionsData, datePrefix)`:
+   - datePrefix = `"YYYY-MM-DD"` (первые 10 символов ключа)
+   - `"--"` → `null`, число → число, пустой массив/null → `null`
+3. `countTopsFromKeywords()` теперь использует `extractPosition` вместо `positionsData?.[dateIdx]?.[0]`
+4. `buildSummaryData()` теперь принимает `dates` из `result.headers.dates` для определения datePrefix
+5. `buildTableData()` аналогично
+6. В `request()`: проверка через `json.errors` вместо `json.status === 0`
+7. `getPositionsHistory()` убран параметр `searcher_key` и `fields` — они вызывали ошибки
+8. `regionIndex` по умолчанию = 1 (Yandex Москва)
+
+#### Очистка тестового скрипта
+
+`scripts/test-topvisor.ts` упрощён до минимального smoke test:
+- Читает credentials из БД напрямую (без Prisma)
+- Проверяет список проектов
+- Проверяет positions для первого проекта за сегодня
+
+#### Обновления документации
+
+- `CLAUDE.md`: в разделе "Topvisor" добавлены детали API:
+  - авторизация через заголовки
+  - `regions_indexes` обязателен, начинается с 1
+  - структура `positionsData`
+  - `fields` нельзя передавать как объект
+  - `tops: null` при отсутствии позиций в ТОП-100
+- `CLAUDE.md` Фаза 4: Topvisor-пункты отмечены ✅
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/topvisor.ts` | Полностью переписан: новый тип positionsData, extractPosition(), правильный запрос |
+| `scripts/test-topvisor.ts` | Упрощён до smoke test (без Prisma импортов) |
+| `CLAUDE.md` | Добавлены Topvisor API особенности, фаза 4 обновлена |
+| `DEV_LOG.md` | Дописана запись сессии |
+
+#### Статус
+✅ Код исправлен. Структура `positionsData` парсится корректно.
+⚠️ Проверить при следующей генерации отчёта: данные за конкретные даты могут быть пустыми если Topvisor ещё не проверял позиции на выбранную дату — это нормально, блок покажет 0 позиций.
+
+---
