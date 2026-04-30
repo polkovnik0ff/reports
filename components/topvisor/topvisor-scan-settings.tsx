@@ -74,7 +74,6 @@ export function TopvisorScanSettings({ topvisorProjectId, value, onChange }: Pro
   const datesDesc = [...existsDates].reverse();
   const selectedScan = value.scanDate ?? datesDesc[0];
   const selectedCompare = value.compareScanDate ?? "";
-  const selectedGroups = value.groupIds ?? [];
 
   function setScanDate(d: string) {
     onChange({ ...value, scanDate: d, compareScanDate: value.compareScanDate ?? "" });
@@ -85,13 +84,20 @@ export function TopvisorScanSettings({ topvisorProjectId, value, onChange }: Pro
   }
 
   function toggleGroup(id: number) {
-    const current = value.groupIds ?? [];
+    // When groupIds is undefined it means "all selected" — expand to full list before toggling
+    const current = value.groupIds ?? groups.map((g) => g.id);
     const next = current.includes(id) ? current.filter((g) => g !== id) : [...current, id];
-    onChange({ ...value, groupIds: next.length > 0 ? next : undefined });
+    // If every group is selected, collapse back to undefined
+    const allSelected = next.length === groups.length;
+    onChange({ ...value, groupIds: allSelected ? undefined : next.length > 0 ? next : [] });
   }
 
   function selectAllGroups() {
     onChange({ ...value, groupIds: undefined });
+  }
+
+  function clearAllGroups() {
+    onChange({ ...value, groupIds: [] });
   }
 
   return (
@@ -130,22 +136,30 @@ export function TopvisorScanSettings({ topvisorProjectId, value, onChange }: Pro
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between">
             <Label className="text-xs text-muted-foreground">Группы запросов</Label>
-            {selectedGroups.length > 0 && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={selectAllGroups}
                 className="text-xs text-primary hover:underline"
               >
-                Все группы
+                Выбрать всё
               </button>
-            )}
+              <span className="text-xs text-muted-foreground">·</span>
+              <button
+                type="button"
+                onClick={clearAllGroups}
+                className="text-xs text-primary hover:underline"
+              >
+                Убрать всё
+              </button>
+            </div>
           </div>
           <div className="flex flex-col gap-1 max-h-48 overflow-y-auto rounded-lg border bg-muted/20 p-2">
             {groups.map((g) => (
               <label key={g.id} className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-foreground">
                 <input
                   type="checkbox"
-                  checked={selectedGroups.length === 0 || selectedGroups.includes(g.id)}
+                  checked={value.groupIds === undefined || value.groupIds.includes(g.id)}
                   onChange={() => toggleGroup(g.id)}
                   className="rounded shrink-0"
                 />
@@ -153,9 +167,11 @@ export function TopvisorScanSettings({ topvisorProjectId, value, onChange }: Pro
               </label>
             ))}
           </div>
-          {selectedGroups.length > 0 && (
+          {value.groupIds !== undefined && (
             <p className="text-xs text-muted-foreground">
-              Выбрано групп: {selectedGroups.length} из {groups.length}
+              {value.groupIds.length === 0
+                ? "Ни одна группа не выбрана"
+                : `Выбрано групп: ${value.groupIds.length} из ${groups.length}`}
             </p>
           )}
         </div>

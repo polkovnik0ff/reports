@@ -183,10 +183,18 @@ export class TopvisorClient {
     }
 
     // Merge group_id into position keywords
-    const keywords = (posResult.keywords ?? []).map((kw) => ({
+    const mergedKeywords = (posResult.keywords ?? []).map((kw) => ({
       ...kw,
       group_id: nameToGroupId.get(kw.name) ?? null,
     }));
+
+    // Filter to requested groups (API groups_ids param doesn't work reliably)
+    const keywords =
+      groupIds && groupIds.length > 0
+        ? mergedKeywords.filter(
+            (kw) => kw.group_id !== null && groupIds.includes(kw.group_id)
+          )
+        : mergedKeywords;
 
     // Collect groups referenced by the filtered keywords
     const usedGroupIds = new Set(keywords.map((k) => k.group_id).filter(Boolean));

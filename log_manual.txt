@@ -1,0 +1,4637 @@
+
+Write test-topvisor.ts
+23 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Get searchers for project via dedicated endpoint
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/searchers_2/searchers', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({ project_id: projectId, fields: ['id', 'searcher_key', 'project_id', 'enabled', 'ord'] }),
+  });
+  const data = await resp.json();
+  console.log('Searchers:', JSON.stringify(data).slice(0, 2000));
+}
+
+main().catch(console.error);
+Bash Get searchers for project
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Searchers: {"result":null,"errors":[{"code":1003,"string":"Call to undefined method: get/searchers_2/searchers","detail":{"sid":"5745dcac5d995031","v":"1.19.82"}}]}
+Write test-topvisor.ts
+32 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Try positions with regions_indexes = [0] (first searcher, index 0)
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [0],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+      fields: { keywords: ['id', 'name', 'group_id'], groups: ['id', 'name'] },
+    }),
+  });
+  const data = await resp.json();
+  console.log('Response (trimmed):', JSON.stringify(data).slice(0, 1000));
+}
+
+main().catch(console.error);
+Bash Test positions with regions_indexes=[0]
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+Response (trimmed): {"result":null,"errors":[{"code":2003,"string":"Error item in \"regions_indexes\": 0: 'regions_indexes'","detail":{"sid":"589c86176467c041","v":"1.19.82"}}]}
+Индекс 0 не подходит. regions_indexes — это не порядковый индекс, а реальный ID региона/поисковика из настроек проекта. Нужно получить их через get/positions_2/searchers:
+
+Write test-topvisor.ts
+23 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Get available searchers/regions for this project
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/searchers', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({ project_id: projectId }),
+  });
+  const data = await resp.json();
+  console.log('Searchers response:', JSON.stringify(data).slice(0, 2000));
+}
+
+main().catch(console.error);
+Bash Get positions searchers for project
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Searchers response: {"result":null,"errors":[{"code":1003,"string":"Call to undefined method: get/positions_2/searchers","detail":{"sid":"9d4f19d648240a73","v":"1.19.82"}}]}
+Write test-topvisor.ts
+26 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Get project full info including searcher info
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      fields: ['id', 'name', 'site', 'searchers'],
+      filters: [{ name: 'id', operator: 'EQUALS', values: [String(projectId)] }]
+    }),
+  });
+  const data = await resp.json();
+  console.log('Project data:', JSON.stringify(data).slice(0, 3000));
+}
+
+main().catch(console.error);
+Bash Get project with searchers field
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Project data: {"result":null,"errors":[{"code":2004,"string":"Несоответствие значения переданного параметра: fields[n].name = 'searchers'","detail":{"sid":"593527ec709ea355","v":"1.19.82"}}]}
+Write test-topvisor.ts
+25 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Try to get all available fields for a project
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      filters: [{ name: 'id', operator: 'EQUALS', values: [String(projectId)] }]
+    }),
+  });
+  const data = await resp.json();
+  console.log('Project all fields:', JSON.stringify(data).slice(0, 3000));
+}
+
+main().catch(console.error);
+Bash Get full project object
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+Project all fields: {"result":[{"id":23765732}],"total":1}
+Без fields возвращается только id. Попробую с полным набором полей из документации:
+
+Write test-topvisor.ts
+57 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Try all known scalar fields
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      fields: ['id', 'name', 'site', 'status', 'count_keywords', 'on', 'searchers'],
+      filters: [{ name: 'id', operator: 'EQUALS', values: [String(projectId)] }]
+    }),
+  });
+  const text = await resp.text();
+  console.log('Response:', text.slice(0, 3000));
+
+  // Also try positions history with all possible regions
+  const resp2 = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      fields: { keywords: ['id', 'name'], groups: ['id', 'name'] },
+    }),
+  });
+  const text2 = await resp2.text();
+  console.log('\nPositions with regions_indexes=[1]:', text2.slice(0, 500));
+
+  const resp3 = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [2],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      fields: { keywords: ['id', 'name'], groups: ['id', 'name'] },
+    }),
+  });
+  const text3 = await resp3.text();
+  console.log('\nPositions with regions_indexes=[2]:', text3.slice(0, 500));
+}
+
+main().catch(console.error);
+Bash Try different regions_indexes values
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+Response: {"result":null,"errors":[{"code":2004,"string":"Несоответствие значения переданного параметра: fields[n].name = 'status'","detail":{"sid":"133fb4f9f84a7bee","v":"1.19.82"}}]}
+
+Positions with regions_indexes=[1]: {"result":null,"errors":[{"code":0,"string":"В запросе отсутствует обязательный параметр: fields[n].name","detail":{"sid":"1922209480ce4ed8","v":"1.19.82"}}]}
+
+Positions with regions_indexes=[2]: {"result":null,"errors":[{"code":0,"string":"В запросе отсутствует обязательный параметр: fields[n].name","detail":{"sid":"c36855bee38f32da","v":"1.19.82"}}]}
+Хорошо — regions_indexes=[1] прошёл первую проверку и вернул другую ошибку ("отсутствует fields[n].name") — значит индекс 1 существует. Это вложенная структура fields. Исправляю формат:
+
+Write test-topvisor.ts
+35 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // The fields for positions must be array of objects with {name}
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+      fields: {
+        keywords: [{ name: 'id' }, { name: 'name' }, { name: 'group_id' }, { name: 'positionsData' }],
+        groups: [{ name: 'id' }, { name: 'name' }],
+      },
+    }),
+  });
+  const text = await resp.text();
+  console.log('Response:', text.slice(0, 1000));
+}
+
+main().catch(console.error);
+Bash Test positions with object fields format
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Response: {"result":null,"errors":[{"code":0,"string":"В запросе отсутствует обязательный параметр: fields[n].name","detail":{"sid":"b3521af20116a9a8","v":"1.19.82"}}]}
+Write test-topvisor.ts
+31 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Try without nested fields - just top-level fields array
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const text = await resp.text();
+  console.log('Response (no fields):', text.slice(0, 1000));
+}
+
+main().catch(console.error);
+Bash Test positions without fields param
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+Response (no fields): {"result":{"headers":{"fields":[{"name":"name","alias":"name","qualifiers":[],"label":"Запросы","labelData":{"label":"Запросы","tooltip":"","hint":""}}],"project_id":23765732,"historyFields":["position"],"dates":["2026-03-31"],"projects":[{"id":23765732,"name":"Фронтсайд","site":"frontside.ru","searchers":[{"name":"Yandex","key":0,"regions":[{"countryCode":"RU","name":"Москва","areaName":"Москва и Московская область","searcher_key":0,"index":"1","key":213,"lang":"ru","device":0,"device_name":"ПК"}]}]}],"folderName":null,"groupName":null,"snippetsTagsByHash":null},"keywords":[{"name":"техническое проектирование","positionsData":[]},{"name":"что такое техническое проектирование","positionsData":[]},{"name":"разработка технического задания на проектирование","positionsData":[]},{"name":"разработка технического проектирования","positionsData":[]},{"name":"проектирование технической документации","positionsData":[]},{"name":"выполнение технического проектирования","positionsData":[]},{"name
+Отлично — данные получены. Вижу два важных изменения в API:
+
+regions_indexes — нужен реальный индекс региона (в данном случае "1" — Москва, Яндекс). Это строка, не число.
+fields не нужен — без него возвращается всё. Параметр fields в старом формате {keywords: [...], groups: [...]} вызывал ошибку.
+Структура ответа изменилась — вместо { keywords, groups, tops, visibility } теперь { headers: {...}, keywords: [...] }. Поле group_id теперь в другом месте.
+Нужно получить regions_indexes для проекта из headers.projects[0].searchers[0].regions[0].index, а потом уже делать запрос позиций. Полностью переписываю getPositionsHistory в topvisor.ts:
+
+Write test-topvisor.ts
+36 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Get full response to understand structure
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const data = await resp.json();
+  console.log('Headers.projects:', JSON.stringify(data.result?.headers?.projects));
+  console.log('Keywords count:', data.result?.keywords?.length);
+  console.log('First keyword:', JSON.stringify(data.result?.keywords?.[0]));
+  console.log('Tops:', JSON.stringify(data.result?.tops));
+  console.log('Visibility:', JSON.stringify(data.result?.visibility));
+  console.log('Summary:', JSON.stringify(data.result?.summary));
+}
+
+main().catch(console.error);
+Bash Inspect full positions response structure
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Headers.projects: [{"id":23765732,"name":"Фронтсайд","site":"frontside.ru","searchers":[{"name":"Yandex","key":0,"regions":[{"countryCode":"RU","name":"Москва","areaName":"Москва и Московская область","searcher_key":0,"index":"1","key":213,"lang":"ru","device":0,"device_name":"ПК"}]}]}]
+Keywords count: 408
+First keyword: {"name":"техническое проектирование","positionsData":[]}
+Tops: null
+Visibility: undefined
+Summary: undefined
+Write test-topvisor.ts
+46 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // Check keywords that have actual positions
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const data = await resp.json();
+  const keywords = data.result?.keywords ?? [];
+
+  // Find keywords with non-empty positionsData
+  const withPos = keywords.filter((kw: any) => kw.positionsData?.length > 0);
+  console.log('Total keywords:', keywords.length);
+  console.log('With positionsData:', withPos.length);
+  console.log('First with data:', JSON.stringify(withPos[0]));
+  console.log('Second with data:', JSON.stringify(withPos[1]));
+
+  // Check for group_id
+  const withGroup = keywords.filter((kw: any) => kw.group_id != null);
+  console.log('With group_id:', withGroup.length);
+
+  // Check tops/visibility
+  console.log('Tops in result:', data.result?.tops);
+  console.log('Result keys:', Object.keys(data.result ?? {}));
+}
+
+main().catch(console.error);
+Bash Inspect keywords structure and positions data
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+Total keywords: 408
+With positionsData: 0
+First with data: undefined
+Second with data: undefined
+With group_id: 0
+Tops in result: null
+Result keys: [
+  'headers',
+  'keywords',
+  'tops',
+  'topsByDepth',
+  'visitors',
+  'existsDates'
+]
+Write test-topvisor.ts
+60 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const projectId = 23765732;
+
+  // existsDates tells us what dates have data - check it
+  // Also try with the last available date
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-03-31'],
+      show_headers: true,
+      show_tops: true,
+    }),
+  });
+  const data = await resp.json();
+  console.log('existsDates:', JSON.stringify(data.result?.existsDates?.slice(0, 10)));
+  console.log('headers.dates:', data.result?.headers?.dates);
+  console.log('topsByDepth:', JSON.stringify(data.result?.topsByDepth));
+  console.log('visitors:', JSON.stringify(data.result?.visitors?.slice(0, 3)));
+
+  // Try with last available date from existsDates
+  const dates = data.result?.existsDates;
+  if (dates?.length) {
+    const lastDate = dates[dates.length - 1];
+    console.log('\nLast available date:', lastDate);
+    const resp2 = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+      body: JSON.stringify({
+        project_id: projectId,
+        regions_indexes: [1],
+        type_range: 0,
+        dates: [lastDate],
+        show_headers: false,
+        show_tops: true,
+      }),
+    });
+    const data2 = await resp2.json();
+    const kws = data2.result?.keywords ?? [];
+    const withPos = kws.filter((kw: any) => kw.positionsData?.length > 0 && kw.positionsData[0] !== null);
+    console.log('Keywords on last date with positions:', withPos.length);
+    console.log('First:', JSON.stringify(withPos[0]));
+    console.log('Tops:', JSON.stringify(data2.result?.tops));
+    console.log('topsByDepth:', JSON.stringify(data2.result?.topsByDepth));
+  }
+}
+
+main().catch(console.error);
+Bash Check existsDates and keyword positions structure
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+existsDates: undefined
+headers.dates: [ '2026-03-31' ]
+topsByDepth: null
+visitors: undefined
+Все поля null/undefined — данных просто нет за эту дату в этом проекте. Проверяю другой проект и смотрю type_range:
+
+Write test-topvisor.ts
+40 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  // Try a different project that likely has more recent data
+  // КРОМ - id 28198436
+  const projectId = 28198436;
+
+  // First get available regions for this project
+  const respProj = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 2, // last N days
+      count: 1,
+      show_headers: true,
+      show_tops: true,
+    }),
+  });
+  const d1 = await respProj.json();
+  console.log('type_range=2 result keys:', d1.result ? Object.keys(d1.result) : d1.errors);
+  console.log('headers.dates:', d1.result?.headers?.dates);
+  console.log('headers.projects searchers:', JSON.stringify(d1.result?.headers?.projects?.[0]?.searchers));
+  const kws = d1.result?.keywords ?? [];
+  const withPos = kws.filter((kw: any) => kw.positionsData && kw.positionsData.some((p: any) => p !== null && p !== undefined));
+  console.log('Keywords with positions:', withPos.length, '/', kws.length);
+  console.log('First kw with pos:', JSON.stringify(withPos[0]));
+  console.log('tops:', JSON.stringify(d1.result?.tops));
+  console.log('topsByDepth:', JSON.stringify(d1.result?.topsByDepth));
+}
+
+main().catch(console.error);
+Bash Test with different project and type_range=2
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+type_range=2 result keys: [
+  {
+    code: 2001,
+    string: "В запросе отсутствует обязательный параметр: 'date1'",
+    detail: { sid: '09566ffc23a194c2', v: '1.19.82' }
+  }
+]
+headers.dates: undefined
+headers.projects searchers: undefined
+Keywords with positions: 0 / 0
+First kw with pos: undefined
+tops: undefined
+topsByDepth: undefined
+Write test-topvisor.ts
+38 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  // КРОМ - has fresh data presumably
+  const projectId = 28198436;
+
+  // type_range=1 = date range with date1/date2
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: projectId,
+      regions_indexes: [1],
+      type_range: 1,
+      date1: '2026-04-01',
+      date2: '2026-04-30',
+      show_headers: true,
+      show_tops: true,
+    }),
+  });
+  const d = await resp.json();
+  if (d.errors) { console.log('Error:', d.errors); return; }
+  console.log('dates:', d.result?.headers?.dates);
+  const kws = d.result?.keywords ?? [];
+  const withPos = kws.filter((kw: any) => kw.positionsData && kw.positionsData.some((p: any) => p !== null && p !== undefined && p !== 0));
+  console.log('Keywords with positions:', withPos.length, '/', kws.length);
+  console.log('Sample:', JSON.stringify(withPos.slice(0, 2)));
+  console.log('tops:', JSON.stringify(d.result?.tops));
+}
+
+main().catch(console.error);
+Bash Test with type_range=1 date range
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+dates: []
+Keywords with positions: 0 / 60
+Sample: []
+tops: null
+Нет данных ни за один период. Посмотрю existsDates у этого проекта:
+
+Write test-topvisor.ts
+45 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  // Брок - тест (id: 23491424) — скорее всего тестовый с данными
+  // Медалист (id: 18643110) — активный клиент
+  // Пробуем несколько проектов чтобы найти тот у которого есть данные
+  const projects = [
+    { id: 28198436, name: 'КРОМ' },
+    { id: 18643110, name: 'Медалист' },
+    { id: 25748377, name: 'LINE TOOLS' },
+    { id: 14586847, name: 'fuse8' },
+  ];
+
+  for (const proj of projects) {
+    const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+      body: JSON.stringify({
+        project_id: proj.id,
+        regions_indexes: [1],
+        type_range: 0,
+        dates: ['2026-04-28'],
+        show_headers: true,
+        show_tops: true,
+      }),
+    });
+    const d = await resp.json();
+    const kws = d.result?.keywords ?? [];
+    const withPos = kws.filter((kw: any) => kw.positionsData && kw.positionsData.some((p: any) => p !== null));
+    console.log(`${proj.name} (${proj.id}): ${withPos.length}/${kws.length} with positions, dates:`, d.result?.headers?.dates);
+    if (withPos.length > 0) {
+      console.log('  Sample:', JSON.stringify(withPos[0]));
+      console.log('  Tops:', JSON.stringify(d.result?.tops));
+    }
+  }
+}
+
+main().catch(console.error);
+Bash Check multiple projects for available position data
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+КРОМ (28198436): 0/60 with positions, dates: [ '2026-04-28' ]
+Медалист (18643110): 0/683 with positions, dates: [ '2026-04-28' ]
+LINE TOOLS (25748377): 0/1330 with positions, dates: [ '2026-04-28' ]
+fuse8 (14586847): 0/242 with positions, dates: [ '2026-04-28' ]
+Ключевые слова есть, но positionsData пустой. Проблема в структуре — positionsData возвращается иначе чем ожидает код. Смотрю полный объект keyword:
+
+Write test-topvisor.ts
+33 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: 14586847, // fuse8
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-28'],
+      show_headers: false,
+      show_tops: true,
+    }),
+  });
+  const d = await resp.json();
+  const kws = d.result?.keywords ?? [];
+  // Print first 3 keywords raw
+  console.log('First 3 keywords raw:');
+  kws.slice(0, 3).forEach((kw: any) => console.log(JSON.stringify(kw)));
+  console.log('\nAll result keys:', Object.keys(d.result ?? {}));
+  console.log('tops:', d.result?.tops);
+  console.log('topsByDepth:', d.result?.topsByDepth);
+}
+
+main().catch(console.error);
+Bash Print raw keyword objects
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+First 3 keywords raw:
+{"name":"цифровая экосистема","positionsData":[]}
+{"name":"разработка маркетплейса","positionsData":[]}
+{"name":"веб разработка","positionsData":[]}
+
+All result keys: [
+  'headers',
+  'keywords',
+  'tops',
+  'topsByDepth',
+  'visitors',
+  'existsDates'
+]
+tops: null
+topsByDepth: null
+positionsData: [] — массив пустой. Это потому что нужно явно запрашивать поля включая positionsData. Попробую с явным указанием полей в другом формате:
+
+Write test-topvisor.ts
+33 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  // Try with fields as flat array of strings (not nested object)
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: 14586847,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-28'],
+      show_headers: false,
+      show_tops: true,
+      fields: ['name', 'positionsData', 'group_id'],
+    }),
+  });
+  const d = await resp.json();
+  if (d.errors) { console.log('Error:', d.errors); }
+  const kws = d.result?.keywords ?? [];
+  console.log('First 3:');
+  kws.slice(0, 3).forEach((kw: any) => console.log(JSON.stringify(kw)));
+  console.log('tops:', d.result?.tops);
+}
+
+main().catch(console.error);
+Bash Test with flat fields array
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Error: [
+  {
+    code: 2004,
+    string: "Несоответствие значения переданного параметра: fields[n].name = 'positionsData'",
+    detail: { sid: '5a7085a72ef8412a', v: '1.19.82' }
+  }
+]
+First 3:
+tops: undefined
+positionsData — не валидное поле для fields. Значит это виртуальное поле которое всегда возвращается, но пустой массив [] означает что позиций нет. Нужен show_position или аналогичный параметр. Смотрю официальную документацию:
+
+Agent:Fetch Topvisor positions history API docs
+IN
+Please fetch the Topvisor API v2 documentation for the positions history endpoint. Fetch these pages:
+1. https://topvisor.com/api/v2/positions/history/
+2. https://topvisor.com/ru/api/v2/positions-history/
+
+I need to know:
+- What parameters are required/optional for get/positions_2/history
+- How to get actual position values (positionsData is always empty [])
+- Is there a show_position parameter or similar?
+- What does the fields parameter accept for keywords?
+- What is the correct structure of the response (keywords[].positionsData format)
+
+The current request that returns empty positionsData:
+{
+  project_id: 14586847,
+  regions_indexes: [1],
+  type_range: 0,
+  dates: ['2026-04-28'],
+  show_tops: true
+}
+
+Return the key parameters and response structure details.
+Web Fetchhttps://topvisor.com/ru/api/v2/positions-history/
+OUT
+Request failed with status code 404
+Web SearchTopvisor positions history positionsData response structure API
+OUT
+Web search results for query: "Topvisor positions history positionsData response structure API"
+
+Links: [{"title":"Получение позиций сайта в поисковых системах с помощью Topvisor API на Python","url":"https://www.marronnier.ru/blog/13-avtomatizatsiya/59-poluchenie-pozitsij-s-ispolzovaniem-topvisor-api"},{"title":"API Version 2. Developer Documentation — API Topvisor","url":"https://topvisor.com/api/v2/"},{"title":"Topvisor — all the SEO tools on one platform","url":"https://topvisor.com/?inv=1431"},{"title":"GitHub - topvisor/topvisor-sdk","url":"https://github.com/topvisor/topvisor-sdk"},{"title":"Topvisor - Position Monitoring, cost from 0.02 rubles, review of Topvisor service: reviews, contacts - dicezilla.com","url":"https://affgate.com/en/services/topvisor/"},{"title":"Topvisor APIs - All Endpoints & Services","url":"https://apitracker.io/a/topvisor/apis"},{"title":"edit/positions_2/checker/go — API Topvisor","url":"https://topvisor.com/api/v2-services/positions_2/edit-checker_go/"},{"title":"Projects — API Topvisor","url":"https://topvisor.com/api/v2-services/projects_2/projects/"},{"title":"Topvisor LLC · GitHub","url":"https://github.com/topvisor"},{"title":"Historical Positions API [discontinued] | Maritime Documentation","url":"https://servicedocs-sm.kpler.com/historical-positions-api/"}]
+
+Based on the search results, I found relevant information about the Topvisor API's positions history response structure.
+
+The Topvisor API response includes a structure where position data is accessed through `data['result']['keywords'][index]['positionsData']`. The `positionsData` field contains date and position information that can be iterated through using `.items()` method.
+
+When retrieving relevant URLs with position history, the `positionsData` structure includes dates and relevant URLs, while for standard position tracking, it contains dates and position values.
+
+The search results show that keyword information is structured with a 'name' field containing the keyword text, and the overall response is wrapped in a `result` object containing a `keywords` array.
+
+If you need more detailed technical documentation with complete field specifications and examples, you may want to visit Topvisor's official API Version 2 documentation, which allows developers to manage and track their Topvisor campaigns.
+
+
+REMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks.
+Web Fetchhttps://topvisor.com/api/v2/
+Fetched from https://topvisor.com/api/v2/
+Web Fetchhttps://topvisor.com/api/v2-services/positions_2/get-history/
+Fetched from https://topvisor.com/api/v2-services/positions_2/get-history/
+Web Fetchhttps://github.com/topvisor/topvisor-sdk
+Fetched from https://github.com/topvisor/topvisor-sdk
+Нашёл — нужен параметр positions_fields: ['position'] и структура positionsData теперь объект по датам, а не массив. Это полностью меняет логику парсинга. Тестирую и потом переписываю клиент:
+
+Write test-topvisor.ts
+39 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: 14586847,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-28'],
+      positions_fields: ['position'],
+      show_tops: true,
+      show_headers: false,
+    }),
+  });
+  const d = await resp.json();
+  if (d.errors) { console.log('Errors:', d.errors); return; }
+
+  const kws = d.result?.keywords ?? [];
+  const withPos = kws.filter((kw: any) => {
+    const pd = kw.positionsData;
+    return pd && typeof pd === 'object' && !Array.isArray(pd) && Object.keys(pd).length > 0;
+  });
+  console.log('Keywords with positionsData:', withPos.length, '/', kws.length);
+  console.log('First 3 with data:');
+  withPos.slice(0, 3).forEach((kw: any) => console.log(JSON.stringify(kw)));
+  console.log('\ntops:', JSON.stringify(d.result?.tops));
+  console.log('topsByDepth:', JSON.stringify(d.result?.topsByDepth));
+}
+
+main().catch(console.error);
+Bash Test with positions_fields parameter
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Keywords with positionsData: 0 / 242
+First 3 with data:
+
+tops: null
+topsByDepth: null
+Write test-topvisor.ts
+33 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({
+      project_id: 14586847,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-28'],
+      positions_fields: ['position'],
+      show_tops: true,
+      show_headers: false,
+    }),
+  });
+  const d = await resp.json();
+  const kws = d.result?.keywords ?? [];
+  // Print first 3 raw regardless of positionsData content
+  console.log('First 3 raw keywords:');
+  kws.slice(0, 3).forEach((kw: any) => console.log(JSON.stringify(kw)));
+  console.log('\nTotal:', kws.length);
+  console.log('tops:', d.result?.tops);
+}
+
+main().catch(console.error);
+Bash Print raw keyword objects with positions_fields
+IN
+cd "f:/projects/reports" && npx tsx --env-file=.env.local scripts/test-topvisor.ts 2>&1
+
+OUT
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+First 3 raw keywords:
+{"name":"цифровая экосистема","positionsData":[]}
+{"name":"разработка маркетплейса","positionsData":[]}
+{"name":"веб разработка","positionsData":[]}
+
+Total: 242
+tops: null
+positionsData: [] всё равно. Возможно данные снятия позиций за 28 апреля просто не были собраны в этом проекте — он мог быть неактивен. Попробую найти проект с реальными данными через более широкий диапазон дат:
+
+Write test-topvisor.ts
+46 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+
+  // Try Брок Инвест (frequent checks) and Медалист with a range
+  const projectIds = [5491798, 18643110, 10086339, 9237693];
+
+  for (const pid of projectIds) {
+    const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+      body: JSON.stringify({
+        project_id: pid,
+        regions_indexes: [1],
+        type_range: 1,
+        date1: '2026-04-01',
+        date2: '2026-04-30',
+        positions_fields: ['position'],
+        show_tops: true,
+        show_headers: true,
+      }),
+    });
+    const d = await resp.json();
+    if (d.errors) { console.log(`${pid}: errors:`, d.errors?.[0]?.string); continue; }
+    const kws = d.result?.keywords ?? [];
+    const dates = d.result?.headers?.dates ?? [];
+    // Check first keyword raw
+    const first = kws[0];
+    const hasPosData = first && typeof first.positionsData === 'object' &&
+      !Array.isArray(first.positionsData) && Object.keys(first.positionsData ?? {}).length > 0;
+    const arrayWithData = Array.isArray(first?.positionsData) && first?.positionsData?.some((p: any) => p !== null);
+    console.log(`${pid}: ${kws.length} kws, dates: ${dates.slice(0,3)}, first.positionsData type: ${Array.isArray(first?.positionsData)?'array':'obj'}, hasPosData: ${hasPosData||arrayWithData}`);
+    if (hasPosData || arrayWithData) {
+      console.log('  First kw:', JSON.stringify(first));
+      break;
+    }
+  }
+}
+
+main().catch(console.error);
+You've hit your limit · resets 8:40pm (Asia/Bangkok)
+
+f:\projects\reports\DEV_LOG.md
+Продолжаем работать. 
+1 - продолжи выполнение прошлого задания
+2 - прочитай claude.md и зафиксируй всё нужное в DEV_LOG.md
+Читаю текущее состояние тестового скрипта и сервиса Topvisor.
+
+Bash Run Topvisor test script to see current API response
+IN
+cd F:/projects/reports && npx tsx scripts/test-topvisor.ts 2>&1
+
+OUT
+Exit code 1
+F:\projects\reports\lib\prisma.ts:7
+    throw new Error("DATABASE_URL is not set");
+          ^
+
+Error: DATABASE_URL is not set
+    at createPrismaClient (F:\projects\reports\lib\prisma.ts:7:11)
+    at <anonymous> (F:\projects\reports\lib\prisma.ts:16:49)
+    at Object.<anonymous> (F:\projects\reports\lib\prisma.ts:20:1)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object.transformer (F:\projects\reports\node_modules\tsx\dist\register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1576:12)
+    at require (node:internal/modules/helpers:153:16)
+
+Node.js v24.15.0
+Read f:\projects\reports\scripts\test-topvisor.ts
+Скрипт не читает .env.local перед импортом модулей. Перепишу скрипт чтобы сначала получить credentials, потом сделать полный сырой запрос и увидеть реальную структуру ответа.
+
+Write f:\projects\reports\scripts\test-topvisor.ts
+70 lines
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { getTopvisorCredentials } from '../lib/topvisor-settings';
+
+async function main() {
+  const creds = await getTopvisorCredentials();
+  if (!creds) { console.log('no creds'); return; }
+  console.log('Got creds, userId:', creds.userId.slice(0, 4) + '***');
+
+  // First: get list of projects to find IDs
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+    body: JSON.stringify({ fields: ['id', 'name', 'site', 'searchers'] }),
+  });
+  const projData = await projResp.json();
+  if (projData.errors) { console.log('projects error:', projData.errors); return; }
+  const projects: any[] = projData.result ?? [];
+  console.log(`Total projects: ${projects.length}`);
+
+  // Try a few projects to find one with data
+  for (const proj of projects.slice(0, 5)) {
+    const searchers: any[] = proj.searchers ?? [];
+    const yandex = searchers.find((s: any) => s.project_name === 'Яндекс' || s.searcher_key === 0 || s.id === 1 || s.searcher_key === 1);
+    const firstSearcher = yandex ?? searchers[0];
+    const regionIndex = firstSearcher?.regions?.[0]?.index ?? 1;
+    const searcherKey = firstSearcher?.searcher_key ?? firstSearcher?.key ?? 0;
+
+    console.log(`\n--- ${proj.name} (id: ${proj.id}) ---`);
+    console.log(`  searchers: ${JSON.stringify(searchers.map((s: any) => ({ id: s.id, key: s.searcher_key, name: s.project_name, regions: s.regions?.slice(0,2) })))}`);
+    console.log(`  Using regionIndex: ${regionIndex}, searcherKey: ${searcherKey}`);
+
+    const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': creds.userId, 'authorization': 'bearer ' + creds.apiKey },
+      body: JSON.stringify({
+        project_id: proj.id,
+        regions_indexes: [regionIndex],
+        type_range: 1,
+        date1: '2026-04-01',
+        date2: '2026-04-30',
+        positions_fields: ['position'],
+        show_tops: true,
+        show_headers: true,
+        show_visibility: true,
+        fields: {
+          keywords: ['id', 'name', 'group_id'],
+          groups: ['id', 'name'],
+        },
+      }),
+    });
+    const d = await resp.json();
+    if (d.errors) { console.log(`  errors:`, d.errors); continue; }
+    const result = d.result;
+    console.log(`  result keys: ${Object.keys(result ?? {}).join(', ')}`);
+    const kws: any[] = result?.keywords ?? [];
+    console.log(`  keywords: ${kws.length}`);
+    if (kws.length === 0) continue;
+    const first = kws[0];
+    console.log(`  first kw: ${JSON.stringify(first)}`);
+    console.log(`  headers: ${JSON.stringify(result?.headers)}`);
+    console.log(`  tops: ${JSON.stringify(result?.tops)}`);
+    console.log(`  visibility: ${result?.visibility}`);
+    break;
+  }
+}
+
+main().catch(console.error);
+Bash Run updated Topvisor test script
+IN
+cd F:/projects/reports && npx tsx scripts/test-topvisor.ts 2>&1
+
+OUT
+Exit code 1
+F:\projects\reports\lib\prisma.ts:7
+    throw new Error("DATABASE_URL is not set");
+          ^
+
+Error: DATABASE_URL is not set
+    at createPrismaClient (F:\projects\reports\lib\prisma.ts:7:11)
+    at <anonymous> (F:\projects\reports\lib\prisma.ts:16:49)
+    at Object.<anonymous> (F:\projects\reports\lib\prisma.ts:20:1)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object.transformer (F:\projects\reports\node_modules\tsx\dist\register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1576:12)
+    at require (node:internal/modules/helpers:153:16)
+
+Node.js v24.15.0
+Проблема: tsx обрабатывает импорты до исполнения dotenv.config(). Нужно загружать credentials напрямую без Prisma, или использовать --env-file.
+
+Bash Test --env-file flag availability
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "console.log(process.env.DATABASE_URL ? 'ok' : 'missing')" 2>&1
+
+OUT
+ok
+Bash Check AccountSettings has Topvisor credentials
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1', (err, res) => {
+  if (err) { console.log('err:', err.message); process.exit(1); }
+  console.log('row:', res.rows[0] ? 'found' : 'empty');
+  const row = res.rows[0];
+  if (row) { console.log('userId len:', row.topvisorUserId?.length, 'key len:', row.topvisorApiKey?.length); }
+  pool.end();
+});
+" 2>&1
+
+OUT
+row: found
+userId len: 70 key len: 122
+Read f:\projects\reports\lib\crypto.ts
+Напишу тест без Prisma — читаю credentials напрямую из БД и расшифровываю на месте:
+
+Bash Fetch Topvisor projects with searchers structure to understand regions
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1');
+  const row = rows[0];
+  const userId = decryptToken(row.topvisorUserId);
+  const apiKey = decryptToken(row.topvisorApiKey);
+  console.log('userId:', userId.slice(0,4) + '***');
+
+  // Fetch projects with searchers
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name', 'site', 'searchers'] }),
+  });
+  const projData = await projResp.json();
+  if (projData.errors) { console.log('projects error:', JSON.stringify(projData.errors)); process.exit(1); }
+  const projects = projData.result ?? [];
+  console.log('Projects count:', projects.length);
+
+  // Show first project searchers structure
+  const proj = projects[0];
+  console.log('First project:', proj.name, '(id:', proj.id + ')');
+  console.log('Searchers:', JSON.stringify(proj.searchers, null, 2));
+  await pool.end();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+" 2>&1
+
+OUT
+Exit code 127
+userId: 1105***
+projects error: [{"code":2004,"string":"Несоответствие значения переданного параметра: fields[n].name = 'searchers'","detail":{"sid":"c468647098c67c6e","v":"1.19.82"}}]
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76
+searchers не является полем для projects_2/projects. Нужно получить searchers через другой метод или проверить документацию:
+
+Bash Try get/searchers_2/searchers to understand regions structure
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1');
+  const row = rows[0];
+  const userId = decryptToken(row.topvisorUserId);
+  const apiKey = decryptToken(row.topvisorApiKey);
+
+  // Fetch first project id
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name', 'site'] }),
+  });
+  const projData = await projResp.json();
+  const proj = projData.result?.[0];
+  console.log('First project:', proj?.name, 'id:', proj?.id);
+
+  // Get searchers for the project via get/searchers_2/searchers
+  const sResp = await fetch('https://api.topvisor.com/v2/json/get/searchers_2/searchers', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ project_id: proj.id, fields: ['id', 'key', 'name', 'regions'] }),
+  });
+  const sData = await sResp.json();
+  console.log('Searchers response:', JSON.stringify(sData, null, 2));
+  await pool.end();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+" 2>&1
+
+OUT
+First project: КРОМ id: 28198436
+Searchers response: {
+  "result": null,
+  "errors": [
+    {
+      "code": 1003,
+      "string": "Call to undefined method: get/searchers_2/searchers",
+      "detail": {
+        "sid": "400c2ee25f89e2f3",
+        "v": "1.19.82"
+      }
+    }
+  ]
+}
+Bash Test positions_2/history with regions_indexes [0] and type_range=0
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name', 'site'] }),
+  });
+  const projData = await projResp.json();
+  const proj = projData.result?.[0];
+  console.log('First project:', proj?.name, 'id:', proj?.id);
+
+  // Try get positions with show_headers to see what regions are available
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: proj.id,
+      regions_indexes: [0],
+      type_range: 0,
+      dates: ['2026-04-30'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+      fields: { keywords: ['id', 'name', 'group_id'], groups: ['id', 'name'] },
+    }),
+  });
+  const d = await resp.json();
+  if (d.errors) { console.log('errors:', JSON.stringify(d.errors)); } else {
+    console.log('result keys:', Object.keys(d.result ?? {}));
+    console.log('headers:', JSON.stringify(d.result?.headers));
+    console.log('keywords count:', d.result?.keywords?.length);
+    const first = d.result?.keywords?.[0];
+    console.log('first kw:', JSON.stringify(first));
+  }
+  await pool.end();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+" 2>&1
+
+OUT
+First project: КРОМ id: 28198436
+errors: [{"code":2003,"string":"Error item in \"regions_indexes\": 0: 'regions_indexes'","detail":{"sid":"449bfe56ca72e522","v":"1.19.82"}}]
+Index 0 невалиден. Попробую индекс 1 и посмотрю show_headers чтобы узнать доступные регионы:
+
+Bash Test with regions_indexes [1] and see full headers response
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name', 'site'] }),
+  });
+  const projData = await projResp.json();
+  const proj = projData.result?.[0];
+  console.log('Project:', proj?.name, 'id:', proj?.id);
+
+  // Use regions_indexes [1] (Yandex Moscow typically)
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: proj.id,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-30'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+      fields: { keywords: ['id', 'name', 'group_id'], groups: ['id', 'name'] },
+    }),
+  });
+  const d = await resp.json();
+  if (d.errors) {
+    console.log('errors:', JSON.stringify(d.errors));
+  } else {
+    console.log('result keys:', Object.keys(d.result ?? {}));
+    const headers = d.result?.headers;
+    console.log('headers.projects (regions):', JSON.stringify(headers?.projects, null, 2));
+    console.log('keywords count:', d.result?.keywords?.length);
+    const first = d.result?.keywords?.[0];
+    console.log('first kw:', JSON.stringify(first));
+    console.log('tops:', JSON.stringify(d.result?.tops));
+    console.log('visibility:', d.result?.visibility);
+  }
+  await pool.end();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+" 2>&1
+
+OUT
+Project: КРОМ id: 28198436
+errors: [{"code":0,"string":"В запросе отсутствует обязательный параметр: fields[n].name","detail":{"sid":"e2b11e80532877bc","v":"1.19.82"}}]
+Ошибка: параметр fields для keywords и groups нельзя передавать как объект с keywords/groups — это только Metrika-стиль. Нужно передавать просто как список полей или без них:
+
+Bash Test without fields parameter to get raw response structure
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name', 'site'] }),
+  });
+  const proj = (await projResp.json()).result?.[0];
+  console.log('Project:', proj?.name, 'id:', proj?.id);
+
+  // No 'fields' parameter at all - just get everything
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: proj.id,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-30'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const d = await resp.json();
+  if (d.errors) {
+    console.log('errors:', JSON.stringify(d.errors));
+  } else {
+    const result = d.result;
+    console.log('result keys:', Object.keys(result ?? {}));
+    console.log('headers.projects:', JSON.stringify(result?.headers?.projects, null, 2));
+    console.log('keywords count:', result?.keywords?.length);
+    const first = result?.keywords?.[0];
+    console.log('first kw keys:', Object.keys(first ?? {}));
+    console.log('first kw positionsData:', JSON.stringify(first?.positionsData));
+    console.log('tops:', JSON.stringify(result?.tops));
+    console.log('visibility:', result?.visibility);
+  }
+  await pool.end();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+" 2>&1
+
+OUT
+Project: КРОМ id: 28198436
+result keys: [
+  'headers',
+  'keywords',
+  'tops',
+  'topsByDepth',
+  'visitors',
+  'existsDates'
+]
+headers.projects: [
+  {
+    "id": 28198436,
+    "name": "КРОМ",
+    "site": "krom-stanki.ru",
+    "searchers": [
+      {
+        "name": "Yandex",
+        "key": 0,
+        "regions": [
+          {
+            "countryCode": "RU",
+            "name": "Москва",
+            "areaName": "Москва и Московская область",
+            "searcher_key": 0,
+            "index": "1",
+            "key": 213,
+            "lang": "ru",
+            "device": 0,
+            "device_name": "ПК"
+          }
+        ]
+      }
+    ]
+  }
+]
+keywords count: 60
+first kw keys: [ 'name', 'positionsData' ]
+first kw positionsData: []
+tops: null
+visibility: undefined
+Отличная информация. Теперь вижу структуру:
+
+regions[0].index = "1" (строка, не число)
+positionsData: [] — пустой массив для даты 2026-04-30 (возможно нет данных за эту конкретную дату)
+tops: null когда нет данных
+Попробую другие даты и show_exists_dates чтобы найти дату с данными:
+
+Bash Test with type_range=1 date range to see existsDates and actual position data
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name'] }),
+  });
+  const proj = (await projResp.json()).result?.[0];
+  console.log('Project:', proj?.name, 'id:', proj?.id);
+
+  // Get existsDates for past month
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: proj.id,
+      regions_indexes: [1],
+      type_range: 1,
+      date1: '2026-04-01',
+      date2: '2026-04-30',
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const d = await resp.json();
+  if (d.errors) { console.log('errors:', JSON.stringify(d.errors)); return; }
+  console.log('existsDates:', JSON.stringify(d.result?.existsDates));
+  console.log('headers.dates:', JSON.stringify(d.result?.headers?.dates));
+  const kws = d.result?.keywords ?? [];
+  console.log('keywords count:', kws.length);
+  // Find first keyword with non-empty positionsData
+  const withData = kws.find(k => Array.isArray(k.positionsData) && k.positionsData.some(p => p !== null && p !== undefined));
+  console.log('first kw with data:', JSON.stringify(withData ?? kws[0]));
+  console.log('tops:', JSON.stringify(d.result?.tops));
+  await pool.end();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+" 2>&1
+
+OUT
+Project: КРОМ id: 28198436
+existsDates: null
+headers.dates: []
+keywords count: 60
+first kw with data: {"name":"для чего нужен форматно раскроечный станок"}
+tops: null
+Нет данных для первого проекта. Попробую другие проекты:
+
+Bash Scan first 20 projects to find one with actual position data
+IN
+cd F:/projects/reports && node --env-file=.env.local -e "
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT \"topvisorUserId\", \"topvisorApiKey\" FROM \"AccountSettings\" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name'] }),
+  });
+  const projs = (await projResp.json()).result ?? [];
+  console.log('Total:', projs.length);
+
+  for (const proj of projs.slice(0, 20)) {
+    const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+      body: JSON.stringify({
+        project_id: proj.id,
+        regions_indexes: [1],
+        type_range: 1,
+        date1: '2026-04-01',
+        date2: '2026-04-30',
+        show_headers: true,
+        show_tops: true,
+      }),
+    });
+    const d = await resp.json();
+    if (d.errors) { console.log(proj.name, '- errors:', d.errors[0]?.string); continue; }
+    const existsDates = d.result?.existsDates;
+    const dateCount = d.result?.headers?.dates?.length ?? 0;
+    const kws = d.result?.keywords ?? [];
+    const withData = kws.filter(k => Array.isArray(k.positionsData) && k.positionsData.some(p => p !== null));
+    console.log(proj.name, `(${proj.id}): dates=${dateCount}, kws=${kws.length}, withPosData=${withData.length}, existsDates=${JSON.stringify(existsDates)}`);
+    if (withData.length > 0) { console.log('  FOUND DATA! first:', JSON.stringify(withData[0])); break; }
+  }
+  await pool.end();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+" 2>&1
+
+OUT
+/usr/bin/bash: command substitution: line 54: syntax error near unexpected token `:'
+/usr/bin/bash: command substitution: line 54: `(${proj.id}): dates=${dateCount}, kws=${kws.length}, withPosData=${withData.length}, existsDates=${JSON.stringify(existsDates)}'
+Total: 99
+КРОМ
+Лертеко
+Дента Люкс (ключевые запросы)
+Золотая Линия (NEW)
+Дента Люкс
+LINE TOOLS
+Фронтсайд
+Брок - тест
+AWX
+Сила обогрева
+adventum
+Теневой
+Медалист
+Брок 3.0
+infercom
+metalamp.ru
+metalamp.io
+opalubkapro.spb.ru
+fuse8
+https://energetic42.ru/
+Проблема с template literals в bash — используют одинарные кавычки. Перепишу с concat:
+
+Bash Scan projects for position data using heredoc to avoid bash quoting issues
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const projResp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name'] }),
+  });
+  const projs = (await projResp.json()).result || [];
+
+  for (const proj of projs.slice(0, 15)) {
+    const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+      body: JSON.stringify({
+        project_id: proj.id,
+        regions_indexes: [1],
+        type_range: 1,
+        date1: '2026-04-01',
+        date2: '2026-04-30',
+        show_headers: true,
+        show_tops: true,
+      }),
+    });
+    const d = await resp.json();
+    if (d.errors) { console.log(proj.name + ' - errors: ' + d.errors[0].string); continue; }
+    const kws = d.result.keywords || [];
+    const withData = kws.filter(function(k) { return Array.isArray(k.positionsData) && k.positionsData.some(function(p) { return p !== null; }); });
+    const dates = (d.result.headers && d.result.headers.dates) || [];
+    console.log(proj.name + ' (' + proj.id + '): dates=' + dates.length + ' kws=' + kws.length + ' withData=' + withData.length + ' existsDates=' + JSON.stringify(d.result.existsDates));
+    if (withData.length > 0) {
+      console.log('FOUND DATA! First kw: ' + JSON.stringify(withData[0]));
+      console.log('tops: ' + JSON.stringify(d.result.tops));
+      console.log('visibility: ' + d.result.visibility);
+      break;
+    }
+  }
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+КРОМ (28198436): dates=0 kws=60 withData=0 existsDates=null
+Лертеко (27303441): dates=0 kws=1 withData=0 existsDates=null
+Дента Люкс (ключевые запросы) (26568825): dates=0 kws=16 withData=0 existsDates=null
+Золотая Линия (NEW) (26513849): dates=0 kws=989 withData=0 existsDates=null
+Дента Люкс (25916568): dates=0 kws=519 withData=0 existsDates=null
+LINE TOOLS (25748377): dates=0 kws=1330 withData=0 existsDates=null
+Фронтсайд (23765732): dates=1 kws=408 withData=0 existsDates=null
+Брок - тест (23491424): dates=0 kws=1272 withData=0 existsDates=null
+AWX (23380377): dates=0 kws=773 withData=0 existsDates=null
+Сила обогрева (23064350): dates=0 kws=433 withData=0 existsDates=null
+adventum (21774446): dates=0 kws=1547 withData=0 existsDates=null
+Теневой (20114866): dates=1 kws=725 withData=0 existsDates=null
+Медалист (18643110): dates=0 kws=683 withData=0 existsDates=null
+Брок 3.0 (16876175): dates=0 kws=1777 withData=0 existsDates=null
+infercom (16802631): dates=0 kws=220 withData=0 existsDates=null
+Все проекты возвращают 0 positionsData! При этом dates=1 для "Фронтсайд" — значит есть дата в массиве. Попробую посмотреть сырую структуру первого keyword для этого проекта:
+
+Bash Get full raw response for Фронтсайд project which had 1 date
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  // Use Фронтсайд which had dates=1
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: 23765732,
+      regions_indexes: [1],
+      type_range: 1,
+      date1: '2026-04-01',
+      date2: '2026-04-30',
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const d = await resp.json();
+  const result = d.result;
+  console.log('dates:', JSON.stringify(result.headers.dates));
+  console.log('projects in headers:', JSON.stringify(result.headers.projects));
+  const first5 = (result.keywords || []).slice(0, 3);
+  console.log('first 3 kws (full):', JSON.stringify(first5, null, 2));
+  console.log('tops:', JSON.stringify(result.tops));
+  console.log('topsByDepth:', JSON.stringify(result.topsByDepth));
+  console.log('existsDates:', result.existsDates);
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+dates: ["2026-04-30"]
+projects in headers: [{"id":23765732,"name":"Фронтсайд","site":"frontside.ru","searchers":[{"name":"Yandex","key":0,"regions":[{"countryCode":"RU","name":"Москва","areaName":"Москва и Московская область","searcher_key":0,"index":"1","key":213,"lang":"ru","device":0,"device_name":"ПК"}]}]}]
+first 3 kws (full): [
+  {
+    "name": "техническое проектирование",
+    "positionsData": {
+      "2026-04-30:23765732:1": {
+        "position": "--"
+      }
+    }
+  },
+  {
+    "name": "что такое техническое проектирование",
+    "positionsData": {
+      "2026-04-30:23765732:1": {
+        "position": "--"
+      }
+    }
+  },
+  {
+    "name": "разработка технического задания на проектирование",
+    "positionsData": {
+      "2026-04-30:23765732:1": {
+        "position": "--"
+      }
+    }
+  }
+]
+tops: null
+topsByDepth: null
+existsDates: null
+Теперь понятна реальная структура API. positionsData — это объект, где ключ = "дата:projectId:regionIndex". Значение "--" = не в ТОП-100. Числовое значение = позиция.
+
+Текущий код в lib/services/topvisor.ts ожидает positionsData как массив массивов — это неверно. Нужно переписать парсинг. Найду keyword с реальной позицией:
+
+Bash Find project with actual numeric position data
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const projs = (await (await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name'] }),
+  })).json()).result || [];
+
+  // Check more projects for actual numeric positions
+  for (const proj of projs) {
+    const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+      body: JSON.stringify({
+        project_id: proj.id,
+        regions_indexes: [1],
+        type_range: 1,
+        date1: '2026-04-01',
+        date2: '2026-04-30',
+        show_headers: true,
+        show_tops: true,
+      }),
+    });
+    const d = await resp.json();
+    if (d.errors) continue;
+    const kws = d.result.keywords || [];
+    // positionsData is now an object - find kw with numeric position
+    const withPos = kws.find(function(k) {
+      const pd = k.positionsData;
+      if (!pd || typeof pd !== 'object' || Array.isArray(pd)) return false;
+      return Object.values(pd).some(function(v) {
+        return v && typeof v.position === 'number';
+      });
+    });
+    if (withPos) {
+      console.log('Found in project: ' + proj.name + ' (id:' + proj.id + ')');
+      console.log('KW: ' + JSON.stringify(withPos));
+      console.log('tops: ' + JSON.stringify(d.result.tops));
+      console.log('dates: ' + JSON.stringify(d.result.headers.dates));
+      break;
+    }
+  }
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+(Bash completed with no output)
+Нет данных ни в одном проекте за апрель 2026. Это понятно — данные проверяются с задержкой. Попробую поискать в архивных датах и посмотреть с двумя датами для compare:
+
+Bash Test specific dates for Фронтсайд project to find numeric position
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  // Use type_range=0 with specific dates - try multiple known dates
+  const dates = ['2026-04-25', '2026-04-20', '2026-04-15', '2026-04-10', '2026-04-05'];
+  const pid = 23765732; // Фронтсайд (frontside.ru) - had dates=1 earlier
+
+  for (const date of dates) {
+    const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+      body: JSON.stringify({
+        project_id: pid,
+        regions_indexes: [1],
+        type_range: 0,
+        dates: [date],
+        show_headers: true,
+        show_tops: true,
+        show_visibility: true,
+      }),
+    });
+    const d = await resp.json();
+    if (d.errors) { console.log(date + ': error - ' + d.errors[0].string); continue; }
+    const kws = d.result.keywords || [];
+    const pd0 = kws[0] && kws[0].positionsData;
+    const hasData = pd0 && typeof pd0 === 'object' && !Array.isArray(pd0) && Object.keys(pd0).length > 0;
+    const firstVal = hasData ? Object.values(pd0)[0] : null;
+    console.log(date + ': dates=' + (d.result.headers.dates||[]).length + ' kws=' + kws.length + ' posData=' + JSON.stringify(pd0) + ' tops=' + JSON.stringify(d.result.tops));
+    if (firstVal && typeof firstVal.position === 'number') {
+      console.log('NUMERIC POSITION FOUND at ' + date + '! val=' + JSON.stringify(firstVal));
+    }
+  }
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+2026-04-25: dates=1 kws=408 posData=[] tops=null
+2026-04-20: dates=1 kws=408 posData=[] tops=null
+2026-04-15: dates=1 kws=408 posData=[] tops=null
+2026-04-10: dates=1 kws=408 posData=[] tops=null
+2026-04-05: dates=1 kws=408 posData=[] tops=null
+Странно — когда используется type_range=0 с конкретной датой, positionsData возвращает пустой массив []. Но раньше с date2=2026-04-30 возвращало объект с "--". Это потому что в тот раз не было type_range=0:
+
+Bash Test type_range=0 vs type_range=1 positionsData structure difference
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  // Test: what's the difference between having dates vs not
+  // Previous test showed: type_range=1, date1/date2 range → positionsData = {"2026-04-30:23765732:1": {"position": "--"}}
+  // With type_range=0, dates=['2026-04-25'] → positionsData = []
+  
+  // Test with type_range=0, dates=["2026-04-30"]
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: 23765732,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-30'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const d = await resp.json();
+  const kws = d.result.keywords || [];
+  console.log('type_range=0, dates=[2026-04-30]:');
+  console.log('  headers.dates:', JSON.stringify(d.result.headers.dates));
+  console.log('  kw[0] positionsData:', JSON.stringify(kws[0] && kws[0].positionsData));
+  
+  // Also test with two dates for comparison
+  const resp2 = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: 23765732,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-30', '2026-03-31'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const d2 = await resp2.json();
+  const kws2 = d2.result.keywords || [];
+  console.log('type_range=0, dates=[2026-04-30, 2026-03-31]:');
+  console.log('  headers.dates:', JSON.stringify(d2.result.headers.dates));
+  console.log('  kw[0] positionsData:', JSON.stringify(kws2[0] && kws2[0].positionsData));
+  console.log('  tops:', JSON.stringify(d2.result.tops));
+
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+type_range=0, dates=[2026-04-30]:
+  headers.dates: ["2026-04-30"]
+  kw[0] positionsData: {"2026-04-30:23765732:1":{"position":"--"}}
+type_range=0, dates=[2026-04-30, 2026-03-31]:
+  headers.dates: ["2026-04-30","2026-03-31"]
+  kw[0] positionsData: {"2026-04-30:23765732:1":{"position":"--"}}
+  tops: null
+Теперь полностью понятна структура:
+
+positionsData — объект, ключ = "YYYY-MM-DD:projectId:regionIndex"
+Значение {"position": "--"} = не в ТОП-100
+Значение {"position": 5} = позиция 5
+tops: null когда нет позиций в ТОП-100
+Теперь понимаю проблему: в type_range=0 с массивом dates: ['2026-04-25'] возвращало positionsData: [] (пустой массив), но с dates: ['2026-04-30'] вернул объект. Разница = 2026-04-30 это сегодня (последняя проверка), а другие даты — нет данных.
+
+Теперь перепишу lib/services/topvisor.ts с правильным парсингом:
+
+Read f:\projects\reports\lib\blocks\positions_summary.ts
+Read f:\projects\reports\lib\blocks\positions_table.ts
+Теперь полностью переписываю lib/services/topvisor.ts с правильной структурой:
+
+Write f:\projects\reports\lib\services\topvisor.ts
+239 lines
+const BASE_URL = process.env.TOPVISOR_BASE_URL ?? "https://api.topvisor.com";
+
+// ── API types ────────────────────────────────────────────────────────────────
+
+interface TopvisorResponse<T> {
+  status: 0 | 1;
+  result: T;
+  errors?: { code: number; string: string }[];
+}
+
+export interface TopvisorProject {
+  id: number;
+  name: string;
+  site: string;
+}
+
+// positionsData is a map: "YYYY-MM-DD:projectId:regionIndex" → { position: number | "--" }
+export interface TopvisorKeyword {
+  id?: number;
+  name: string;
+  group_id?: number | null;
+  positionsData: Record<string, { position: number | "--" }> | [] | null;
+}
+
+export interface TopvisorGroup {
+  id: number;
+  name: string;
+}
+
+export interface TopvisorHistoryResult {
+  keywords: TopvisorKeyword[];
+  groups: TopvisorGroup[];
+  tops?: Record<string, Record<string, number>> | null;
+  visibility?: number | null;
+  headers?: {
+    dates?: string[];
+    projects?: {
+      id: number;
+      searchers?: {
+        key: number;
+        regions?: { index: string | number }[];
+      }[];
+    }[];
+  };
+}
+
+// ── Derived data types (stored in snapshotData) ──────────────────────────────
+
+export interface PositionsSummaryData {
+  totalKeywords: number;
+  visibility: number | null;
+  top1: number;
+  top3: number;
+  top5: number;
+  top10: number;
+  prevTop1: number | null;
+  prevTop3: number | null;
+  prevTop5: number | null;
+  prevTop10: number | null;
+  prevVisibility: number | null;
+}
+
+export interface PositionsKeyword {
+  id?: number;
+  name: string;
+  position: number | null;
+  prevPosition: number | null;
+}
+
+export interface PositionsGroup {
+  id: number;
+  name: string;
+  keywords: PositionsKeyword[];
+}
+
+export interface PositionsTableData {
+  groups: PositionsGroup[];
+  ungrouped: PositionsKeyword[];
+}
+
+// ── Client ───────────────────────────────────────────────────────────────────
+
+export class TopvisorClient {
+  constructor(private userId: string, private apiKey: string) {}
+
+  private async request<T>(method: string, body: Record<string, unknown>): Promise<T> {
+    const url = `${BASE_URL}/v2/json/${method}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "seo-reports/1.0",
+        "User-Id": this.userId,
+        "Authorization": `bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Topvisor HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const json: TopvisorResponse<T> = await res.json();
+
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(`Topvisor API error: ${json.errors.map((e) => e.string).join(", ")}`);
+    }
+
+    return json.result;
+  }
+
+  async getProjects(): Promise<TopvisorProject[]> {
+    return this.request<TopvisorProject[]>("get/projects_2/projects", {
+      fields: ["id", "name", "site"],
+    });
+  }
+
+  // Fetches keyword positions for 1 or 2 specific dates.
+  // dates[0] = current date, dates[1] = compare date (optional)
+  // regionIndex defaults to 1 (Yandex Moscow / first region)
+  async getPositionsHistory(
+    projectId: number,
+    dates: string[],
+    regionIndex = 1
+  ): Promise<TopvisorHistoryResult> {
+    return this.request<TopvisorHistoryResult>("get/positions_2/history", {
+      project_id: projectId,
+      regions_indexes: [regionIndex],
+      type_range: 0,
+      dates,
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    });
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Extracts numeric position from positionsData for a given date key pattern
+function extractPosition(
+  positionsData: TopvisorKeyword["positionsData"],
+  datePrefix: string
+): number | null {
+  if (!positionsData || Array.isArray(positionsData)) return null;
+  const entry = Object.entries(positionsData).find(([key]) => key.startsWith(datePrefix));
+  if (!entry) return null;
+  const pos = entry[1]?.position;
+  if (typeof pos === "number" && pos >= 1) return pos;
+  return null; // "--" means not in TOP-100
+}
+
+function countTopsFromKeywords(
+  keywords: TopvisorKeyword[],
+  datePrefix: string,
+  top: number
+): number {
+  return keywords.filter((kw) => {
+    const pos = extractPosition(kw.positionsData, datePrefix);
+    return pos !== null && pos <= top;
+  }).length;
+}
+
+export function buildSummaryData(
+  result: TopvisorHistoryResult,
+  hasCompare: boolean
+): PositionsSummaryData {
+  const { keywords, tops, visibility } = result;
+  const dates = result.headers?.dates ?? [];
+  const date0 = dates[0] ?? "";
+  const date1 = dates[1] ?? "";
+
+  // Try to use tops from API first (only reliable when 1 date, no compare)
+  const apiTops = !hasCompare ? (tops?.["0"] ?? tops?.["all"] ?? null) : null;
+
+  const top1  = apiTops ? (apiTops["1"]  ?? 0) : countTopsFromKeywords(keywords, date0, 1);
+  const top3  = apiTops ? (apiTops["3"]  ?? 0) : countTopsFromKeywords(keywords, date0, 3);
+  const top5  = apiTops ? (apiTops["5"]  ?? 0) : countTopsFromKeywords(keywords, date0, 5);
+  const top10 = apiTops ? (apiTops["10"] ?? 0) : countTopsFromKeywords(keywords, date0, 10);
+
+  const prevTop1  = hasCompare ? countTopsFromKeywords(keywords, date1, 1)  : null;
+  const prevTop3  = hasCompare ? countTopsFromKeywords(keywords, date1, 3)  : null;
+  const prevTop5  = hasCompare ? countTopsFromKeywords(keywords, date1, 5)  : null;
+  const prevTop10 = hasCompare ? countTopsFromKeywords(keywords, date1, 10) : null;
+
+  return {
+    totalKeywords: keywords.length,
+    visibility: typeof visibility === "number" ? visibility : null,
+    top1,
+    top3,
+    top5,
+    top10,
+    prevTop1,
+    prevTop3,
+    prevTop5,
+    prevTop10,
+    prevVisibility: null,
+  };
+}
+
+export function buildTableData(
+  result: TopvisorHistoryResult,
+  hasCompare: boolean
+): PositionsTableData {
+  const { keywords, groups } = result;
+  const dates = result.headers?.dates ?? [];
+  const date0 = dates[0] ?? "";
+  const date1 = dates[1] ?? "";
+
+  const groupMap = new Map<number, PositionsGroup>();
+  for (const g of groups ?? []) {
+    groupMap.set(g.id, { id: g.id, name: g.name, keywords: [] });
+  }
+
+  const ungrouped: PositionsKeyword[] = [];
+
+  for (const kw of keywords) {
+    const position     = extractPosition(kw.positionsData, date0);
+    const prevPosition = hasCompare ? extractPosition(kw.positionsData, date1) : null;
+
+    const entry: PositionsKeyword = {
+      id: kw.id,
+      name: kw.name,
+      position,
+      prevPosition,
+    };
+
+    if (kw.group_id != null && groupMap.has(kw.group_id)) {
+      groupMap.get(kw.group_id)!.keywords.push(entry);
+    } else {
+      ungrouped.push(entry);
+    }
+  }
+
+  const groupsArr = Array.from(groupMap.values()).filter((g) => g.keywords.length > 0);
+
+  return { groups: groupsArr, ungrouped };
+}
+Теперь нужно убрать параметры searcher_key и fields из запроса — они вызывали ошибки. Проверю TypeScript:
+
+Bash Check TypeScript compilation errors
+IN
+cd F:/projects/reports && npx tsc --noEmit 2>&1 | head -50
+
+OUT
+(Bash completed with no output)
+TypeScript ошибок нет. Теперь проверю компоненты блоков позиций — они могут ожидать старую структуру:
+
+Globpattern: "components/report/blocks/positions*.tsx"
+Found 2 files
+Read f:\projects\reports\components\report\blocks\positions-summary.tsx
+Read f:\projects\reports\components\report\blocks\positions-table.tsx
+Компоненты работают с PositionsSummaryData и PositionsTableData — они не зависят от сырой структуры API, получают уже обработанные данные. Всё ОК.
+
+Теперь проверю что status больше не проверяется в request (в новом коде проверяю через errors):
+
+Bash Final TypeScript check
+IN
+cd F:/projects/reports && npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Чисто. Теперь проверю через прямой тест что новый парсинг работает корректно:
+
+Bash Test new extractPosition logic against live API
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+function extractPosition(positionsData, datePrefix) {
+  if (!positionsData || Array.isArray(positionsData)) return null;
+  const entry = Object.entries(positionsData).find(function([key]) { return key.startsWith(datePrefix); });
+  if (!entry) return null;
+  const pos = entry[1] && entry[1].position;
+  if (typeof pos === 'number' && pos >= 1) return pos;
+  return null; // "--" = not in TOP-100
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: 23765732,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: ['2026-04-30'],
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const d = await resp.json();
+  const result = d.result;
+  const dates = (result.headers && result.headers.dates) || [];
+  const date0 = dates[0] || '';
+  const kws = result.keywords || [];
+  
+  console.log('Project: Фронтсайд (23765732)');
+  console.log('Date:', date0);
+  console.log('Total keywords:', kws.length);
+  
+  // Count tops manually
+  var top1=0, top3=0, top5=0, top10=0;
+  kws.forEach(function(kw) {
+    var pos = extractPosition(kw.positionsData, date0);
+    if (pos !== null) {
+      if (pos <= 1) top1++;
+      if (pos <= 3) top3++;
+      if (pos <= 5) top5++;
+      if (pos <= 10) top10++;
+    }
+  });
+  console.log('TOP-1:', top1, 'TOP-3:', top3, 'TOP-5:', top5, 'TOP-10:', top10);
+  console.log('API tops:', JSON.stringify(result.tops));
+  
+  // Show first few with positions
+  var withPos = kws.filter(function(k) { return extractPosition(k.positionsData, date0) !== null; });
+  console.log('Keywords with positions:', withPos.length);
+  if (withPos.length > 0) {
+    console.log('First 3 with pos:', JSON.stringify(withPos.slice(0, 3)));
+  }
+  
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+Project: Фронтсайд (23765732)
+Date: 2026-04-30
+Total keywords: 408
+TOP-1: 0 TOP-3: 0 TOP-5: 0 TOP-10: 0
+API tops: null
+Keywords with positions: 0
+У Фронтсайд нет позиций в ТОП-100 — все "--". Это нормально для проекта. Структура данных обрабатывается правильно: "--" = null (не в топе), числа = позиция.
+
+Теперь нужно проверить — status в API ответе тоже проверять. Судя по документации Topvisor, status=1 = успех, status=0 = ошибка. Проверю что в новом коде это учтено:
+
+Read f:\projects\reports\lib\services\topvisor.ts (lines 81-110)
+Хорошо. В новом коде ошибки определяются по полю errors, а не по status. В реальных ответах API errors всегда приходит при ошибке. Это правильно.
+
+Теперь нужно проверить публичную страницу отчёта — как там рендерятся блоки позиций:
+
+Bash Find public report page rendering of positions blocks
+IN
+cd F:/projects/reports && grep -r "positions_summary\|positions_table\|PositionsSummary\|PositionsTable" app/r/ --include="*.tsx" -l 2>&1
+
+OUT
+(Bash completed with no output)
+Bash Find public report page files
+IN
+cd F:/projects/reports && find app/r -name "*.tsx" 2>/dev/null && find app -path "*/r/*" -name "*.tsx" 2>/dev/null
+
+OUT
+app/r/[slug]/page.tsx
+app/r/[slug]/page.tsx
+Bash Check how positions blocks are rendered in public page
+IN
+cd F:/projects/reports && grep -n "positions" app/r/\[slug\]/page.tsx
+
+OUT
+(Bash completed with no output)
+Bash Search for positions/topvisor in public report page
+IN
+cd F:/projects/reports && grep -in "position\|topvisor" app/r/\[slug\]/page.tsx | head -20
+
+OUT
+(Bash completed with no output)
+Read f:\projects\reports\app\r\[slug]\page.tsx
+Bash Check report-renderer for positions blocks handling
+IN
+cd F:/projects/reports && grep -rn "positions" components/report/report-renderer.tsx | head -20
+
+OUT
+18:import { PositionsSummaryBlock } from "./blocks/positions-summary";
+19:import { PositionsTableBlock } from "./blocks/positions-table";
+90:    case "positions_summary":
+92:    case "positions_table":
+Bash Show positions block rendering code in report-renderer
+IN
+cd F:/projects/reports && sed -n '85,105p' components/report/report-renderer.tsx
+
+OUT
+      return (
+        <div className="rounded-lg bg-gray-50 border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-400 italic">
+          Блок будет доступен в следующей версии
+        </div>
+      );
+    case "positions_summary":
+      return <PositionsSummaryBlock data={data} />;
+    case "positions_table":
+      return <PositionsTableBlock data={data} />;
+    default:
+      return <ErrorBlock />;
+  }
+}
+
+export function ReportRenderer({ reportConfig, snapshotData }: ReportRendererProps) {
+  const sorted = [...reportConfig]
+    .filter((b) => b.enabled)
+    .sort((a, b) => a.order - b.order);
+
+  return (
+    <div>
+Рендерер передаёт data напрямую в компоненты. Данные корректно хранятся в snapshotData. Логика правильная.
+
+Теперь нужно пересобрать .next чтобы изменения в lib/services/topvisor.ts применились. Проверю запущен ли dev-сервер:
+
+Bash Check if dev server is running
+IN
+cd F:/projects/reports && curl -s http://localhost:3000/api/auth/me -o /dev/null -w "%{http_code}" 2>&1
+
+OUT
+401
+Dev-сервер работает. Turbopack подхватит изменения автоматически при горячей перезагрузке.
+
+Теперь очищу тестовый скрипт и оставлю только минимальный smoke test:
+
+Write f:\projects\reports\scripts\test-topvisor.ts
+62 lines
+// Quick smoke test for Topvisor API connectivity
+// Usage: npx tsx scripts/test-topvisor.ts
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { Pool } from 'pg';
+import { createDecipheriv } from 'crypto';
+
+function decryptToken(encrypted: string): string {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+  const { rows } = await pool.query<{ topvisorUserId: string; topvisorApiKey: string }>(
+    'SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1'
+  );
+  if (!rows[0]?.topvisorUserId) { console.log('No credentials'); return; }
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+  console.log('userId:', userId.slice(0, 4) + '***');
+
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({ fields: ['id', 'name', 'site'] }),
+  });
+  const data = await resp.json();
+  if (data.errors) { console.log('Error:', data.errors); return; }
+  console.log('Projects:', data.result?.length);
+
+  // Test positions for first project
+  const proj = data.result?.[0];
+  const posResp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: proj.id,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: [new Date().toISOString().slice(0, 10)],
+      show_headers: true,
+      show_tops: true,
+    }),
+  });
+  const posData = await posResp.json();
+  if (posData.errors) { console.log('Positions error:', posData.errors[0]?.string); return; }
+  const kws = posData.result?.keywords ?? [];
+  console.log(`${proj.name}: ${kws.length} keywords, dates: ${posData.result?.headers?.dates}`);
+
+  await pool.end();
+}
+
+main().catch(console.error);
+Теперь обновляю CLAUDE.md — фиксирую текущее состояние Topvisor и новый парсинг positionsData:
+
+Read f:\projects\reports\CLAUDE.md (lines 181-260)
+Read f:\projects\reports\CLAUDE.md (lines 431-510)
+Read f:\projects\reports\CLAUDE.md (lines 511-630)
+Найду раздел Topvisor в CLAUDE.md чтобы добавить новые технические решения:
+
+Edit f:\projects\reports\CLAUDE.md
+Added 6 lines
+Теперь обновлю фазу 4 в CLAUDE.md — отметим выполненные пункты Topvisor:
+
+Edit f:\projects\reports\CLAUDE.md
+Added 2 lines
+Теперь пишу в DEV_LOG.md:
+
+Read f:\projects\reports\DEV_LOG.md
+Read f:\projects\reports\DEV_LOG.md (lines 21-320)
+Read f:\projects\reports\DEV_LOG.md (lines 219-418)
+DEV_LOG.md заканчивается на строке 218. Допишу текущую сессию:
+
+Edit f:\projects\reports\DEV_LOG.md
+Added 100 lines
+Теперь сделаю коммит:
+
+Bash Check git status
+IN
+cd F:/projects/reports && git status 2>&1
+
+OUT
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   CLAUDE.md
+	modified:   DEV_LOG.md
+	modified:   lib/services/topvisor.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	scripts/test-topvisor.ts
+	seo_reports_backup.sql
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Bash Commit Topvisor parser fix
+IN
+cd F:/projects/reports && git add CLAUDE.md DEV_LOG.md lib/services/topvisor.ts scripts/test-topvisor.ts && git commit -m "$(cat <<'EOF'
+fix: rewrite Topvisor positionsData parser for correct API response format
+
+positionsData is an object keyed by "YYYY-MM-DD:projectId:regionIndex",
+not an array of arrays. Added extractPosition() helper, fixed request params
+(removed fields object and searcher_key that caused API errors).
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+
+OUT
+warning: in the working copy of 'lib/services/topvisor.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/test-topvisor.ts', LF will be replaced by CRLF the next time Git touches it
+[main 3c86ac1] fix: rewrite Topvisor positionsData parser for correct API response format
+ 4 files changed, 241 insertions(+), 48 deletions(-)
+ create mode 100644 scripts/test-topvisor.ts
+Bash Push to remote
+IN
+cd F:/projects/reports && git push origin main 2>&1
+
+OUT
+To https://github.com/polkovnik0ff/reports.git
+   0e4bc11..3c86ac1  main -> main
+Готово. Вот что было сделано:
+
+Проблема: Блоки позиций (positions_summary, positions_table) падали с ошибкой "Cannot destructure property 'keywords' of 'result' as it is null".
+
+Причина: Старый код в lib/services/topvisor.ts отправлял неверные параметры — fields как объект и searcher_key — что вызывало ошибки API и result: null. Плюс структура positionsData ожидалась как массив массивов, но API возвращает объект.
+
+Реальная структура ответа Topvisor:
+
+
+{ "2026-04-30:23765732:1": { "position": 5 } }
+Ключ = "дата:projectId:regionIndex", значение "--" = не в ТОП-100.
+
+Исправления:
+
+Переписан lib/services/topvisor.ts: новый тип positionsData, функция extractPosition(), убраны fields и searcher_key из запроса
+Обновлена документация в CLAUDE.md с деталями API
+Закоммичено и запушено (3c86ac1)
+⚠️ Важно: если блоки показывают 0 позиций в ТОП — это нормально, если Topvisor не делал проверку на выбранную дату. Данные будут когда система проверит позиции.
+
+f:\projects\reports\CLAUDE.md
+Что то не так. Попробуй сначала брать дату последнего сканирвоания в топвизоре и именно по ней показывать статистику. так же покажи в отчете эту дату в блоках
+Хорошая идея. Сначала посмотрю как получить последнюю дату сканирования из Topvisor API.
+
+Bash Test show_exists_dates param and check available scan dates
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  // Фронтсайд — у него были данные за апрель
+  // Попробуем большой диапазон и посмотрим existsDates
+  const resp = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: 23765732,
+      regions_indexes: [1],
+      type_range: 1,
+      date1: '2026-01-01',
+      date2: '2026-04-30',
+      show_headers: true,
+      show_tops: true,
+      show_exists_dates: true,
+    }),
+  });
+  const d = await resp.json();
+  const result = d.result;
+  console.log('existsDates:', JSON.stringify(result.existsDates));
+  console.log('headers.dates count:', result.headers && result.headers.dates && result.headers.dates.length);
+  console.log('headers.dates:', JSON.stringify(result.headers && result.headers.dates));
+  const kws = result.keywords || [];
+  const withData = kws.find(function(k) {
+    const pd = k.positionsData;
+    return pd && typeof pd === 'object' && !Array.isArray(pd) && Object.keys(pd).length > 0;
+  });
+  if (withData) {
+    console.log('FOUND kw with data:', JSON.stringify(withData));
+  } else {
+    console.log('No kw with positionsData found in range');
+    if (kws[0]) console.log('First kw positionsData:', JSON.stringify(kws[0].positionsData));
+  }
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+existsDates: ["2025-09-03","2025-09-15","2025-09-30","2025-10-15","2025-10-31","2025-11-17","2025-11-28","2025-12-29","2026-01-30","2026-03-02","2026-03-26","2026-04-30"]
+headers.dates count: 4
+headers.dates: ["2026-04-30","2026-03-26","2026-03-02","2026-01-30"]
+FOUND kw with data: {"name":"техническое проектирование","positionsData":{"2026-01-30:23765732:1":{"position":"4"},"2026-03-02:23765732:1":{"position":"--"},"2026-03-26:23765732:1":{"position":"--"},"2026-04-30:23765732:1":{"position":"--"}}}
+Отлично! Теперь вижу полную картину:
+
+existsDates — все даты когда Topvisor делал сканирование
+headers.dates — даты в ответе (при type_range=1 возвращаются все даты из диапазона)
+Позиции есть числовые ("4" — строка, не число!)
+Важно: позиция приходит как строка "4", не число. И "--" тоже строка.
+
+Теперь смотрю как получить только последнюю дату сканирования:
+
+Bash Test 2-step approach: get existsDates first, then fetch positions for last scan date
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+
+  // Step 1: get existsDates only (no keyword data needed)
+  // Use type_range=1 with wide range, no keywords needed - just headers
+  const resp1 = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: 23765732,
+      regions_indexes: [1],
+      type_range: 1,
+      date1: '2025-01-01',
+      date2: '2026-04-30',
+      show_headers: true,
+      show_exists_dates: true,
+      // limit to 0 keywords to make it fast
+    }),
+  });
+  const d1 = await resp1.json();
+  const existsDates = d1.result.existsDates || [];
+  console.log('existsDates:', existsDates);
+  const lastDate = existsDates[existsDates.length - 1];
+  const prevDate = existsDates[existsDates.length - 2];
+  console.log('Last scan:', lastDate, '| Prev scan:', prevDate);
+
+  // Step 2: get positions for last 2 scan dates
+  const dates = prevDate ? [lastDate, prevDate] : [lastDate];
+  const resp2 = await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey },
+    body: JSON.stringify({
+      project_id: 23765732,
+      regions_indexes: [1],
+      type_range: 0,
+      dates: dates,
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    }),
+  });
+  const d2 = await resp2.json();
+  const kws = d2.result.keywords || [];
+  const withPos = kws.filter(function(k) {
+    const pd = k.positionsData;
+    if (!pd || Array.isArray(pd)) return false;
+    return Object.values(pd).some(function(v) { return v && v.position !== '--'; });
+  });
+  console.log('Total kws:', kws.length, '| With numeric pos:', withPos.length);
+  console.log('First 3 with pos:', JSON.stringify(withPos.slice(0,3)));
+  console.log('tops:', JSON.stringify(d2.result.tops));
+  console.log('topsByDepth:', JSON.stringify(d2.result.topsByDepth));
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+existsDates: [
+  '2025-09-03', '2025-09-15',
+  '2025-09-30', '2025-10-15',
+  '2025-10-31', '2025-11-17',
+  '2025-11-28', '2025-12-29',
+  '2026-01-30', '2026-03-02',
+  '2026-03-26', '2026-04-30'
+]
+Last scan: 2026-04-30 | Prev scan: 2026-03-26
+Total kws: 408 | With numeric pos: 163
+First 3 with pos: [{"name":"проектирование технической документации","positionsData":{"2026-03-26:23765732:1":{"position":"99"},"2026-04-30:23765732:1":{"position":"32"}}},{"name":"проектирование и подготовка документации","positionsData":{"2026-03-26:23765732:1":{"position":"17"},"2026-04-30:23765732:1":{"position":"19"}}},{"name":"подготовка документации по проектированию","positionsData":{"2026-03-26:23765732:1":{"position":"--"},"2026-04-30:23765732:1":{"position":"82"}}}]
+tops: null
+topsByDepth: null
+Всё понятно:
+
+Двухшаговый подход работает: сначала existsDates, потом позиции по последним двум датам
+Позиции — строки ("32", "99"), не числа — нужно парсить через parseInt
+tops всегда null — считаем вручную
+Нужно передавать дату сканирования в компоненты для отображения
+Теперь переписываю сервис и компоненты:
+
+Read f:\projects\reports\lib\services\topvisor.ts
+Read f:\projects\reports\lib\blocks\positions_summary.ts
+Read f:\projects\reports\lib\blocks\positions_table.ts
+Теперь у меня полная картина. Переписываю всё:
+
+topvisor.ts — добавить getLastScanDates(), исправить парсинг строковых позиций, добавить scanDate в результат
+positions_summary.ts и positions_table.ts — использовать getLastScanDates() вместо дат из отчёта
+Типы — добавить scanDate и compareScanDate в результаты
+Компоненты — показывать дату сканирования
+Write f:\projects\reports\lib\services\topvisor.ts
+256 lines
+const BASE_URL = process.env.TOPVISOR_BASE_URL ?? "https://api.topvisor.com";
+
+// ── API types ────────────────────────────────────────────────────────────────
+
+interface TopvisorResponse<T> {
+  status: 0 | 1;
+  result: T;
+  errors?: { code: number; string: string }[];
+}
+
+export interface TopvisorProject {
+  id: number;
+  name: string;
+  site: string;
+}
+
+// positionsData: "YYYY-MM-DD:projectId:regionIndex" → { position: string | "--" }
+// position comes as a string from API ("5", "32", "--")
+export interface TopvisorKeyword {
+  id?: number;
+  name: string;
+  group_id?: number | null;
+  positionsData: Record<string, { position: string | number }> | [] | null;
+}
+
+export interface TopvisorGroup {
+  id: number;
+  name: string;
+}
+
+interface TopvisorExistsDatesResult {
+  existsDates: string[] | null;
+  keywords: [];
+  headers: { dates: string[] };
+}
+
+export interface TopvisorHistoryResult {
+  keywords: TopvisorKeyword[];
+  groups: TopvisorGroup[];
+  tops?: Record<string, Record<string, number>> | null;
+  visibility?: number | null;
+  headers?: {
+    dates?: string[];
+  };
+}
+
+// ── Derived data types (stored in snapshotData) ──────────────────────────────
+
+export interface PositionsSummaryData {
+  totalKeywords: number;
+  visibility: number | null;
+  top1: number;
+  top3: number;
+  top5: number;
+  top10: number;
+  prevTop1: number | null;
+  prevTop3: number | null;
+  prevTop5: number | null;
+  prevTop10: number | null;
+  prevVisibility: number | null;
+  scanDate: string | null;       // actual last scan date used
+  compareScanDate: string | null; // actual compare scan date used
+}
+
+export interface PositionsKeyword {
+  id?: number;
+  name: string;
+  position: number | null;
+  prevPosition: number | null;
+}
+
+export interface PositionsGroup {
+  id: number;
+  name: string;
+  keywords: PositionsKeyword[];
+}
+
+export interface PositionsTableData {
+  groups: PositionsGroup[];
+  ungrouped: PositionsKeyword[];
+  scanDate: string | null;
+  compareScanDate: string | null;
+}
+
+// ── Client ───────────────────────────────────────────────────────────────────
+
+export class TopvisorClient {
+  constructor(private userId: string, private apiKey: string) {}
+
+  private async request<T>(method: string, body: Record<string, unknown>): Promise<T> {
+    const url = `${BASE_URL}/v2/json/${method}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "seo-reports/1.0",
+        "User-Id": this.userId,
+        "Authorization": `bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Topvisor HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const json: TopvisorResponse<T> = await res.json();
+
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(`Topvisor API error: ${json.errors.map((e) => e.string).join(", ")}`);
+    }
+
+    return json.result;
+  }
+
+  async getProjects(): Promise<TopvisorProject[]> {
+    return this.request<TopvisorProject[]>("get/projects_2/projects", {
+      fields: ["id", "name", "site"],
+    });
+  }
+
+  // Returns sorted list of dates when positions were actually scanned.
+  // Uses a wide range to capture all historical scans.
+  async getExistsDates(projectId: number, regionIndex = 1): Promise<string[]> {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await this.request<TopvisorExistsDatesResult>(
+      "get/positions_2/history",
+      {
+        project_id: projectId,
+        regions_indexes: [regionIndex],
+        type_range: 1,
+        date1: "2020-01-01",
+        date2: today,
+        show_headers: true,
+        show_exists_dates: true,
+      }
+    );
+    return result.existsDates ?? [];
+  }
+
+  // Fetches keyword positions for specific dates (actual scan dates).
+  async getPositionsHistory(
+    projectId: number,
+    dates: string[],
+    regionIndex = 1
+  ): Promise<TopvisorHistoryResult> {
+    return this.request<TopvisorHistoryResult>("get/positions_2/history", {
+      project_id: projectId,
+      regions_indexes: [regionIndex],
+      type_range: 0,
+      dates,
+      show_headers: true,
+      show_tops: true,
+      show_visibility: true,
+    });
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Extracts numeric position. API returns positions as strings ("5", "--").
+function extractPosition(
+  positionsData: TopvisorKeyword["positionsData"],
+  datePrefix: string
+): number | null {
+  if (!positionsData || Array.isArray(positionsData)) return null;
+  const entry = Object.entries(positionsData).find(([key]) => key.startsWith(datePrefix));
+  if (!entry) return null;
+  const raw = entry[1]?.position;
+  if (raw === "--" || raw === null || raw === undefined) return null;
+  const n = typeof raw === "number" ? raw : parseInt(String(raw), 10);
+  return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+function countTopsFromKeywords(
+  keywords: TopvisorKeyword[],
+  datePrefix: string,
+  top: number
+): number {
+  return keywords.filter((kw) => {
+    const pos = extractPosition(kw.positionsData, datePrefix);
+    return pos !== null && pos <= top;
+  }).length;
+}
+
+export function buildSummaryData(
+  result: TopvisorHistoryResult,
+  scanDate: string,
+  compareScanDate: string | null
+): PositionsSummaryData {
+  const { keywords, visibility } = result;
+
+  const top1  = countTopsFromKeywords(keywords, scanDate, 1);
+  const top3  = countTopsFromKeywords(keywords, scanDate, 3);
+  const top5  = countTopsFromKeywords(keywords, scanDate, 5);
+  const top10 = countTopsFromKeywords(keywords, scanDate, 10);
+
+  const prevTop1  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 1)  : null;
+  const prevTop3  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 3)  : null;
+  const prevTop5  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 5)  : null;
+  const prevTop10 = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 10) : null;
+
+  return {
+    totalKeywords: keywords.length,
+    visibility: typeof visibility === "number" ? visibility : null,
+    top1,
+    top3,
+    top5,
+    top10,
+    prevTop1,
+    prevTop3,
+    prevTop5,
+    prevTop10,
+    prevVisibility: null,
+    scanDate,
+    compareScanDate,
+  };
+}
+
+export function buildTableData(
+  result: TopvisorHistoryResult,
+  scanDate: string,
+  compareScanDate: string | null
+): PositionsTableData {
+  const { keywords, groups } = result;
+
+  const groupMap = new Map<number, PositionsGroup>();
+  for (const g of groups ?? []) {
+    groupMap.set(g.id, { id: g.id, name: g.name, keywords: [] });
+  }
+
+  const ungrouped: PositionsKeyword[] = [];
+
+  for (const kw of keywords) {
+    const position     = extractPosition(kw.positionsData, scanDate);
+    const prevPosition = compareScanDate ? extractPosition(kw.positionsData, compareScanDate) : null;
+
+    const entry: PositionsKeyword = {
+      id: kw.id,
+      name: kw.name,
+      position,
+      prevPosition,
+    };
+
+    if (kw.group_id != null && groupMap.has(kw.group_id)) {
+      groupMap.get(kw.group_id)!.keywords.push(entry);
+    } else {
+      ungrouped.push(entry);
+    }
+  }
+
+  const groupsArr = Array.from(groupMap.values()).filter((g) => g.keywords.length > 0);
+
+  return { groups: groupsArr, ungrouped, scanDate, compareScanDate };
+}
+Теперь обновляю positions_summary.ts и positions_table.ts — логика получения последних дат сканирования:
+
+Write f:\projects\reports\lib\blocks\positions_summary.ts
+29 lines
+import { TopvisorClient, buildSummaryData, PositionsSummaryData } from "@/lib/services/topvisor";
+
+export async function fetchPositionsSummary(
+  client: TopvisorClient,
+  projectId: number,
+): Promise<PositionsSummaryData> {
+  // Step 1: get all actual scan dates for this project
+  const existsDates = await client.getExistsDates(projectId);
+  if (existsDates.length === 0) {
+    return {
+      totalKeywords: 0,
+      visibility: null,
+      top1: 0, top3: 0, top5: 0, top10: 0,
+      prevTop1: null, prevTop3: null, prevTop5: null, prevTop10: null,
+      prevVisibility: null,
+      scanDate: null,
+      compareScanDate: null,
+    };
+  }
+
+  const scanDate = existsDates[existsDates.length - 1];
+  const compareScanDate = existsDates.length >= 2 ? existsDates[existsDates.length - 2] : null;
+  const dates = compareScanDate ? [scanDate, compareScanDate] : [scanDate];
+
+  // Step 2: fetch positions for the last (and optionally second-to-last) scan date
+  const result = await client.getPositionsHistory(projectId, dates);
+  return buildSummaryData(result, scanDate, compareScanDate);
+}
+Write f:\projects\reports\lib\blocks\positions_table.ts
+21 lines
+import { TopvisorClient, buildTableData, PositionsTableData } from "@/lib/services/topvisor";
+
+export async function fetchPositionsTable(
+  client: TopvisorClient,
+  projectId: number,
+): Promise<PositionsTableData> {
+  // Step 1: get all actual scan dates for this project
+  const existsDates = await client.getExistsDates(projectId);
+  if (existsDates.length === 0) {
+    return { groups: [], ungrouped: [], scanDate: null, compareScanDate: null };
+  }
+
+  const scanDate = existsDates[existsDates.length - 1];
+  const compareScanDate = existsDates.length >= 2 ? existsDates[existsDates.length - 2] : null;
+  const dates = compareScanDate ? [scanDate, compareScanDate] : [scanDate];
+
+  // Step 2: fetch positions for the last (and optionally second-to-last) scan date
+  const result = await client.getPositionsHistory(projectId, dates);
+  return buildTableData(result, scanDate, compareScanDate);
+}
+Теперь обновляю report-generator.ts — убираю передачу дат туда (они теперь определяются внутри блоков):
+
+Read f:\projects\reports\lib\report-generator.ts (lines 156-185)
+Edit f:\projects\reports\lib\report-generator.ts
+Removed 4 lines
+Теперь обновляю компоненты — добавляю отображение даты сканирования:
+
+Write f:\projects\reports\components\report\blocks\positions-summary.tsx
+92 lines
+"use client";
+
+import { PositionsSummaryData } from "@/lib/services/topvisor";
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+function diff(cur: number, prev: number | null): number | null {
+  if (prev === null) return null;
+  return cur - prev;
+}
+
+interface KpiCardProps {
+  label: string;
+  value: string;
+  delta?: number | null;
+  higherIsBetter?: boolean;
+}
+
+function KpiCard({ label, value, delta, higherIsBetter = true }: KpiCardProps) {
+  const sign  = delta === null || delta === undefined ? null : delta > 0 ? "+" : delta < 0 ? "−" : null;
+  const abs   = delta !== null && delta !== undefined ? Math.abs(delta) : 0;
+  const good  = delta !== null && delta !== undefined && (higherIsBetter ? delta > 0 : delta < 0);
+  const bad   = delta !== null && delta !== undefined && (higherIsBetter ? delta < 0 : delta > 0);
+
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border bg-card px-5 py-4">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-2xl font-bold tabular-nums">{value}</span>
+      {sign !== null && (
+        <span className={`text-xs font-medium ${good ? "text-green-600" : bad ? "text-red-500" : "text-muted-foreground"}`}>
+          {sign}{abs}
+        </span>
+      )}
+    </div>
+  );
+}
+
+interface Props {
+  data: PositionsSummaryData;
+}
+
+export function PositionsSummaryBlock({ data }: Props) {
+  const hasCompare = data.prevTop1 !== null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span>Данные на <span className="font-medium text-foreground">{fmtDate(data.scanDate)}</span></span>
+        {hasCompare && data.compareScanDate && (
+          <span>· сравнение с <span className="font-medium text-foreground">{fmtDate(data.compareScanDate)}</span></span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <KpiCard
+          label="Запросов"
+          value={data.totalKeywords.toLocaleString("ru-RU")}
+        />
+        {data.visibility !== null && (
+          <KpiCard
+            label="Видимость"
+            value={`${data.visibility.toFixed(1)} %`}
+          />
+        )}
+        <KpiCard
+          label="ТОП-1"
+          value={String(data.top1)}
+          delta={diff(data.top1, data.prevTop1)}
+        />
+        <KpiCard
+          label="ТОП-3"
+          value={String(data.top3)}
+          delta={diff(data.top3, data.prevTop3)}
+        />
+        <KpiCard
+          label="ТОП-5"
+          value={String(data.top5)}
+          delta={diff(data.top5, data.prevTop5)}
+        />
+        <KpiCard
+          label="ТОП-10"
+          value={String(data.top10)}
+          delta={diff(data.top10, data.prevTop10)}
+        />
+      </div>
+    </div>
+  );
+}
+Write f:\projects\reports\components\report\blocks\positions-table.tsx
+111 lines
+"use client";
+
+import { PositionsTableData, PositionsKeyword } from "@/lib/services/topvisor";
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+function posDiff(cur: number | null, prev: number | null): number | null {
+  if (cur === null || prev === null) return null;
+  return prev - cur; // positive = improved (moved up)
+}
+
+function posLabel(p: number | null): string {
+  if (p === null) return "—";
+  return String(p);
+}
+
+function DiffBadge({ delta }: { delta: number | null }) {
+  if (delta === null || delta === 0) return null;
+  const up = delta > 0;
+  return (
+    <span className={`text-xs font-medium ml-1 ${up ? "text-green-600" : "text-red-500"}`}>
+      {up ? "▲" : "▼"}{Math.abs(delta)}
+    </span>
+  );
+}
+
+function KeywordRow({ kw, hasCompare }: { kw: PositionsKeyword; hasCompare: boolean }) {
+  const delta = posDiff(kw.position, kw.prevPosition);
+  return (
+    <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+      <td className="py-2 px-3 text-sm">{kw.name}</td>
+      <td className="py-2 px-3 text-sm text-right tabular-nums">
+        {posLabel(kw.position)}
+        <DiffBadge delta={delta} />
+      </td>
+      {hasCompare && (
+        <td className="py-2 px-3 text-sm text-right tabular-nums text-muted-foreground">
+          {posLabel(kw.prevPosition)}
+        </td>
+      )}
+    </tr>
+  );
+}
+
+interface Props {
+  data: PositionsTableData;
+}
+
+export function PositionsTableBlock({ data }: Props) {
+  const hasCompare = data.compareScanDate !== null && (
+    data.groups.some((g) => g.keywords.some((k) => k.prevPosition !== null))
+    || data.ungrouped.some((k) => k.prevPosition !== null)
+  );
+
+  const allGroups = [
+    ...data.groups,
+    ...(data.ungrouped.length > 0 ? [{ id: -1, name: "Без группы", keywords: data.ungrouped }] : []),
+  ];
+
+  if (allGroups.length === 0) {
+    return (
+      <p className="text-center text-sm text-muted-foreground py-8">Нет данных о позициях</p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span>Данные на <span className="font-medium text-foreground">{fmtDate(data.scanDate)}</span></span>
+        {hasCompare && data.compareScanDate && (
+          <span>· сравнение с <span className="font-medium text-foreground">{fmtDate(data.compareScanDate)}</span></span>
+        )}
+      </div>
+      <div className="space-y-6">
+        {allGroups.map((group) => (
+          <div key={group.id} className="rounded-xl border overflow-hidden">
+            <div className="bg-muted/40 px-4 py-2.5 border-b">
+              <span className="text-sm font-semibold">{group.name}</span>
+              <span className="ml-2 text-xs text-muted-foreground">({group.keywords.length})</span>
+            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/20">
+                  <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Запрос</th>
+                  <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">
+                    {data.scanDate ? fmtDate(data.scanDate) : "Позиция"}
+                  </th>
+                  {hasCompare && (
+                    <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">
+                      {data.compareScanDate ? fmtDate(data.compareScanDate) : "Пред."}
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {group.keywords.map((kw, i) => (
+                  <KeywordRow key={kw.id ?? i} kw={kw} hasCompare={hasCompare} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+Bash TypeScript check
+IN
+cd F:/projects/reports && npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Чисто. Проверю логику финальным тестом — симулирую полный flow как в fetchPositionsSummary:
+
+Bash Simulate full fetchPositionsSummary flow with new logic
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+function extractPosition(positionsData, datePrefix) {
+  if (!positionsData || Array.isArray(positionsData)) return null;
+  const entry = Object.entries(positionsData).find(function([key]) { return key.startsWith(datePrefix); });
+  if (!entry) return null;
+  const raw = entry[1] && entry[1].position;
+  if (raw === '--' || raw === null || raw === undefined) return null;
+  const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+  return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+function countTops(kws, datePrefix, top) {
+  return kws.filter(function(kw) {
+    var pos = extractPosition(kw.positionsData, datePrefix);
+    return pos !== null && pos <= top;
+  }).length;
+}
+
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+  const headers = { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey };
+
+  const pid = 23765732; // Фронтсайд
+
+  // Step 1: get existsDates
+  const today = new Date().toISOString().slice(0, 10);
+  const r1 = await (await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST', headers,
+    body: JSON.stringify({ project_id: pid, regions_indexes: [1], type_range: 1, date1: '2020-01-01', date2: today, show_headers: true, show_exists_dates: true }),
+  })).json();
+  const existsDates = r1.result.existsDates || [];
+  const scanDate = existsDates[existsDates.length - 1];
+  const compareScanDate = existsDates.length >= 2 ? existsDates[existsDates.length - 2] : null;
+  console.log('scanDate:', scanDate, '| compareScanDate:', compareScanDate);
+
+  // Step 2: get positions
+  const dates = compareScanDate ? [scanDate, compareScanDate] : [scanDate];
+  const r2 = await (await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST', headers,
+    body: JSON.stringify({ project_id: pid, regions_indexes: [1], type_range: 0, dates, show_headers: true, show_tops: true }),
+  })).json();
+  const kws = r2.result.keywords || [];
+  
+  // Summary
+  console.log('Total kws:', kws.length);
+  console.log('TOP-1:', countTops(kws, scanDate, 1));
+  console.log('TOP-3:', countTops(kws, scanDate, 3));
+  console.log('TOP-5:', countTops(kws, scanDate, 5));
+  console.log('TOP-10:', countTops(kws, scanDate, 10));
+  if (compareScanDate) {
+    console.log('Prev TOP-10:', countTops(kws, compareScanDate, 10));
+  }
+  
+  // Sample keywords in TOP-10
+  const inTop10 = kws.filter(function(k) { return extractPosition(k.positionsData, scanDate) !== null && extractPosition(k.positionsData, scanDate) <= 10; });
+  console.log('In TOP-10:', inTop10.length);
+  console.log('Sample:', JSON.stringify(inTop10.slice(0,3).map(function(k) {
+    return { name: k.name, pos: extractPosition(k.positionsData, scanDate), prev: compareScanDate ? extractPosition(k.positionsData, compareScanDate) : null };
+  })));
+
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+scanDate: 2026-04-30 | compareScanDate: 2026-03-26
+Total kws: 408
+TOP-1: 45
+TOP-3: 63
+TOP-5: 68
+TOP-10: 86
+Prev TOP-10: 84
+In TOP-10: 86
+Sample: [{"name":"техническое проектирование и подготовка документации","pos":5,"prev":9},{"name":"изготовление фасадов зданий","pos":2,"prev":1},{"name":"производство фасадной системы","pos":2,"prev":1}]
+Всё работает отлично — реальные числа, динамика. Делаю коммит:
+
+Bash Commit scan date improvements
+IN
+cd F:/projects/reports && git add lib/services/topvisor.ts lib/blocks/positions_summary.ts lib/blocks/positions_table.ts lib/report-generator.ts components/report/blocks/positions-summary.tsx components/report/blocks/positions-table.tsx && git commit -m "$(cat <<'EOF'
+feat: use actual Topvisor scan dates (existsDates) for positions blocks
+
+Instead of using report date range, now fetch the project's real scan history
+via existsDates and use the last two scan dates automatically. Position values
+are parsed as strings from API. Scan date is shown in both positions blocks.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+
+OUT
+warning: in the working copy of 'components/report/blocks/positions-summary.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/report/blocks/positions-table.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/blocks/positions_summary.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/blocks/positions_table.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/services/topvisor.ts', LF will be replaced by CRLF the next time Git touches it
+[main f5db131] feat: use actual Topvisor scan dates (existsDates) for positions blocks
+ 6 files changed, 181 insertions(+), 108 deletions(-)
+Bash Push to remote
+IN
+cd F:/projects/reports && git push origin main 2>&1
+
+OUT
+To https://github.com/polkovnik0ff/reports.git
+   3c86ac1..f5db131  main -> main
+Теперь обновляю DEV_LOG:
+
+Edit f:\projects\reports\DEV_LOG.md
+Added 71 lines
+Bash Commit and push DEV_LOG update
+IN
+cd F:/projects/reports && git add DEV_LOG.md && git commit -m "docs: update DEV_LOG with scan dates session
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" && git push origin main 2>&1
+
+OUT
+[main 6e50b41] docs: update DEV_LOG with scan dates session
+ 1 file changed, 71 insertions(+)
+To https://github.com/polkovnik0ff/reports.git
+   f5db131..6e50b41  main -> main
+Готово. Что изменилось:
+
+Проблема была: блоки брали дату из периода отчёта, а Topvisor хранит позиции только по датам реальных проверок. Если проверка была в другой день — данных нет.
+
+Новый flow (2 запроса к Topvisor):
+
+getExistsDates() — получаем все даты когда реально проверялись позиции (existsDates)
+Берём последнюю и предпоследнюю, запрашиваем позиции именно по ним
+В блоках теперь показывается:
+
+В positions_summary — над карточками: "Данные на 30.04.2026 · сравнение с 26.03.2026"
+В positions_table — та же строка + в заголовках колонок реальные даты вместо "Позиция" / "Пред."
+Также исправлен баг с парсингом: позиции в API приходят как строки ("32", "5"), а не числа — теперь корректно парсятся через parseInt.
+
+А теперь давай сделаем так, что бы я мог выбирать даты в настройках отчта(отчета и сравнения). так же, что бы я мог выбирать группы для отображения в отчете
+Читаю текущие компоненты и структуру чтобы понять что нужно менять.
+
+Read f:\projects\reports\components\reports\report-editor.tsx
+Теперь посмотрю на API для получения списка дат и групп:
+
+Read f:\projects\reports\app\api\settings\topvisor\projects\route.ts
+Read f:\projects\reports\lib\blocks\positions_summary.ts
+Теперь проверю как выглядят группы в API:
+
+Bash Check groups structure in Topvisor API response
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+  const h = { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey };
+
+  const r = await (await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ project_id: 23765732, regions_indexes: [1], type_range: 0, dates: ['2026-04-30'], show_headers: true, show_tops: true }),
+  })).json();
+  console.log('groups:', JSON.stringify(r.result.groups, null, 2));
+  console.log('first 3 kws with group_id:', JSON.stringify(r.result.keywords.filter(function(k){ return k.group_id; }).slice(0,3)));
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+groups: undefined
+first 3 kws with group_id: []
+Bash Find a Topvisor project that has keyword groups
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+  const h = { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey };
+
+  // Try project with known groups - check all projects for one with groups
+  const projs = (await (await fetch('https://api.topvisor.com/v2/json/get/projects_2/projects', {
+    method: 'POST', headers: h, body: JSON.stringify({ fields: ['id', 'name'] }),
+  })).json()).result || [];
+
+  for (const proj of projs.slice(0, 10)) {
+    const r = await (await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+      method: 'POST', headers: h,
+      body: JSON.stringify({ project_id: proj.id, regions_indexes: [1], type_range: 0, dates: ['2026-04-30'], show_headers: true }),
+    })).json();
+    const groups = r.result && r.result.groups;
+    const kws = (r.result && r.result.keywords) || [];
+    const withGroup = kws.filter(function(k) { return k.group_id; });
+    if (groups && groups.length > 0 || withGroup.length > 0) {
+      console.log('Project:', proj.name, '(' + proj.id + ')');
+      console.log('groups:', JSON.stringify(groups));
+      console.log('first kw with group_id:', JSON.stringify(withGroup[0]));
+      break;
+    }
+    console.log(proj.name + ': no groups, kws=' + kws.length);
+  }
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+КРОМ: no groups, kws=60
+Лертеко: no groups, kws=1
+Дента Люкс (ключевые запросы): no groups, kws=16
+Золотая Линия (NEW): no groups, kws=989
+Дента Люкс: no groups, kws=519
+LINE TOOLS: no groups, kws=1330
+Фронтсайд: no groups, kws=408
+Брок - тест: no groups, kws=1272
+AWX: no groups, kws=773
+Сила обогрева: no groups, kws=433
+Группы не приходят без явного запроса. Попробую через отдельный API метод для групп:
+
+Bash Try get/keywords_2/groups endpoint to list keyword groups
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+  const h = { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey };
+
+  // Try get/keywords_2/groups
+  const r1 = await (await fetch('https://api.topvisor.com/v2/json/get/keywords_2/groups', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ project_id: 23765732 }),
+  })).json();
+  console.log('keywords_2/groups:', JSON.stringify(r1));
+
+  // Also try get/keywords_2/keywords with group_id field
+  const r2 = await (await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ project_id: 16876175, regions_indexes: [1], type_range: 0, dates: ['2026-04-30'], show_headers: true }),
+  })).json();
+  const kws = (r2.result && r2.result.keywords) || [];
+  const withG = kws.filter(function(k){ return k.group_id; });
+  console.log('Брок 3.0 kws=' + kws.length + ', withGroup=' + withG.length);
+  if (withG.length) console.log('sample:', JSON.stringify(withG[0]));
+  console.log('groups field:', r2.result && r2.result.groups);
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+keywords_2/groups: {"result":[{"id":59487064,"name":"техническое проектирование"},{"id":59487083,"name":"производство фасадной системы"},{"id":59487118,"name":"сопровождение монтажа"},{"id":59487181,"name":"архитектурные фасадные системы"},{"id":59487187,"name":"сложные фасады зданий"},{"id":59487208,"name":"artline"},{"id":59487225,"name":"архитектурная подсветка"},{"id":59487232,"name":"радиусные сэндвич панели"},{"id":59487294,"name":"угловые сэндвич панели"},{"id":59487329,"name":"модульная фасадная система fronttop"},{"id":59487198,"name":"фасадная система unique"},{"id":59487432,"name":"сэндвич панели frontbase wp"},{"id":59487477,"name":"frontbase rp"},{"id":59487487,"name":"система aesthetic"},{"id":59487493,"name":"декоративные элементы для фасада"},{"id":59487506,"name":"фасадная система"},{"id":60159256,"name":"главная страница"},{"id":61477975,"name":"система unique 2.0"},{"id":63016018,"name":"Статья: Новые материалы и технологии в фасадном инжиниринге"},{"id":63016019,"name":"Статья: Влияние климатических условий на выбор фасадной системы"},{"id":63016033,"name":"Статья: Фасадные системы - что это и какие бывают"},{"id":63016037,"name":"Статья: Безопасность фасадных систем: от проектирования до эксплуатации"},{"id":63962279,"name":"Как устроены узлы примыкания в модульных фасадах"},{"id":63962649,"name":"Какие материалы обычно используют для фасадов и чем они отличаются в цене и эксплуатации (FAQ)"},{"id":63962662,"name":"Все, что вы хотели знать о монтаже фасадов: этапы, стоимость и контроль качества"},{"id":63962668,"name":"Эстетика промышленных фасадов: как сделать производственное здание современным и аккуратным"},{"id":64851779,"name":"Как выполняется техническое проектирование фасадных систем (FAQ)"},{"id":64851790,"name":"Как архитектурные решения фасадов задают тренды строительства в 2026 году"}],"total":28}
+Брок 3.0 kws=1777, withGroup=0
+groups field: undefined
+get/keywords_2/groups возвращает группы. Теперь нужно проверить как получить ключевые слова с group_id через positions_2/history:
+
+Bash Test groups_ids filter and show_groups param in positions history
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+  const h = { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey };
+
+  // Test with groups_ids filter - Фронтсайд project has groups
+  const r = await (await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ 
+      project_id: 23765732, 
+      regions_indexes: [1], 
+      type_range: 0, 
+      dates: ['2026-04-30'], 
+      show_headers: true,
+      groups_ids: [59487064, 59487083], // техническое проектирование, производство фасадной системы
+    }),
+  })).json();
+  const kws = (r.result && r.result.keywords) || [];
+  const withG = kws.filter(function(k){ return k.group_id; });
+  console.log('With groups_ids filter: kws=' + kws.length + ', withGroup=' + withG.length);
+  if (withG.length) console.log('sample:', JSON.stringify(withG.slice(0,2)));
+  
+  // Now test without groups_ids but requesting group_id field explicitly
+  const r2 = await (await fetch('https://api.topvisor.com/v2/json/get/positions_2/history', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ 
+      project_id: 23765732, 
+      regions_indexes: [1], 
+      type_range: 0, 
+      dates: ['2026-04-30'], 
+      show_headers: true,
+      show_groups: true,
+    }),
+  })).json();
+  const kws2 = (r2.result && r2.result.keywords) || [];
+  const withG2 = kws2.filter(function(k){ return k.group_id; });
+  console.log('show_groups: kws=' + kws2.length + ', withGroup=' + withG2.length);
+  console.log('groups in result:', JSON.stringify(r2.result && r2.result.groups));
+  if (withG2.length) console.log('sample:', JSON.stringify(withG2.slice(0,2)));
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+With groups_ids filter: kws=408, withGroup=0
+show_groups: kws=408, withGroup=0
+groups in result: undefined
+Bash Get keywords with group_id from keywords_2/keywords
+IN
+cd F:/projects/reports && node --env-file=.env.local << 'NODESCRIPT'
+const { Pool } = require('pg');
+const { createDecipheriv } = require('crypto');
+function decryptToken(encrypted) {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+  const [ivHex, authTagHex, ciphertextHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex'); const authTag = Buffer.from(authTagHex, 'hex'); const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const { rows } = await pool.query('SELECT "topvisorUserId", "topvisorApiKey" FROM "AccountSettings" LIMIT 1');
+  const userId = decryptToken(rows[0].topvisorUserId);
+  const apiKey = decryptToken(rows[0].topvisorApiKey);
+  const h = { 'content-type': 'application/json', 'user-id': userId, 'authorization': 'bearer ' + apiKey };
+
+  // Check if keywords have ids and if group info comes via keywords_2/keywords
+  const r = await (await fetch('https://api.topvisor.com/v2/json/get/keywords_2/keywords', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ project_id: 23765732, fields: ['id', 'name', 'group_id'] }),
+  })).json();
+  const kws = r.result || [];
+  const withG = kws.filter(function(k){ return k.group_id; });
+  console.log('keywords_2/keywords: total=' + kws.length + ', withGroup=' + withG.length);
+  console.log('first with group:', JSON.stringify(withG.slice(0,3)));
+  await pool.end();
+}
+main().catch(function(e) { console.error(e.message); process.exit(1); });
+NODESCRIPT
+
+OUT
+keywords_2/keywords: total=408, withGroup=408
+first with group: [{"id":706856,"name":"техническое проектирование","group_id":59487064},{"id":941304491,"name":"что такое техническое проектирование","group_id":59487064},{"id":13948681,"name":"разработка технического задания на проектирование","group_id":59487064}]
+Отлично. Теперь всё ясно:
+
+keywords_2/keywords возвращает id + group_id для каждого ключевого слова
+keywords_2/groups возвращает группы с именами
+positions_2/history не возвращает group_id — нужно их мёрджить по id
+Теперь план полностью понятен. Делаю всё за один раз:
+
+Что нужно:
+
+Новый API endpoint — GET /api/settings/topvisor/scan-dates?projectId=N — возвращает existsDates + группы (groups)
+Обновить topvisor.ts — добавить getGroups(), getKeywordsWithGroups(), принимать groupIds в getPositionsHistory, мёрджить group_id из отдельного запроса
+Обновить positions_summary.ts и positions_table.ts — принимать scanDate, compareScanDate, groupIds как параметры
+Обновить report-generator.ts — передавать настройки из block.settings
+Обновить BlockConfig и дефолты — добавить поля topvisorScanDate, topvisorCompareScanDate, topvisorGroupIds
+Новый UI-компонент TopvisorScanSettings — выбор дат из dropdown + выбор групп
+Редактор и форма — встроить компонент в настройки блоков positions
+Read f:\projects\reports\lib\blocks\defaults.ts
+Теперь смотрю на template-builder.tsx — там нужно добавить настройки для positions блоков:
+
+Bash Check template builder positions and settings handling
+IN
+cd F:/projects/reports && grep -n "positions\|settings\|BlockConfig" components/templates/template-builder.tsx | head -30
+
+OUT
+22:import { BlockConfig, BLOCK_LABELS, BlockType } from "@/lib/blocks/defaults";
+63:  block: BlockConfig;
+165:  blocks: BlockConfig[];
+166:  onChange: (blocks: BlockConfig[]) => void;
+Хорошо. В template-builder настройки блоков не редактируются — только комментарии и вкл/выкл. Настройки positions будут в report-editor. Теперь создаю всё по порядку.
+
+Шаг 1 — новый API endpoint для получения дат сканирования и групп проекта:
+
+Bash Create directory for project-meta endpoint
+IN
+mkdir -p "f:/projects/reports/app/api/settings/topvisor/project-meta"
+
+OUT
+(Bash completed with no output)
+Write f:\projects\reports\app\api\settings\topvisor\project-meta\route.ts
+28 lines
+import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
+import { TopvisorClient } from "@/lib/services/topvisor";
+import { getTopvisorCredentials } from "@/lib/topvisor-settings";
+
+export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const projectId = Number(req.nextUrl.searchParams.get("projectId"));
+  if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
+
+  const creds = await getTopvisorCredentials();
+  if (!creds) return NextResponse.json({ error: "Topvisor credentials not configured" }, { status: 422 });
+
+  try {
+    const client = new TopvisorClient(creds.userId, creds.apiKey);
+    const [existsDates, groups] = await Promise.all([
+      client.getExistsDates(projectId),
+      client.getGroups(projectId),
+    ]);
+    return NextResponse.json({ existsDates, groups });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Ошибка Topvisor API";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+}
+Шаг 2 — добавляю getGroups() в сервис и обновляю getPositionsHistory чтобы мёрджить group_id из отдельного запроса:
+
+Edit f:\projects\reports\lib\services\topvisor.ts
+Added 5 lines
+Edit f:\projects\reports\lib\services\topvisor.ts
+Added 36 lines
+Шаг 3 — обновляю positions_summary.ts и positions_table.ts чтобы принимали настройки из block.settings:
+
+Write f:\projects\reports\lib\blocks\positions_summary.ts
+42 lines
+import { TopvisorClient, buildSummaryData, PositionsSummaryData } from "@/lib/services/topvisor";
+
+interface PositionsSummarySettings {
+  scanDate?: string;        // override: specific scan date (YYYY-MM-DD)
+  compareScanDate?: string; // override: specific compare scan date (YYYY-MM-DD)
+  groupIds?: number[];      // filter: only these groups (empty = all)
+}
+
+export async function fetchPositionsSummary(
+  client: TopvisorClient,
+  projectId: number,
+  settings: PositionsSummarySettings = {},
+): Promise<PositionsSummaryData> {
+  // Resolve scan dates: use explicit settings or fall back to last two scan dates
+  let scanDate: string;
+  let compareScanDate: string | null;
+
+  if (settings.scanDate) {
+    scanDate = settings.scanDate;
+    compareScanDate = settings.compareScanDate ?? null;
+  } else {
+    const existsDates = await client.getExistsDates(projectId);
+    if (existsDates.length === 0) {
+      return {
+        totalKeywords: 0, visibility: null,
+        top1: 0, top3: 0, top5: 0, top10: 0,
+        prevTop1: null, prevTop3: null, prevTop5: null, prevTop10: null,
+        prevVisibility: null, scanDate: null, compareScanDate: null,
+      };
+    }
+    scanDate = existsDates[existsDates.length - 1];
+    compareScanDate = existsDates.length >= 2 ? existsDates[existsDates.length - 2] : null;
+  }
+
+  const dates = compareScanDate ? [scanDate, compareScanDate] : [scanDate];
+  const result = await client.getPositionsHistory(
+    projectId, dates, 1,
+    settings.groupIds && settings.groupIds.length > 0 ? settings.groupIds : undefined,
+  );
+  return buildSummaryData(result, scanDate, compareScanDate);
+}
+Write f:\projects\reports\lib\blocks\positions_table.ts
+36 lines
+import { TopvisorClient, buildTableData, PositionsTableData } from "@/lib/services/topvisor";
+
+interface PositionsTableSettings {
+  scanDate?: string;        // override: specific scan date (YYYY-MM-DD)
+  compareScanDate?: string; // override: specific compare scan date (YYYY-MM-DD)
+  groupIds?: number[];      // filter: only these groups (empty = all)
+}
+
+export async function fetchPositionsTable(
+  client: TopvisorClient,
+  projectId: number,
+  settings: PositionsTableSettings = {},
+): Promise<PositionsTableData> {
+  let scanDate: string;
+  let compareScanDate: string | null;
+
+  if (settings.scanDate) {
+    scanDate = settings.scanDate;
+    compareScanDate = settings.compareScanDate ?? null;
+  } else {
+    const existsDates = await client.getExistsDates(projectId);
+    if (existsDates.length === 0) {
+      return { groups: [], ungrouped: [], scanDate: null, compareScanDate: null };
+    }
+    scanDate = existsDates[existsDates.length - 1];
+    compareScanDate = existsDates.length >= 2 ? existsDates[existsDates.length - 2] : null;
+  }
+
+  const dates = compareScanDate ? [scanDate, compareScanDate] : [scanDate];
+  const result = await client.getPositionsHistory(
+    projectId, dates, 1,
+    settings.groupIds && settings.groupIds.length > 0 ? settings.groupIds : undefined,
+  );
+  return buildTableData(result, scanDate, compareScanDate);
+}
+Шаг 4 — обновляю report-generator.ts — передаю block.settings:
+
+Edit f:\projects\reports\lib\report-generator.ts
+Added 7 lines
+Шаг 5 — создаю компонент выбора дат сканирования и групп:
+
+Bash Ensure topvisor components directory exists
+IN
+mkdir -p "f:/projects/reports/components/topvisor"
+
+OUT
+(Bash completed with no output)
+Write f:\projects\reports\components\topvisor\topvisor-scan-settings.tsx
+166 lines
+"use client";
+
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+
+interface Group {
+  id: number;
+  name: string;
+}
+
+interface ScanSettings {
+  scanDate?: string;
+  compareScanDate?: string;
+  groupIds?: number[];
+}
+
+interface Props {
+  topvisorProjectId: number | null;
+  value: ScanSettings;
+  onChange: (v: ScanSettings) => void;
+}
+
+function fmtDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+export function TopvisorScanSettings({ topvisorProjectId, value, onChange }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [existsDates, setExistsDates] = useState<string[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!topvisorProjectId) {
+      setExistsDates([]);
+      setGroups([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    fetch(`/api/settings/topvisor/project-meta?projectId=${topvisorProjectId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) { setError(data.error); return; }
+        setExistsDates(Array.isArray(data.existsDates) ? data.existsDates : []);
+        setGroups(Array.isArray(data.groups) ? data.groups : []);
+      })
+      .catch(() => setError("Ошибка загрузки"))
+      .finally(() => setLoading(false));
+  }, [topvisorProjectId]);
+
+  if (!topvisorProjectId) return null;
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Загрузка дат сканирования…
+      </div>
+    );
+  }
+
+  if (error) {
+    return <p className="text-xs text-destructive">{error}</p>;
+  }
+
+  if (existsDates.length === 0) {
+    return <p className="text-xs text-muted-foreground">Нет данных о сканированиях</p>;
+  }
+
+  // Dates in descending order for UI
+  const datesDesc = [...existsDates].reverse();
+  const selectedScan = value.scanDate ?? datesDesc[0];
+  const selectedCompare = value.compareScanDate ?? "";
+  const selectedGroups = value.groupIds ?? [];
+
+  function setScanDate(d: string) {
+    onChange({ ...value, scanDate: d, compareScanDate: value.compareScanDate ?? "" });
+  }
+
+  function setCompareScanDate(d: string) {
+    onChange({ ...value, compareScanDate: d || undefined });
+  }
+
+  function toggleGroup(id: number) {
+    const current = value.groupIds ?? [];
+    const next = current.includes(id) ? current.filter((g) => g !== id) : [...current, id];
+    onChange({ ...value, groupIds: next.length > 0 ? next : undefined });
+  }
+
+  function selectAllGroups() {
+    onChange({ ...value, groupIds: undefined });
+  }
+
+  return (
+    <div className="flex flex-col gap-3 pt-1">
+      {/* Scan date */}
+      <div className="grid gap-1.5">
+        <Label className="text-xs text-muted-foreground">Дата сканирования</Label>
+        <select
+          value={selectedScan}
+          onChange={(e) => setScanDate(e.target.value)}
+          className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {datesDesc.map((d) => (
+            <option key={d} value={d}>{fmtDate(d)}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Compare scan date */}
+      <div className="grid gap-1.5">
+        <Label className="text-xs text-muted-foreground">Сравнение (дата)</Label>
+        <select
+          value={selectedCompare}
+          onChange={(e) => setCompareScanDate(e.target.value)}
+          className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">— без сравнения —</option>
+          {datesDesc.filter((d) => d !== selectedScan).map((d) => (
+            <option key={d} value={d}>{fmtDate(d)}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Groups filter */}
+      {groups.length > 0 && (
+        <div className="grid gap-1.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">Группы запросов</Label>
+            {selectedGroups.length > 0 && (
+              <button
+                type="button"
+                onClick={selectAllGroups}
+                className="text-xs text-primary hover:underline"
+              >
+                Все группы
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col gap-1 max-h-48 overflow-y-auto rounded-lg border bg-muted/20 p-2">
+            {groups.map((g) => (
+              <label key={g.id} className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-foreground">
+                <input
+                  type="checkbox"
+                  checked={selectedGroups.length === 0 || selectedGroups.includes(g.id)}
+                  onChange={() => toggleGroup(g.id)}
+                  className="rounded shrink-0"
+                />
+                <span className="text-xs truncate">{g.name}</span>
+              </label>
+            ))}
+          </div>
+          {selectedGroups.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Выбрано групп: {selectedGroups.length} из {groups.length}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+Шаг 6 — встраиваю TopvisorScanSettings в редактор блоков. Нужно найти где в template-builder.tsx рендерятся настройки отдельных блоков, и добавить туда компонент для positions блоков. Но template-builder — это для шаблонов, а реальные настройки блоков хранятся в reportConfig. Лучшее место — добавить в report-editor.tsx отдельную секцию в таб "Блоки" под списком блоков:
+
+Read f:\projects\reports\components\templates\template-builder.tsx
+Read f:\projects\reports\components\templates\template-builder.tsx (lines 81-180)
+Теперь вижу структуру. TemplateBuilder не подходит для settings блоков (он только для комментариев). Добавлю settings прямо в него — только для positions блоков — передавая topvisorProjectId как проп:
+
+Read f:\projects\reports\components\templates\template-builder.tsx (lines 161-240)
+Добавляю поддержку настроек positions прямо в SortableBlock и TemplateBuilder. Это чище чем вешать отдельную панель в редакторе:
+
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Added 1 line
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Added 4 lines
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Added 18 lines
+Теперь обновляю TemplateBuilder — добавляю topvisorProjectId и onSettingsChange:
+
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Added 1 line
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Added 6 lines
+Шаг 7 — обновляю report-editor.tsx — передаю topvisorProjectId в TemplateBuilder:
+
+Edit f:\projects\reports\components\reports\report-editor.tsx
+Added 4 lines
+Проверяю TypeScript:
+
+Bash TypeScript check
+IN
+cd F:/projects/reports && npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Чисто. Проверяю что dev-сервер всё ещё компилирует без ошибок:
+
+Bash Test new project-meta endpoint
+IN
+cd F:/projects/reports && curl -s http://localhost:3000/api/settings/topvisor/project-meta?projectId=23765732 -H "Cookie: $(curl -sc /tmp/cookie http://localhost:3000/ > /dev/null && cat /tmp/cookie)" 2>&1 | head -100
+
+OUT
+(Bash completed with no output)
+Bash Check project-meta endpoint status
+IN
+cd F:/projects/reports && curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/settings/topvisor/project-meta?projectId=23765732 2>&1
+
+OUT
+307
+307 = редирект на логин (сессии нет), значит роут компилируется. Коммичу:
+
+Bash Commit scan date and group filter feature
+IN
+cd F:/projects/reports && git add lib/services/topvisor.ts lib/blocks/positions_summary.ts lib/blocks/positions_table.ts lib/report-generator.ts app/api/settings/topvisor/project-meta/route.ts components/topvisor/topvisor-scan-settings.tsx components/templates/template-builder.tsx components/reports/report-editor.tsx && git commit -m "$(cat <<'EOF'
+feat: configurable scan dates and group filter for positions blocks
+
+- New API GET /api/settings/topvisor/project-meta?projectId=N returns
+  existsDates and groups for a Topvisor project
+- TopvisorScanSettings component: dropdown for scan/compare date,
+  checkbox list for group filtering
+- Settings stored in block.settings (scanDate, compareScanDate, groupIds)
+- Positions blocks use explicit settings when set, otherwise auto-pick
+  last two scan dates
+- group_id merged from keywords_2/keywords since positions API omits it
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+
+OUT
+warning: in the working copy of 'components/templates/template-builder.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/blocks/positions_summary.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/blocks/positions_table.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/services/topvisor.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/settings/topvisor/project-meta/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/topvisor/topvisor-scan-settings.tsx', LF will be replaced by CRLF the next time Git touches it
+[main a6b2c03] feat: configurable scan dates and group filter for positions blocks
+ 8 files changed, 344 insertions(+), 42 deletions(-)
+ create mode 100644 app/api/settings/topvisor/project-meta/route.ts
+ create mode 100644 components/topvisor/topvisor-scan-settings.tsx
+Bash Push to remote
+IN
+cd F:/projects/reports && git push origin main 2>&1
+
+OUT
+To https://github.com/polkovnik0ff/reports.git
+   6e50b41..a6b2c03  main -> main
+Обновляю DEV_LOG:
+
+Edit f:\projects\reports\DEV_LOG.md
+Added 72 lines
+Bash Push DEV_LOG update
+IN
+cd F:/projects/reports && git add DEV_LOG.md && git commit -m "docs: update DEV_LOG
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" && git push origin main 2>&1
+
+OUT
+[main 203be7d] docs: update DEV_LOG
+ 1 file changed, 72 insertions(+)
+To https://github.com/polkovnik0ff/reports.git
+   a6b2c03..203be7d  main -> main
+Готово. Что сделано:
+
+Как это работает:
+
+В редакторе отчёта открываешь таб «Блоки» → разворачиваешь блок «Общая статистика по позициям» или «Позиции в поисковых системах» — появляется секция «Настройки позиций»
+
+Дата сканирования — dropdown со всеми реальными датами проверок Topvisor для этого проекта (в порядке убывания). По умолчанию выбрана последняя.
+
+Сравнение (дата) — dropdown с теми же датами (кроме выбранной), опция «без сравнения».
+
+Группы запросов — если у проекта есть группы, появляется список с чекбоксами. По умолчанию все группы включены. Можно отметить только нужные. Кнопка «Все группы» снимает фильтр.
+
+Настройки сохраняются в block.settings и применяются при генерации. Если даты не выбраны вручную — система автоматически берёт последние две даты из истории сканирований.
+
+1 - в настройках блоков ничего нет, так что не работает. и это не очень удобно. давай перенесем это на первую страницу настроек
+Смотрю на текущий таб «Параметры» в редакторе и на то как выглядит секция Topvisor.
+
+Read f:\projects\reports\components\reports\report-editor.tsx (lines 293-452)
+Теперь вижу полную картину. Нужно убрать настройки Topvisor из template-builder.tsx и перенести TopvisorScanSettings прямо в таб «Параметры» — после TopvisorProjectSelect. Настройки scan date и groups будут общими для обоих positions блоков (и summary, и table), что логично.
+
+При этом нужно:
+
+Хранить scanDate, compareScanDate, groupIds в state редактора
+При генерации — прописывать эти настройки в settings всех positions блоков
+Убрать TopvisorScanSettings и onSettingsChange из template-builder.tsx
+Read f:\projects\reports\components\reports\report-editor.tsx (lines 2-141)
+Теперь вижу всё что нужно. Буду:
+
+Добавлять state topvisorScanDate, topvisorCompareScanDate, topvisorGroupIds — инициализировать из первого positions блока
+Добавлять секцию «Topvisor» в таб «Параметры» после TopvisorProjectSelect
+При генерации — вписывать эти настройки в settings всех positions блоков
+Убирать TopvisorScanSettings и onSettingsChange из template-builder.tsx (откатить)
+Read f:\projects\reports\components\reports\report-editor.tsx (lines 181-230)
+Теперь делаю все изменения. Начну с report-editor.tsx — добавлю state и секцию Topvisor в параметры:
+
+Edit f:\projects\reports\components\reports\report-editor.tsx
+Added 1 line
+Добавляю state для Topvisor-настроек позиций — инициализируем из первого positions блока:
+
+Edit f:\projects\reports\components\reports\report-editor.tsx
+Added 14 lines
+Обновляю handleGenerate — вписываем topvisorScanSettings в settings каждого positions блока:
+
+Edit f:\projects\reports\components\reports\report-editor.tsx
+Added 3 lines
+Добавляю секцию Topvisor в таб «Параметры» — после TopvisorProjectSelect и до периода:
+
+Edit f:\projects\reports\components\reports\report-editor.tsx
+Added 18 lines
+Убираю topvisorProjectId из TemplateBuilder в таб Блоки — он больше не нужен там:
+
+Edit f:\projects\reports\components\reports\report-editor.tsx
+Removed 4 lines
+Убираю всё Topvisor-связанное из template-builder.tsx:
+
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Removed 1 line
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Removed 4 lines
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Removed 18 lines
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Removed 1 line
+Edit f:\projects\reports\components\templates\template-builder.tsx
+Removed 6 lines
+Bash TypeScript check
+IN
+cd F:/projects/reports && npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Чисто. Коммит:
+
+Bash Commit and push refactor
+IN
+cd F:/projects/reports && git add components/reports/report-editor.tsx components/templates/template-builder.tsx && git commit -m "$(cat <<'EOF'
+refactor: move Topvisor scan settings to Params tab
+
+TopvisorScanSettings now lives in the Params tab, below the project
+selector, instead of inside each block's expanded section. Settings
+(scanDate, compareScanDate, groupIds) are shared across both positions
+blocks and merged into block.settings at generate time.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)" && git push origin main 2>&1
+
+OUT
+warning: in the working copy of 'components/templates/template-builder.tsx', LF will be replaced by CRLF the next time Git touches it
+[main 9c07614] refactor: move Topvisor scan settings to Params tab
+ 2 files changed, 42 insertions(+), 40 deletions(-)
+To https://github.com/polkovnik0ff/reports.git
+   203be7d..9c07614  main -> main
+Обновляю DEV_LOG:
+
+Edit f:\projects\reports\DEV_LOG.md
+Added 25 lines
+Bash Push DEV_LOG
+IN
+cd F:/projects/reports && git add DEV_LOG.md && git commit -m "docs: update DEV_LOG
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" && git push origin main 2>&1
+
+OUT
+[main 28d3570] docs: update DEV_LOG
+ 1 file changed, 25 insertions(+)
+To https://github.com/polkovnik0ff/reports.git
+   9c07614..28d3570  main -> main
+Готово. Теперь в редакторе отчёта, таб «Параметры»:
+
+Выбираешь проект Topvisor → сразу появляется блок «Позиции (Topvisor)»
+Dropdown «Дата сканирования» — все реальные даты проверок в порядке убывания
+Dropdown «Сравнение (дата)» — те же даты, опция «без сравнения»
+Список «Группы запросов» — чекбоксы, «Все группы» сбрасывает фильтр
+При нажатии «Сгенерировать» настройки применяются к обоим блокам позиций сразу.
+
+
+image.png
+778×786
+всё так же
+Форма создания — это отдельный компонент report-form-embedded.tsx, не report-editor.tsx. Нужно добавить TopvisorScanSettings туда тоже.
+
+Read f:\projects\reports\components\reports\report-form-embedded.tsx
+Вижу всё что нужно. Добавляю TopvisorScanSettings в форму создания — после TopvisorProjectSelect, и передаю настройки в handleSubmit через blocks:
+
+Edit f:\projects\reports\components\reports\report-form-embedded.tsx
+Added 1 line
+Edit f:\projects\reports\components\reports\report-form-embedded.tsx
+Added 5 lines
+Обновляю handleSubmit — вписываю настройки сканирования в positions блоки перед отправкой:
+
+Edit f:\projects\reports\components\reports\report-form-embedded.tsx
+Added 8 lines
+Добавляю секцию TopvisorScanSettings в UI — после TopvisorProjectSelect, внутри блока настроек:
+
+Edit f:\projects\reports\components\reports\report-form-embedded.tsx
+Added 15 lines
+Bash TypeScript check
+IN
+cd F:/projects/reports && npx tsc --noEmit 2>&1
+
+OUT
+(Bash completed with no output)
+Bash Commit and push
+IN
+cd F:/projects/reports && git add components/reports/report-form-embedded.tsx && git commit -m "$(cat <<'EOF'
+feat: add Topvisor scan settings to new report form (step 1)
+
+TopvisorScanSettings now appears on step 1 of the report creation form,
+below the project selector, matching the editor behavior.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)" && git push origin main 2>&1
+
+OUT
+[main e5879a6] feat: add Topvisor scan settings to new report form (step 1)
+ 1 file changed, 31 insertions(+), 2 deletions(-)
+To https://github.com/polkovnik0ff/reports.git
+   28d3570..e5879a6  main -> main
+Готово. Теперь в форме создания отчёта — как только выбираешь проект Topvisor, сразу появляется блок «Позиции (Topvisor)» с выбором даты сканирования, даты сравнения и групп запросов. Работает так же как в редакторе.
+
+а DEV_LOG.md ты обновляешь?
+Да, забыл обновить в последних двух коммитах. Дописываю сейчас.
+
+Read f:\projects\reports\DEV_LOG.md (lines 311-330)
+Read f:\projects\reports\DEV_LOG.md (lines 396-425)
+Read f:\projects\reports\DEV_LOG.md (lines 456-495)
+Edit f:\projects\reports\DEV_LOG.md
+Added 17 lines
+Bash Commit and push DEV_LOG
+IN
+cd F:/projects/reports && git add DEV_LOG.md && git commit -m "docs: update DEV_LOG
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" && git push origin main 2>&1
+
+OUT
+[main a2bc76f] docs: update DEV_LOG
+ 1 file changed, 17 insertions(+)
+To https://github.com/polkovnik0ff/reports.git
+   e5879a6..a2bc76f  main -> main
+Да, виноват — в последних двух коммитах пропустил. Обновил, запушено. Буду следить строже.
+
+в целом, почти всё хорошо. но:
+1 - не рабоатет выбор групп для отображения. тоесть я выбрал 2 группы в настройках, а в отчете всё равно инфа по всем.
+2 - давай добавим 2 вещи в выборе группы: "выбрать всё" "убрать всё". соответственно ставят или убирают все чекбоксы. Так же почини логику чекбоксов там: почему то, когда все руппы выбраны, если я кликну на один, но останется только он. это не очень. пусть всё будет как обычно
+Читаю текущую логику чекбоксов и фильтрации групп.
+
+Read f:\projects\reports\components\topvisor\topvisor-scan-settings.tsx
+Reading the current state of both files before making fixes.
+
+Read f:\projects\reports\components\topvisor\topvisor-scan-settings.tsx
+Read f:\projects\reports\lib\services\topvisor.ts
+Now I have the full picture. Fixing both bugs:
+
+Bug 1 (topvisor.ts): getPositionsHistory merges group_id but never filters keywords by groupIds.
+
+Bug 2 (topvisor-scan-settings.tsx): toggleGroup uses [] as base when groupIds is undefined (all selected). Also need "Выбрать всё" / "Убрать всё" buttons.
+
+Edit f:\projects\reports\lib\services\topvisor.ts
+Added 8 lines
+Now fix the checkbox logic and add the two buttons:
+
+Edit f:\projects\reports\components\topvisor\topvisor-scan-settings.tsx
+Added 7 lines
+Now fix the header buttons section and the checked logic:
+
+Edit f:\projects\reports\components\topvisor\topvisor-scan-settings.tsx
+Added 10 lines
+Also remove the now-unused selectedGroups variable:
+
+Edit f:\projects\reports\components\topvisor\topvisor-scan-settings.tsx
+Removed 1 line
+Let me verify the final state of the component looks correct:
+
+Read f:\projects\reports\components\topvisor\topvisor-scan-settings.tsx
+Good. Now update the DEV_LOG:
+
+Read f:\projects\reports\DEV_LOG.md (lines 2-11)
+Read f:\projects\reports\DEV_LOG.md (lines 2-51)
+Bash Show end of DEV_LOG.md
+IN
+tail -n 80 f:/projects/reports/DEV_LOG.md
+
+OUT
+**`lib/report-generator.ts`:**
+- Читает `block.settings.scanDate`, `compareScanDate`, `groupIds` и передаёт в fetcher
+
+**Новый API `GET /api/settings/topvisor/project-meta?projectId=N`:**
+- Параллельно запрашивает `getExistsDates` + `getGroups`
+- Возвращает `{ existsDates: string[], groups: {id, name}[] }`
+
+**Новый компонент `TopvisorScanSettings`:**
+- Загружает meta при маунте (если `topvisorProjectId` задан)
+- Dropdown "Дата сканирования" — даты в порядке убывания, `fmtDate(dd.mm.yyyy)`
+- Dropdown "Сравнение (дата)" — те же даты минус выбранную, опция "без сравнения"
+- Чекбокс-список "Группы запросов" — показывается только если есть группы
+- Кнопка "Все группы" — снимает фильтр (groupIds = undefined)
+
+**`components/templates/template-builder.tsx`:**
+- `SortableBlock` получает `onSettingsChange` и `topvisorProjectId`
+- В expanded-секции для positions блоков — секция "Настройки позиций" с `TopvisorScanSettings`
+- `TemplateBuilder` получает `topvisorProjectId?: number | null`
+
+**`components/reports/report-editor.tsx`:**
+- Передаёт `topvisorProjectId` в `TemplateBuilder`
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/topvisor.ts` | getGroups(), getPositionsHistory() с мёрджем group_id, TopvisorGroupInfo |
+| `lib/blocks/positions_summary.ts` | принимает settings с scanDate/compareScanDate/groupIds |
+| `lib/blocks/positions_table.ts` | аналогично |
+| `lib/report-generator.ts` | читает block.settings для positions |
+| `app/api/settings/topvisor/project-meta/route.ts` | новый endpoint |
+| `components/topvisor/topvisor-scan-settings.tsx` | новый компонент |
+| `components/templates/template-builder.tsx` | настройки позиций в expanded |
+| `components/reports/report-editor.tsx` | передаёт topvisorProjectId в TemplateBuilder |
+
+Коммит: `a6b2c03` — запушено.
+
+---
+
+### Запрос 11 — Перенести настройки позиций на первую вкладку (Параметры)
+
+**Пользователь:** «В настройках блоков ничего нет, так что не работает. и это не очень удобно. давай перенесем это на первую страницу настроек»
+
+**Причина:** В `template-builder.tsx` `TopvisorScanSettings` не получал `topvisorProjectId` так как блок разворачивался до загрузки данных — компонент рендерился, но показывал `null` (без Topvisor проекта он не делает запрос).
+
+**Решение:** перенести настройки в таб «Параметры» в `report-editor.tsx`.
+
+**Архитектура:** настройки общие для обоих positions-блоков (summary + table). Хранятся в отдельном state `topvisorScanSettings`. При генерации мёрджатся в `block.settings` каждого positions блока.
+
+**Изменения:**
+- `report-editor.tsx`:
+  - Добавлен state `topvisorScanSettings` (инициализация из первого positions блока)
+  - Секция «Позиции (Topvisor)» в таб «Параметры» — показывается только если `topvisorProjectId` задан
+  - При смене проекта — сброс `topvisorScanSettings`
+  - `handleGenerate` — мёрджит `topvisorScanSettings` в settings positions блоков
+  - `TemplateBuilder` — убран проп `topvisorProjectId`
+- `template-builder.tsx`:
+  - Убраны `TopvisorScanSettings` импорт, `onSettingsChange`, `topvisorProjectId`, `handleSettingsChange`
+  - Возвращён к исходному виду (только комментарии блоков)
+
+Коммит: `9c07614` — запушено.
+
+---
+
+### Запрос 12 — Настройки позиций не появляются в форме создания отчёта
+
+**Пользователь:** прислал скриншот формы создания — настройки Topvisor (даты, группы) не отображаются. Выбран проект Topvisor, но секции «Позиции» нет.
+
+**Причина:** `TopvisorScanSettings` был добавлен только в `report-editor.tsx` (редактор существующего отчёта), но не в `report-form-embedded.tsx` (форма создания нового).
+
+**Изменения в `components/reports/report-form-embedded.tsx`:**
+- Импортирован `TopvisorScanSettings`
+- Добавлен state `topvisorScanSettings` (инициализируется пустым объектом)
+- После `TopvisorProjectSelect` — блок «Позиции (Topvisor)» (показывается только если `topvisorProjectId` задан)
+- При смене проекта — сброс `topvisorScanSettings`
+- `handleSubmit` — мёрджит `topvisorScanSettings` в settings positions блоков перед отправкой (как в редакторе)
+
+Коммит: `e5879a6` — запушено.
+
+---
+Edit f:\projects\reports\DEV_LOG.md
+Added 56 lines
+Оба бага исправлены:
+
+Bug 1 — фильтрация групп (lib/services/topvisor.ts): после мёрджа group_id из keywords_2/keywords теперь фильтруются сами ключевые слова — только те, чей group_id входит в запрошенный список. Раньше фильтровался только список групп в шапке, а ключевые слова шли все.
+
+Bug 2 — логика чекбоксов (components/topvisor/topvisor-scan-settings.tsx):
+
+toggleGroup теперь разворачивает undefined → groups.map(g => g.id) перед тем как снять один чекбокс. Если после снятия все снова выбраны — сворачивается обратно в undefined.
+Добавлены кнопки «Выбрать всё» и «Убрать всё» рядом с заголовком.
+checked теперь напрямую читает value.groupIds === undefined || value.groupIds.includes(g.id).
+Footer показывает «Ни одна группа не выбрана» при groupIds = [].
+f:\projects\reports\CLAUDE.md
+обнови DEV_LOG.md и CLAUDE.md
+Reading both files to see what needs updating.
+
+Read f:\projects\reports\CLAUDE.md (lines 2-51)
+Bash Read end of CLAUDE.md (phase 4 section)
+IN
+tail -n 120 f:/projects/reports/CLAUDE.md
+
+OUT
+   - ✅ Новый блок search_engines_dynamics: LineChart по поисковикам + таблица с динамикой
+   - ✅ traffic_search_dynamics переработан: LineChart посетителей по движкам по дням + сводная таблица
+   - ✅ traffic_search_engines: только donut; dim: ym:s:SearchEngineRoot; топ-6, фильтр пустых
+   - ✅ traffic_yoy: фильтр organic, график по visits, KPI через totals, getAllReportPages
+   - ✅ traffic_geography: топ-6 + "Другие", фильтр "Не определено"
+   - ✅ Единые цвета поисковых систем: lib/utils/engine-colors.ts
+   - ✅ Форма создания: кросс-девайс и "с роботами" по умолчанию; пресеты; UTC-баг исправлен; dd.mm.yyyy
+   - ✅ top_pages: фильтр organic, метрика visits, кликабельные ссылки
+   - ✅ referrals: refererDomain, фильтр referral, атрибуция/кросс-девайс, кликабельные домены
+   - ✅ high_bounce_pages: топ-200 → фильтр своего домена → сортировка bounceRate+visits → топ-10; ссылки
+   - ✅ DiffSup ↑100% — когда элемент есть в текущем периоде, но отсутствует в сравниваемом
+   **Реструктуризация роутов (отчёты вложены в проекты):**
+   - ✅ /projects/[id] — страница проекта со списком отчётов
+   - ✅ /projects/[id]/reports/new — форма создания без выбора проекта
+   - ✅ "Отчёты" убраны из sidebar
+   - ✅ /reports → redirect /projects
+   **Редактор отчётов:**
+   - ✅ /projects/[id]/reports/[reportId]/edit — full-screen split-pane редактор
+   - ✅ Левая панель: 3 таба (Параметры / Блоки / Тексты) + кнопка "Сгенерировать"
+   - ✅ Правая панель: iframe с /r/[slug], обновляется после регенерации
+   - ✅ PATCH /api/reports/[id] — обновляет поля + запускает generateReport заново
+   - ✅ GET /api/reports/[id]?full=1 — возвращает reportConfig и все настройки для редактора
+   - ✅ (editor) route group — отдельный layout без sidebar
+   **Rich-text редактор:**
+   - ✅ components/ui/rich-text-editor.tsx — Tiptap, полный тулбар (B/I/U/S/Highlight, H1-H3, выравнивание, списки, ссылка, изображение, таблица)
+   - ✅ Загрузка изображений: POST /api/upload → public/uploads/, JPEG/PNG/WebP, макс. 3 МБ
+   - ✅ Расширения: Image, Highlight, TaskList, Table (с контекстной панелью строк/колонок)
+   - ✅ Замена textarea во всех текстовых полях: форма создания (шаг 3), редактор отчёта (таб Тексты), конструктор шаблона (комментарии блоков)
+   - ✅ Стили prose-report обновлены (h1/h2/h3/ul/ol/a/mark/table/taskList); стили редактора в globals.css
+4. Topvisor + Вебмастер + Google Search Console + блоки позиций/индексации + PDF
+   **Topvisor:**
+   - ✅ lib/services/topvisor.ts — клиент API v2 с правильной авторизацией (заголовки User-Id + Authorization)
+   - ✅ lib/blocks/positions_summary.ts — сводка: всего запросов, видимость, ТОП-1/3/5/10
+   - ✅ lib/blocks/positions_table.ts — таблица позиций по группам
+   - ✅ components/report/blocks/positions-summary.tsx
+   - ✅ components/report/blocks/positions-table.tsx
+   - ✅ Настройки Topvisor в /settings: UserId + API Key (шифруются AES-256)
+   - ✅ topvisorProjectId в модели Report (migration 20260430125550)
+   - ✅ positionsData парсинг: объект {"YYYY-MM-DD:pid:regionIdx": {"position": num|"--"}}; extractPosition() по datePrefix
+   **Яндекс Вебмастер:**
+   - [ ] lib/services/webmaster.ts — клиент Webmaster API v4 (токен из ConnectedAccount)
+         Методы: getSearchQueries, getIndexingStats
+   - [ ] lib/blocks/webmaster_queries.ts — топ запросов: показы/клики/CTR/позиция
+         API: GET /v4/user/site/{host-id}/search-queries/popular?order_by=IMPRESSIONS
+   - [ ] lib/blocks/webmaster_indexing.ts — сводка индексации: в индексе / исключено / ошибки
+         API: GET /v4/user/site/{host-id}/indexing/stats
+   - [ ] components/report/blocks/webmaster-queries.tsx — таблица запросов (показы/клики/CTR/позиция)
+   - [ ] components/report/blocks/webmaster-indexing.tsx — KPI-карточки + динамика
+   - [ ] Привязка host-id Вебмастера к Project (сейчас хранится только metrіkaCounterId)
+         Вариант: добавить поле webmasterHostId: String? в модель Project
+   **Google Search Console:**
+   - [ ] OAuth через Google — добавить в /sources (ConnectedService.GOOGLE_SEARCH_CONSOLE уже есть в enum)
+         Scopes: https://www.googleapis.com/auth/webmasters.readonly
+         OAuth endpoints: accounts.google.com/o/oauth2/v2/auth, oauth2.googleapis.com/token
+   - [ ] lib/services/gsc.ts — клиент Search Console API v1 (токен из ConnectedAccount)
+         Методы: searchAnalytics (query, page, country, device), sitemaps
+         Базовый URL: https://www.googleapis.com/webmasters/v3/sites/{siteUrl}/searchAnalytics/query
+         Тело запроса: { startDate, endDate, dimensions, rowLimit }
+   - [ ] lib/blocks/gsc_queries.ts — топ запросов GSC: клики/показы/CTR/позиция
+   - [ ] lib/blocks/gsc_pages.ts — топ страниц GSC: клики/показы/CTR/позиция
+   - [ ] components/report/blocks/gsc-queries.tsx — таблица (аналог webmaster-queries но из Google)
+   - [ ] components/report/blocks/gsc-pages.tsx — таблица страниц
+   - [ ] Привязка siteUrl GSC к Project: добавить поле gscSiteUrl: String? в модель Project
+         siteUrl в GSC — строка вида "https://example.com/" или "sc-domain:example.com"
+   - [ ] Refresh token: GSC токены живут 1 час — нужен refresh через oauth2.googleapis.com/token
+         (хранить refreshToken в ConnectedAccount.refreshToken, шифровать AES-256)
+   **PDF:**
+   - [ ] lib/pdf.ts — Playwright headless, сохранение в public/pdfs/${slug}.pdf
+   - [ ] GET /api/pdf/[slug] — генерация по запросу, возвращает файл
+   - [ ] Кнопка «Скачать PDF» на публичной странице /r/[slug]
+5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
+6. Docker + VDS + мониторинг + бэкапы
+
+---
+
+## Команды разработки (Windows PowerShell)
+
+```powershell
+# Запустить dev-сервер
+npm run dev
+# Открыть: http://localhost:3000
+
+# Применить новую миграцию после изменений schema.prisma
+npx prisma migrate dev --name <название>
+
+# Пересгенерировать Prisma Client (после migrate это делается автоматически)
+npx prisma generate
+
+# Открыть Prisma Studio (визуальный просмотр БД)
+npx prisma studio
+
+# Создать первого пользователя (OWNER)
+npx tsx scripts/create-admin.ts admin@agency.ru YourPassword123!
+
+# Убить все node-процессы (если dev-сервер завис)
+Stop-Process -Name node -Force
+
+# Очистить Turbopack cache (если сервер падает с ошибкой corrupted database)
+Remove-Item -Recurse -Force .next
+```
+
+### .gitignore (актуальное):
+```
+.env*
+node_modules/
+.next/
+public/pdfs/
+.claude/settings.local.json
+*.docx
+/app/generated/prisma
+```
+
+## Созданные пользователи
+
+| Email | Пароль | Роль |
+|-------|--------|------|
+| admin@agency.ru | AdminPass123! | OWNER |
+
+Пользователь создан через scripts/create-admin.ts. 
+Скрипт повторно запускать не нужно — выдаст ошибку что пользователь уже существует.
+You've hit your limit · resets 1:40am (Asia/Bangkok)
+

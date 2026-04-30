@@ -500,3 +500,59 @@ Sample: [{name: "изготовление фасадов зданий", pos: 2, 
 Коммит: `e5879a6` — запушено.
 
 ---
+
+### Запрос 13 — Два бага с выбором групп
+
+**Пользователь:** «1 - не работает выбор групп для отображения. тоесть я выбрал 2 группы в настройках, а в отчете всё равно инфа по всем. 2 - давай добавим 2 вещи в выборе группы: 'выбрать всё' 'убрать всё'. соответственно ставят или убирают все чекбоксы. Так же почини логику чекбоксов там: почему то, когда все группы выбраны, если я кликну на один, но останется только он. это не очень. пусть всё будет как обычно»
+
+#### Баг 1 — Фильтрация групп не работает
+
+**Причина:** В `lib/services/topvisor.ts`, метод `getPositionsHistory`, после мёрджа `group_id` из `keywords_2/keywords`, массив `keywords` не фильтровался. Параметр `groups_ids` в API запросе не работает (API его игнорирует). Фильтрация происходила только для `groups` (список групп), но не для самих ключевых слов.
+
+**Исправление в `lib/services/topvisor.ts`:**
+```typescript
+// Раньше (неправильно):
+const keywords = (posResult.keywords ?? []).map((kw) => ({ ...kw, group_id: nameToGroupId.get(kw.name) ?? null }));
+
+// После (правильно):
+const mergedKeywords = (posResult.keywords ?? []).map(kw => ({ ...kw, group_id: nameToGroupId.get(kw.name) ?? null }));
+const keywords = groupIds && groupIds.length > 0
+  ? mergedKeywords.filter(kw => kw.group_id !== null && groupIds.includes(kw.group_id))
+  : mergedKeywords;
+```
+
+#### Баг 2 — Неправильная логика чекбоксов
+
+**Причина:** В `components/topvisor/topvisor-scan-settings.tsx`, функция `toggleGroup` использовала `value.groupIds ?? []` как базу. Когда все группы выбраны (`groupIds = undefined`), база была `[]`, поэтому клик по любому чекбоксу оставлял только этот один элемент (`next = [id]`).
+
+**Исправление в `toggleGroup`:**
+```typescript
+// Раньше:
+const current = value.groupIds ?? [];  // [] когда all = undefined → неправильно
+
+// После:
+const current = value.groupIds ?? groups.map((g) => g.id);  // разворачиваем в полный список
+const allSelected = next.length === groups.length;
+onChange({ ...value, groupIds: allSelected ? undefined : next.length > 0 ? next : [] });
+```
+
+**Добавлены кнопки «Выбрать всё» / «Убрать всё»:**
+- «Выбрать всё» → `onChange({ ...value, groupIds: undefined })` (all = undefined = без фильтра)
+- «Убрать всё» → `onChange({ ...value, groupIds: [] })` (пустой массив = ничего не выбрано)
+- Убрана старая кнопка «Все группы»
+
+**Исправлена логика `checked`:**
+```typescript
+// Раньше: selectedGroups.length === 0 || selectedGroups.includes(g.id)
+// После:  value.groupIds === undefined || value.groupIds.includes(g.id)
+```
+
+**Исправлен footer:** показывает «Ни одна группа не выбрана» если `groupIds = []`, иначе «Выбрано групп: N из M» если `groupIds !== undefined`.
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/topvisor.ts` | getPositionsHistory: фильтр keywords по groupIds после мёрджа |
+| `components/topvisor/topvisor-scan-settings.tsx` | toggleGroup fix, Выбрать/Убрать всё, checked fix |
+
+---
