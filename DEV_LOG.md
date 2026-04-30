@@ -315,3 +315,74 @@ GET /api/settings/topvisor/projects 200 in 655ms
 ⚠️ Проверить при следующей генерации отчёта: данные за конкретные даты могут быть пустыми если Topvisor ещё не проверял позиции на выбранную дату — это нормально, блок покажет 0 позиций.
 
 ---
+
+### Запрос 9 — Использовать последнюю дату сканирования Topvisor, показать дату в блоках
+
+**Пользователь:** «Что то не так. Попробуй сначала брать дату последнего сканирвоания в топвизоре и именно по ней показывать статистику. так же покажи в отчете эту дату в блоках»
+
+#### Проблема
+Блоки позиций использовали дату из периода отчёта (`report.dateTo`). Topvisor хранит позиции только по датам реальных проверок — и если проверка не совпадает с `dateTo`, данных нет.
+
+Например: отчёт за апрель 2026, `dateTo = 2026-04-30`. Topvisor проверял сайт 2026-04-30 — данные есть. Но в другой проект мог проверяться 2026-04-28 — и при `dates: ['2026-04-30']` данных не было бы.
+
+#### Исследование API
+
+Через прямые запросы обнаружен параметр `show_exists_dates: true` — возвращает `existsDates`: массив всех дат реальных сканирований для проекта:
+```json
+["2025-09-03","2025-09-15","2025-10-15","2026-03-26","2026-04-30"]
+```
+
+Также обнаружена важная деталь: **позиции в API приходят как строки**, не числа:
+```json
+{"2026-04-30:23765732:1": {"position": "32"}}
+```
+`parseInt(String(raw))` обязателен — иначе `typeof pos === "number"` даёт false и все позиции считаются null.
+
+#### Новый подход — двухшаговый
+
+**Шаг 1:** `getExistsDates(projectId)` — один запрос, только `existsDates` (без данных по ключевым словам)
+**Шаг 2:** `getPositionsHistory(projectId, [scanDate, compareScanDate])` — последняя и предпоследняя даты сканирования
+
+#### Изменения
+
+**`lib/services/topvisor.ts`:**
+- Новый метод `getExistsDates()` — запрос с `show_exists_dates: true` за диапазон `2020-01-01..сегодня`
+- `extractPosition()` исправлен: `parseInt(String(raw))` для строковых позиций
+- `buildSummaryData()` и `buildTableData()` принимают `scanDate: string` и `compareScanDate: string | null` явно (не берут из `headers.dates`)
+- Типы `PositionsSummaryData` и `PositionsTableData` добавлены поля `scanDate` и `compareScanDate`
+
+**`lib/blocks/positions_summary.ts` и `positions_table.ts`:**
+- Убрана зависимость от `dateTo`/`compareTo` из отчёта
+- Новый flow: `getExistsDates` → берём `[-1]` и `[-2]` → `getPositionsHistory`
+- При `existsDates.length === 0` возвращаем пустые данные (нет сканирований)
+
+**`lib/report-generator.ts`:** убраны параметры `date2`, `compareDate2` при вызове блоков
+
+**`components/report/blocks/positions-summary.tsx`:**
+- Добавлена строка "Данные на ДД.ММ.ГГГГ · сравнение с ДД.ММ.ГГГГ" над KPI-карточками
+
+**`components/report/blocks/positions-table.tsx`:**
+- Добавлена та же строка над таблицей
+- Заголовки колонок таблицы: дата сканирования (ДД.ММ.ГГГГ) вместо "Позиция" / "Пред."
+- `hasCompare` определяется по `data.compareScanDate !== null` (точнее прежнего)
+
+#### Результат (тест с реальными данными — Фронтсайд 23765732)
+```
+scanDate: 2026-04-30 | compareScanDate: 2026-03-26
+Total kws: 408 | TOP-10: 86 | Prev TOP-10: 84
+Sample: [{name: "изготовление фасадов зданий", pos: 2, prev: 1}, ...]
+```
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/topvisor.ts` | getExistsDates(), исправлен parseInt, новые типы |
+| `lib/blocks/positions_summary.ts` | двухшаговый flow, убраны даты из параметров |
+| `lib/blocks/positions_table.ts` | двухшаговый flow |
+| `lib/report-generator.ts` | убраны date2/compareDate2 при вызове |
+| `components/report/blocks/positions-summary.tsx` | дата сканирования над карточками |
+| `components/report/blocks/positions-table.tsx` | дата в заголовках колонок и над таблицей |
+
+Коммит: `f5db131` — запушено.
+
+---
