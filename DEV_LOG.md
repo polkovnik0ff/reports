@@ -204,3 +204,14 @@ GET /api/settings/topvisor/projects 200 in 655ms
 **Вывод:** Правило из CLAUDE.md требует фактического вызова Edit-инструмента, а не просто упоминания в тексте.
 
 ---
+
+### Запрос 7 — Коммит и пуш
+
+**Пользователь:** «коммит и пуш»
+
+**Шаги:**
+- ✅ `git add DEV_LOG.md app/api/settings/topvisor/projects/route.ts components/topvisor/topvisor-project-select.tsx`
+- ✅ `git commit` — коммит `254462a` "fix: handle null result from Topvisor API in project selector"
+- ✅ `git push origin main` — запушено, `e6dc389..254462a main -> main`
+
+---
