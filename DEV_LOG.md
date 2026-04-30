@@ -483,3 +483,20 @@ Sample: [{name: "изготовление фасадов зданий", pos: 2, 
 Коммит: `9c07614` — запушено.
 
 ---
+
+### Запрос 12 — Настройки позиций не появляются в форме создания отчёта
+
+**Пользователь:** прислал скриншот формы создания — настройки Topvisor (даты, группы) не отображаются. Выбран проект Topvisor, но секции «Позиции» нет.
+
+**Причина:** `TopvisorScanSettings` был добавлен только в `report-editor.tsx` (редактор существующего отчёта), но не в `report-form-embedded.tsx` (форма создания нового).
+
+**Изменения в `components/reports/report-form-embedded.tsx`:**
+- Импортирован `TopvisorScanSettings`
+- Добавлен state `topvisorScanSettings` (инициализируется пустым объектом)
+- После `TopvisorProjectSelect` — блок «Позиции (Topvisor)» (показывается только если `topvisorProjectId` задан)
+- При смене проекта — сброс `topvisorScanSettings`
+- `handleSubmit` — мёрджит `topvisorScanSettings` в settings positions блоков перед отправкой (как в редакторе)
+
+Коммит: `e5879a6` — запушено.
+
+---
