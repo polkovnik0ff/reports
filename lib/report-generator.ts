@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { decryptToken } from "@/lib/crypto";
 import { MetrikaClient, AttributionModel } from "@/lib/services/metrika";
+import { TopvisorClient } from "@/lib/services/topvisor";
+import { fetchPositionsSummary } from "@/lib/blocks/positions_summary";
+import { fetchPositionsTable } from "@/lib/blocks/positions_table";
+import { getTopvisorCredentials } from "@/lib/topvisor-settings";
 import { BlockConfig, BlockType } from "@/lib/blocks/defaults";
 
 function fmt(date: Date): string {
@@ -54,7 +58,7 @@ async function fetchBlockData(
     case "custom_kpi":
     case "positions_summary":
     case "positions_table":
-      return null;
+      return null; // handled separately
     default:
       return null;
   }
@@ -75,7 +79,7 @@ export async function generateReport(reportId: string): Promise<void> {
 
     const encryptedToken = report.project.connectedAccount.accessToken;
     const token = decryptToken(encryptedToken);
-    const client = new MetrikaClient(token, {
+    const metrikaClient = new MetrikaClient(token, {
       attribution: report.attribution as AttributionModel,
       withRobots:  report.withRobots,
       crossDevice: report.crossDevice,
@@ -88,29 +92,27 @@ export async function generateReport(reportId: string): Promise<void> {
     const compareDate2 = report.compareTo ? fmt(report.compareTo) : undefined;
 
     const blocks = report.reportConfig as unknown as BlockConfig[];
-    // Only API blocks need sequential fetching; manual blocks return immediately
-    const apiBlockTypes: BlockType[] = [
+    const metrikaBlockTypes: BlockType[] = [
       "traffic_summary", "traffic_channels", "traffic_search_engines",
       "search_engines_dynamics", "traffic_search_dynamics", "traffic_yoy",
       "traffic_geography", "traffic_devices", "top_pages", "top_queries",
       "referrals", "high_bounce_pages",
     ];
-    const enabledBlocks = blocks.filter((b) => b.enabled);
+    const topvisorBlockTypes: BlockType[] = ["positions_summary", "positions_table"];
 
+    const enabledBlocks = blocks.filter((b) => b.enabled);
     const snapshotData: Record<string, unknown> = {};
 
-    // Sequential fetch with 300ms delay to avoid Metrika 429 quota errors
+    // ── Metrika blocks: sequential with delay to avoid 429 ─────────────────
     for (let i = 0; i < enabledBlocks.length; i++) {
       const block = enabledBlocks[i];
-      const isApiBlock = apiBlockTypes.includes(block.type as BlockType);
+      if (!metrikaBlockTypes.includes(block.type as BlockType)) continue;
 
-      if (i > 0 && isApiBlock) {
-        await sleep(300);
-      }
+      if (i > 0) await sleep(300);
 
       try {
         const data = await fetchBlockData(
-          client,
+          metrikaClient,
           block,
           counterId,
           date1,
@@ -124,6 +126,68 @@ export async function generateReport(reportId: string): Promise<void> {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[generateReport] block ${block.id} failed:`, message);
         snapshotData[block.id] = { error: message };
+      }
+    }
+
+    // ── Topvisor blocks ─────────────────────────────────────────────────────
+    const topvisorBlocks = enabledBlocks.filter((b) =>
+      topvisorBlockTypes.includes(b.type as BlockType)
+    );
+
+    if (topvisorBlocks.length > 0) {
+      let topvisorClient: TopvisorClient | null = null;
+
+      if (report.topvisorProjectId) {
+        const creds = await getTopvisorCredentials();
+        if (creds) {
+          topvisorClient = new TopvisorClient(creds.userId, creds.apiKey);
+        }
+      }
+
+      for (const block of topvisorBlocks) {
+        if (!topvisorClient || !report.topvisorProjectId) {
+          const reason = !report.topvisorProjectId
+            ? "Не выбран проект Topvisor"
+            : "Не настроены ключи Topvisor в Настройках";
+          snapshotData[block.id] = { error: reason };
+          continue;
+        }
+
+        try {
+          let data: unknown;
+          if (block.type === "positions_summary") {
+            data = await fetchPositionsSummary(
+              topvisorClient,
+              report.topvisorProjectId,
+              date2,
+              compareDate2
+            );
+          } else {
+            data = await fetchPositionsTable(
+              topvisorClient,
+              report.topvisorProjectId,
+              date2,
+              compareDate2
+            );
+          }
+          snapshotData[block.id] = { data };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[generateReport] topvisor block ${block.id} failed:`, message);
+          snapshotData[block.id] = { error: message };
+        }
+      }
+    }
+
+    // ── Manual blocks: pass through from reportConfig ───────────────────────
+    for (const block of enabledBlocks) {
+      if (
+        block.type === "work_done" ||
+        block.type === "work_plan" ||
+        block.type === "custom_text" ||
+        block.type === "custom_kpi"
+      ) {
+        snapshotData[block.id] = { data: null };
       }
     }
 

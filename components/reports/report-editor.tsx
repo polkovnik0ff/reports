@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import TemplateBuilder from "@/components/templates/template-builder";
+import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Date helpers ───────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ interface Props {
   initialWithRobots: boolean;
   initialCrossDevice: boolean;
   initialBlocks: BlockConfig[];
+  initialTopvisorProjectId?: number | null;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -96,6 +98,7 @@ export default function ReportEditor({
   initialWithRobots,
   initialCrossDevice,
   initialBlocks,
+  initialTopvisorProjectId,
 }: Props) {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -116,6 +119,7 @@ export default function ReportEditor({
   const [attribution, setAttribution] = useState(initialAttribution);
   const [withRobots, setWithRobots] = useState(initialWithRobots);
   const [crossDevice, setCrossDevice] = useState(initialCrossDevice);
+  const [topvisorProjectId, setTopvisorProjectId] = useState<number | null>(initialTopvisorProjectId ?? null);
 
   // Blocks tab state
   const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks);
@@ -199,6 +203,7 @@ export default function ReportEditor({
           attribution,
           withRobots,
           crossDevice,
+          topvisorProjectId: topvisorProjectId ?? null,
         }),
       });
       const data = await res.json();
@@ -347,6 +352,11 @@ export default function ReportEditor({
                     />
                     Учитывать кросс-девайс визиты
                   </label>
+
+                  <TopvisorProjectSelect
+                    value={topvisorProjectId}
+                    onChange={setTopvisorProjectId}
+                  />
                 </div>
 
                 {/* Period */}

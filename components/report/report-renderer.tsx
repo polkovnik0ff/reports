@@ -15,6 +15,8 @@ import { TopQueriesBlock } from "./blocks/top-queries";
 import { ReferralsBlock } from "./blocks/referrals";
 import { HighBouncePagesBlock } from "./blocks/high-bounce-pages";
 import { RichTextBlock } from "./blocks/rich-text-block";
+import { PositionsSummaryBlock } from "./blocks/positions-summary";
+import { PositionsTableBlock } from "./blocks/positions-table";
 
 interface ReportRendererProps {
   reportConfig: BlockConfig[];
@@ -80,13 +82,15 @@ function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string
     case "custom_text":
       return <RichTextBlock content={block.settings?.content as string ?? ""} />;
     case "custom_kpi":
-    case "positions_summary":
-    case "positions_table":
       return (
         <div className="rounded-lg bg-gray-50 border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-400 italic">
           Блок будет доступен в следующей версии
         </div>
       );
+    case "positions_summary":
+      return <PositionsSummaryBlock data={data} />;
+    case "positions_table":
+      return <PositionsTableBlock data={data} />;
     default:
       return <ErrorBlock />;
   }

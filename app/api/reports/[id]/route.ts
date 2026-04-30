@@ -32,6 +32,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       attribution: true,
       withRobots: true,
       crossDevice: true,
+      topvisorProjectId: true,
       ...(full && { reportConfig: true }),
       project: { select: { id: true, name: true, url: true } },
     },
@@ -44,17 +45,18 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 const ATTRIBUTION_VALUES = ["lastsign", "first", "last", "auto", "direct"] as const;
 
 const patchSchema = z.object({
-  title:       z.string().min(1).max(300).optional(),
-  dateFrom:    z.string().optional(),
-  dateTo:      z.string().optional(),
-  compareFrom: z.string().nullable().optional(),
-  compareTo:   z.string().nullable().optional(),
-  reportConfig: z.array(z.any()).optional(),
-  attribution: z.enum(ATTRIBUTION_VALUES).optional(),
-  withRobots:  z.boolean().optional(),
-  crossDevice: z.boolean().optional(),
-  workDone:    z.string().optional(),
-  workPlan:    z.string().optional(),
+  title:             z.string().min(1).max(300).optional(),
+  dateFrom:          z.string().optional(),
+  dateTo:            z.string().optional(),
+  compareFrom:       z.string().nullable().optional(),
+  compareTo:         z.string().nullable().optional(),
+  reportConfig:      z.array(z.any()).optional(),
+  attribution:       z.enum(ATTRIBUTION_VALUES).optional(),
+  withRobots:        z.boolean().optional(),
+  crossDevice:       z.boolean().optional(),
+  workDone:          z.string().optional(),
+  workPlan:          z.string().optional(),
+  topvisorProjectId: z.number().int().positive().nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
@@ -72,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const {
     title, dateFrom, dateTo, compareFrom, compareTo,
     reportConfig, attribution, withRobots, crossDevice,
-    workDone, workPlan,
+    workDone, workPlan, topvisorProjectId,
   } = parsed.data;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,8 +97,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       ...(compareTo   !== undefined && { compareTo: compareTo ? new Date(compareTo) : null }),
       ...(finalConfig !== undefined && { reportConfig: finalConfig as any }),
       ...(attribution !== undefined && { attribution }),
-      ...(withRobots  !== undefined && { withRobots }),
-      ...(crossDevice !== undefined && { crossDevice }),
+      ...(withRobots         !== undefined && { withRobots }),
+      ...(crossDevice        !== undefined && { crossDevice }),
+      ...(topvisorProjectId  !== undefined && { topvisorProjectId: topvisorProjectId ?? null }),
       status: "GENERATING",
       snapshotData: undefined,
     },

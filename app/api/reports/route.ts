@@ -33,19 +33,20 @@ export async function GET(req: NextRequest) {
 const ATTRIBUTION_VALUES = ["lastsign", "first", "last", "auto", "direct"] as const;
 
 const createSchema = z.object({
-  projectId:   z.string().min(1),
-  templateId:  z.string().optional(),
-  title:       z.string().min(1).max(300),
-  dateFrom:    z.string(),
-  dateTo:      z.string(),
-  compareFrom: z.string().optional(),
-  compareTo:   z.string().optional(),
-  reportConfig: z.array(z.any()),
-  workDone:    z.string().optional(),
-  workPlan:    z.string().optional(),
-  attribution: z.enum(ATTRIBUTION_VALUES).default("lastsign"),
-  withRobots:  z.boolean().default(false),
-  crossDevice: z.boolean().default(false),
+  projectId:         z.string().min(1),
+  templateId:        z.string().optional(),
+  title:             z.string().min(1).max(300),
+  dateFrom:          z.string(),
+  dateTo:            z.string(),
+  compareFrom:       z.string().optional(),
+  compareTo:         z.string().optional(),
+  reportConfig:      z.array(z.any()),
+  workDone:          z.string().optional(),
+  workPlan:          z.string().optional(),
+  attribution:       z.enum(ATTRIBUTION_VALUES).default("lastsign"),
+  withRobots:        z.boolean().default(false),
+  crossDevice:       z.boolean().default(false),
+  topvisorProjectId: z.number().int().positive().nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
   const {
     projectId, templateId, title, dateFrom, dateTo,
     compareFrom, compareTo, reportConfig, workDone, workPlan,
-    attribution, withRobots, crossDevice,
+    attribution, withRobots, crossDevice, topvisorProjectId,
   } = parsed.data;
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
       attribution,
       withRobots,
       crossDevice,
+      topvisorProjectId: topvisorProjectId ?? null,
     },
   });
 

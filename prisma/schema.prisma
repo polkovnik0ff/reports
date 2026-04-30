@@ -121,9 +121,10 @@ model Report {
   status       ReportStatus @default(GENERATING)
   generatedAt  DateTime?
   createdAt    DateTime     @default(now())
-  attribution  String       @default("lastsign")
-  withRobots   Boolean      @default(false)
-  crossDevice  Boolean      @default(false)
+  attribution       String       @default("lastsign")
+  withRobots        Boolean      @default(false)
+  crossDevice       Boolean      @default(false)
+  topvisorProjectId Int?
 
   @@index([projectId, createdAt])
 }

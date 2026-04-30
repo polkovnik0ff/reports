@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import TemplateBuilder from "@/components/templates/template-builder";
+import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -178,6 +179,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
   const [attribution, setAttribution] = useState<"lastsign" | "first" | "last" | "auto" | "direct">("lastsign");
   const [withRobots, setWithRobots] = useState(true);
   const [crossDevice, setCrossDevice] = useState(true);
+  const [topvisorProjectId, setTopvisorProjectId] = useState<number | null>(null);
 
   // Step 1 state
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
@@ -276,6 +278,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
           attribution,
           withRobots,
           crossDevice,
+          topvisorProjectId: topvisorProjectId ?? null,
         }),
       });
       const data = await res.json();
@@ -386,6 +389,12 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
                   />
                   Учитывать кросс-девайс визиты
                 </label>
+
+                {/* Topvisor project */}
+                <TopvisorProjectSelect
+                  value={topvisorProjectId}
+                  onChange={setTopvisorProjectId}
+                />
               </div>
 
               {/* Period preset */}
