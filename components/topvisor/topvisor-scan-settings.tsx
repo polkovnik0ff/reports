@@ -13,6 +13,7 @@ interface ScanSettings {
   scanDate?: string;
   compareScanDate?: string;
   groupIds?: number[];
+  regionIndex?: number;
 }
 
 interface Props {
@@ -44,11 +45,27 @@ export function TopvisorScanSettings({ topvisorProjectId, value, onChange }: Pro
       .then((r) => r.json())
       .then((data) => {
         if (data.error) { setError(data.error); return; }
-        setExistsDates(Array.isArray(data.existsDates) ? data.existsDates : []);
+        const dates = Array.isArray(data.existsDates) ? data.existsDates : [];
+        setExistsDates(dates);
         setGroups(Array.isArray(data.groups) ? data.groups : []);
+
+        // Always persist explicit scanDate, compareScanDate and regionIndex so the
+        // generator never falls back to "auto" mode (which ignores user's "no compare" choice).
+        const datesDesc = [...dates].reverse();
+        const updates: Record<string, unknown> = {};
+        if (data.regionIndex != null) updates.regionIndex = data.regionIndex;
+        if (!value.scanDate && datesDesc[0]) updates.scanDate = datesDesc[0];
+        // Only set compareScanDate if user hasn't touched it yet (undefined = not set)
+        if (value.compareScanDate === undefined) {
+          updates.compareScanDate = datesDesc[1] ?? "";
+        }
+        if (Object.keys(updates).length > 0) {
+          onChange({ ...value, ...updates });
+        }
       })
       .catch(() => setError("Ошибка загрузки"))
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topvisorProjectId]);
 
   if (!topvisorProjectId) return null;
@@ -76,11 +93,12 @@ export function TopvisorScanSettings({ topvisorProjectId, value, onChange }: Pro
   const selectedCompare = value.compareScanDate ?? "";
 
   function setScanDate(d: string) {
-    onChange({ ...value, scanDate: d, compareScanDate: value.compareScanDate ?? "" });
+    onChange({ ...value, scanDate: d });
   }
 
   function setCompareScanDate(d: string) {
-    onChange({ ...value, compareScanDate: d || undefined });
+    // "" = user explicitly chose "no comparison" (stored as ""); undefined = not yet set (auto)
+    onChange({ ...value, compareScanDate: d });
   }
 
   function toggleGroup(id: number) {

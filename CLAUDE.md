@@ -431,13 +431,22 @@ async function generatePdf(slug: string): Promise<string> {
 ### Topvisor (API v2)
 - API key (не OAuth). UserId + API Key в `AccountSettings` (зашифрованы)
 - Endpoint: `https://api.topvisor.com/v2/json/`
-- Нужные методы: `get/projects_2/projects` (список), `get/positions_2/history` (позиции)
+- Нужные методы: `get/projects_2/projects` (список), `get/positions_2/history` (позиции), `get/keywords_2/groups` (группы), `get/keywords_2/keywords` (ключи с group_id)
 - **Авторизация через заголовки** (не через body): `User-Id` и `Authorization: bearer <key>`
 - **`get/positions_2/history` — обязательные параметры:** `project_id`, `regions_indexes` (массив, минимум 1 элемент; `0` невалиден — начинается с 1), `type_range` (0 = конкретные даты, 1 = диапазон), `dates` (при type_range=0) или `date1`/`date2` (при type_range=1)
-- **Структура `positionsData` в ответе** — объект, ключ = `"YYYY-MM-DD:projectId:regionIndex"`, значение = `{"position": number | "--"}`. `"--"` = не в ТОП-100, число = позиция. При отсутствии данных за дату — пустой массив `[]`.
+- **Структура `positionsData` в ответе** — объект, ключ = `"YYYY-MM-DD:projectId:regionIndex"`, значение = `{"position": string | "--"}`. **Позиция приходит строкой** (`"5"`, не `5`). `"--"` = не в ТОП-100. При отсутствии данных за дату — пустой массив `[]`. `extractPosition()` делает `parseInt(String(raw))`.
 - **`regions_indexes: [1]`** = индекс региона (строка `"1"` в headers, число `1` в запросе), типично Яндекс Москва. Значение берётся из `headers.projects[0].searchers[0].regions[0].index` ответа.
 - **`fields` параметр нельзя передавать** как объект с ключами `keywords`/`groups` — это вызывает ошибку 2003. Для простых запросов вообще не передавать `fields`.
 - **`tops`** в ответе = null если нет позиций в ТОП-100. Считать tops из `keywords` вручную надёжнее.
+- **`show_exists_dates: true`** — в запросе с type_range=1 возвращает массив `existsDates` с реальными датами сканирований. Использовать для UI выбора дат.
+- **`get/positions_2/history` не возвращает `group_id`** — нужно параллельно запрашивать `get/keywords_2/keywords` и джойнить по имени ключевого слова. `groups_ids` в запросе positions_2/history не работает — фильтровать на клиенте после мёрджа.
+- **Конвенция `groupIds`:** `undefined` = все группы, `[]` = ничего не выбрано, `[1,2,...]` = конкретные группы. Хранится в `block.settings.groupIds`.
+- **Регионы у каждого проекта свои** — `regions_indexes: [1]` может не иметь данных. Нужно делать probe-запрос с индексами 1..20 и читать реальную структуру из `headers.projects[0].searchers[*].regions[*].index`. Метод `getProjectSearchers(projectId)`.
+- **Поисковики:** `searcher.key=0` = Yandex, `key=1` = Google. `key=2,3,...` — placeholder-записи ("go.Mail", "Привяжите поисковик...") — игнорировать.
+- **`getExistsDates()`** перебирает все регионы проекта и возвращает `{ dates, regionIndex }` для первого региона с данными.
+- **Конвенция `compareScanDate` в `block.settings`:** `undefined` = пользователь не трогал (авто: предпоследняя дата), `""` = явно «без сравнения», `"YYYY-MM-DD"` = конкретная дата. `TopvisorScanSettings` при загрузке **всегда явно инициализирует** `scanDate` и `compareScanDate` чтобы `hasExplicitSettings=true` в блоках.
+- **`positions_summary` игнорирует `groupIds`** — сводка всегда по всем запросам. Данные запрашиваются параллельно для каждого поисковика (Яндекс + Google), результат — `bySearcher: SearcherSummary[]`.
+- **`positions_table` фильтрует по `groupIds`** — таблица позиций показывает только выбранные группы.
 
 ---
 
@@ -566,8 +575,7 @@ Remove-Item -Recurse -Force .next
 **Обновить эту строку при переходе между фазами.**
 
 ```
-Текущая фаза: 3 — ЗАВЕРШЕНА (включая доработки UX и редактор)
-Следующая фаза: 4 — Topvisor + блоки позиций + PDF
+Текущая фаза: 4 — В процессе (Topvisor завершён, далее Вебмастер / GSC / PDF)
 ```
 
 ### Фазы:
@@ -619,11 +627,22 @@ Remove-Item -Recurse -Force .next
    - ✅ lib/services/topvisor.ts — клиент API v2 с правильной авторизацией (заголовки User-Id + Authorization)
    - ✅ lib/blocks/positions_summary.ts — сводка: всего запросов, видимость, ТОП-1/3/5/10
    - ✅ lib/blocks/positions_table.ts — таблица позиций по группам
-   - ✅ components/report/blocks/positions-summary.tsx
-   - ✅ components/report/blocks/positions-table.tsx
+   - ✅ components/report/blocks/positions-summary.tsx — показывает «Данные на ДД.ММ.ГГГГ · сравнение с ДД.ММ.ГГГГ»
+   - ✅ components/report/blocks/positions-table.tsx — колонки с датами сканирования
    - ✅ Настройки Topvisor в /settings: UserId + API Key (шифруются AES-256)
    - ✅ topvisorProjectId в модели Report (migration 20260430125550)
    - ✅ positionsData парсинг: объект {"YYYY-MM-DD:pid:regionIdx": {"position": num|"--"}}; extractPosition() по datePrefix
+   - ✅ getExistsDates() — реальные даты сканирований через show_exists_dates: true
+   - ✅ getGroups() — список групп ключевых слов через keywords_2/groups
+   - ✅ getPositionsHistory() — мёрдж group_id из keywords_2/keywords; фильтр по groupIds на клиенте (API groups_ids не работает)
+   - ✅ GET /api/settings/topvisor/project-meta?projectId=N — параллельно возвращает existsDates + groups
+   - ✅ components/topvisor/topvisor-scan-settings.tsx — UI выбора даты сканирования, даты сравнения, групп (чекбоксы + «Выбрать всё» / «Убрать всё»)
+   - ✅ Настройки позиций (scanDate, compareScanDate, groupIds) — в табе «Параметры» редактора и в форме создания (шаг 0), общие для обоих blocks
+   - ✅ groupIds = undefined → все группы; groupIds = [] → ничего не выбрано; groupIds = [1,2] → конкретные группы
+   - ✅ Авто-детект региона: getProjectSearchers() probe 1..20, фильтр key=0/1 (Yandex/Google), skip placeholders
+   - ✅ positions_summary: всегда все запросы (groupIds игнорируется), разбивка по поисковикам (bySearcher)
+   - ✅ positions_summary компонент: секция на каждый поисковик с именем + регионом + ТОП-1/3/5/10
+   - ✅ Конвенция compareScanDate: undefined=авто, ""=без сравнения, "YYYY-MM-DD"=явная; TopvisorScanSettings инициализирует явно при загрузке
    **Яндекс Вебмастер:**
    - [ ] lib/services/webmaster.ts — клиент Webmaster API v4 (токен из ConnectedAccount)
          Методы: getSearchQueries, getIndexingStats

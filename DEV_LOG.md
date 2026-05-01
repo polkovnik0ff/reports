@@ -556,3 +556,208 @@ onChange({ ...value, groupIds: allSelected ? undefined : next.length > 0 ? next 
 | `components/topvisor/topvisor-scan-settings.tsx` | toggleGroup fix, Выбрать/Убрать всё, checked fix |
 
 ---
+
+### Запрос 14 — Обновить DEV_LOG.md и CLAUDE.md
+
+**Пользователь:** «обнови DEV_LOG.md и CLAUDE.md»
+
+**Изменения в `CLAUDE.md`:**
+- Строка «Текущая фаза» обновлена: `3 — ЗАВЕРШЕНА` → `4 — В процессе (Topvisor завершён, далее Вебмастер / GSC / PDF)`
+- Раздел фазы 4 / Topvisor — добавлены завершённые пункты:
+  - getExistsDates(), getGroups(), getPositionsHistory() с мёрджем и клиентской фильтрацией
+  - GET /api/settings/topvisor/project-meta
+  - components/topvisor/topvisor-scan-settings.tsx (UI с кнопками «Выбрать всё» / «Убрать всё»)
+  - Настройки позиций в Параметрах редактора и форме создания
+  - Конвенция groupIds (undefined / [] / [...])
+- Раздел «Topvisor (API v2)» в Интеграциях — добавлены новые знания:
+  - position приходит строкой ("5", не 5) — parseInt(String(raw))
+  - show_exists_dates: true для реальных дат сканирований
+  - positions_2/history не возвращает group_id — джойн через keywords_2/keywords по имени
+  - groups_ids в API не работает — фильтрация на клиенте
+  - Конвенция groupIds
+
+**DEV_LOG.md:** все записи 1–13 актуальны из предыдущих сессий. Запись 14 (эта) — синхронизация документации.
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `CLAUDE.md` | Статус фазы, Topvisor пункты фазы 4, раздел Интеграции/Topvisor |
+| `DEV_LOG.md` | Запись 14 |
+
+---
+
+### Запрос 15 — Нет данных о сканировании для «Брок 3.0»
+
+**Пользователь:** «Я выбираю проект "Брок 3.0". В интерфейсе пишет что нет данных о сканировании. Хотя я посмотрел в топвизоре — у проекта есть и группы и съемки позиций были (15.09.25 как пример)»
+
+#### Диагностика
+
+**Шаг 1: прямой вызов API для Брок 3.0 (projectId=16876175)**
+
+Запрос с `regions_indexes: [1]`, `show_exists_dates: true`:
+```json
+existsDates: []
+```
+— пустой массив при реально существующих сканированиях.
+
+**Шаг 2: перебор регионов 1–6**
+
+| regionIndex | existsDates | Регион |
+|-------------|-------------|--------|
+| 1 | [] | Яндекс, Москва |
+| 2 | [] | Google, Москва |
+| 3 | [] | Яндекс, Санкт-Петербург |
+| 4 | [] | Яндекс, Киев |
+| **5** | **[...19 дат]** | **Яндекс, Россия** |
+
+**Причина:** В Topvisor у каждого проекта свои регионы с произвольными индексами. Проект «Брок 3.0» сканируется в регионе «Россия» с `index=5`. Мы жёстко передавали `regions_indexes: [1]` во всех запросах — поэтому получали `existsDates: []` и отображали «Нет данных о сканированиях».
+
+#### Исправление
+
+**`lib/services/topvisor.ts`:**
+- Добавлен метод `getProjectRegionIndexes(projectId)` — делает один дешёвый запрос на текущую дату, читает `headers.projects[0].searchers[*].regions[*].index` и возвращает массив всех числовых индексов
+- Метод `getExistsDates()` переработан: теперь возвращает `{ dates: string[], regionIndex: number }` вместо `string[]`; автоматически перебирает все регионы проекта и возвращает первый, у которого есть данные
+- `TopvisorExistsDatesResult` и `TopvisorHistoryResult` — добавлен тип `headers.projects[].searchers[]` для TypeScript
+
+**`lib/blocks/positions_summary.ts` и `positions_table.ts`:**
+- Добавлено поле `regionIndex?` в Settings-интерфейс
+- При `settings.regionIndex` — используется напрямую (без доп. запроса)
+- При автодетекте — берётся из `getExistsDates()` результата
+- При явной дате без regionIndex — вызывается `getProjectRegionIndexes()` как fallback
+
+**`app/api/settings/topvisor/project-meta/route.ts`:**
+- Возвращает `{ existsDates, regionIndex, groups }` — UI сохраняет `regionIndex` в settings
+
+**`components/topvisor/topvisor-scan-settings.tsx`:**
+- `ScanSettings` — добавлено поле `regionIndex?: number`
+- При загрузке meta: сохраняет `regionIndex` через `onChange` — он попадает в `block.settings` и уходит на сервер при генерации
+
+#### Итог
+
+Проект «Брок 3.0» (и любой другой с регионом ≠ 1) теперь корректно показывает даты сканирований. `regionIndex` автоматически определяется из настроек проекта в Topvisor и кэшируется в `block.settings`.
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/topvisor.ts` | getProjectRegionIndexes(), getExistsDates() → {dates, regionIndex}, типы |
+| `lib/blocks/positions_summary.ts` | regionIndex из settings/auto-detect |
+| `lib/blocks/positions_table.ts` | regionIndex из settings/auto-detect |
+| `app/api/settings/topvisor/project-meta/route.ts` | возвращает regionIndex |
+| `components/topvisor/topvisor-scan-settings.tsx` | ScanSettings + regionIndex, onChange при загрузке |
+| `scripts/test-topvisor-dates.ts` | диагностический скрипт (можно удалить) |
+| `scripts/test-topvisor-projects.ts` | диагностический скрипт (можно удалить) |
+| `scripts/test-brok-dates.ts` | диагностический скрипт (можно удалить) |
+| `scripts/test-brok-regions.ts` | диагностический скрипт (можно удалить) |
+| `scripts/test-brok-all-regions.ts` | диагностический скрипт (можно удалить) |
+| `scripts/test-brok-regions2.ts` | диагностический скрипт (можно удалить) |
+| `scripts/test-brok-regions3.ts` | диагностический скрипт (можно удалить) |
+| `scripts/test-brok-debug.ts` | диагностический скрипт (можно удалить) |
+
+---
+
+### Запрос 16 — Общая статистика по позициям: все группы + разбивка Яндекс / Google
+
+**Пользователь:** «Общая статистика по позициям — сейчас тут показывается статистика только по выбранным группам. давай ты будешь показывать по всем группам, вне зависимости от того что выбрали. а вот в блоке Позиции в поисковых системах всё правильно. Так же в блоке Общая статистика по позициям показывай отдельно по яндекс отдельно по гугл.»
+
+#### Изменения
+
+**`lib/services/topvisor.ts`:**
+- Добавлен тип `SearcherSummary` — данные по одному поисковику: name, regionName, totalKeywords, top1/3/5/10, prevTop1/3/5/10
+- `PositionsSummaryData` расширен полем `bySearcher: SearcherSummary[]`
+- Добавлен метод `getProjectSearchers(projectId)` — делает probe-запрос с indexes 1..20, читает `headers.projects[0].searchers[*].regions[*]`, возвращает все пары `{searcherName, searcherKey, regionIndex, regionName}`
+- Добавлен хелпер `buildSearcherSummary()` — строит `SearcherSummary` из keywords
+- Добавлена функция `buildMultiSearcherSummaryData()` — принимает массив `{result, searcherName, regionName}`, строит `PositionsSummaryData` с `bySearcher` разбивкой
+- `buildSummaryData()` обновлён — принимает `searcherName` и `regionName`, добавляет `bySearcher` с одним элементом
+
+**`lib/blocks/positions_summary.ts`:**
+- `groupIds` полностью игнорируется — summary всегда по всем ключевым словам
+- Вызывает `client.getProjectSearchers()` для определения Яндекс / Google регионов
+- Делает параллельные `getPositionsHistory()` для каждого уникального поисковика (по `searcherKey`)
+- Собирает результат через `buildMultiSearcherSummaryData()`
+
+**`components/report/blocks/positions-summary.tsx`:**
+- Добавлен компонент `SearcherSection` — заголовок с именем поисковика + регионом + количеством запросов, сетка 2×4 с KpiCard ТОП-1/3/5/10
+- Основной компонент: если `bySearcher.length > 0` — рендерит секции по поисковикам; иначе fallback на старый flat-layout
+
+#### Итог
+- `positions_summary` всегда показывает все запросы проекта (groupIds не влияет)
+- `positions_table` по-прежнему фильтрует по выбранным группам
+- Если у проекта есть и Яндекс и Google — показываются две отдельные секции с раздельными ТОП-1/3/5/10
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/topvisor.ts` | SearcherSummary тип, bySearcher в PositionsSummaryData, getProjectSearchers(), buildSearcherSummary(), buildMultiSearcherSummaryData() |
+| `lib/blocks/positions_summary.ts` | полностью переписан: multi-searcher, без groupIds |
+| `components/report/blocks/positions-summary.tsx` | SearcherSection, разбивка по поисковикам |
+
+---
+
+### Запрос 17 — «Без сравнения» в Topvisor не работает
+
+**Пользователь:** «Если я выбираю "без сравнения" в топвизор, то в итоговом отчете сравнение всё равно есть»
+
+#### Причина
+
+В `setCompareScanDate` компонента при выборе "без сравнения" (пустая строка из `<select>`) сохранялось `d || undefined = undefined`. В блоках `settings.compareScanDate === undefined` трактовалось как "не задано → автоматически брать предпоследнюю дату" — поэтому сравнение включалось. Различие между "пользователь не трогал настройки" и "пользователь явно выбрал без сравнения" было потеряно.
+
+Аналогичная проблема в `setScanDate` — при смене даты сканирования дописывал `compareScanDate: value.compareScanDate ?? ""`, что сбрасывало намеренный `undefined` в `""`.
+
+#### Исправление
+
+**Конвенция `compareScanDate` в `block.settings`:**
+- `undefined` — пользователь не трогал, автоматически (предпоследняя дата из existsDates)
+- `""` — пользователь явно выбрал «без сравнения»
+- `"YYYY-MM-DD"` — конкретная дата
+
+**`components/topvisor/topvisor-scan-settings.tsx`:**
+- `setCompareScanDate`: теперь сохраняет `d` напрямую (`""` для "без сравнения", строка для даты)
+- `setScanDate`: убрал `compareScanDate: value.compareScanDate ?? ""` — не перезаписывает поле сравнения
+
+**`lib/blocks/positions_summary.ts` и `positions_table.ts`:**
+- Новая логика входа: `hasExplicitSettings = settings.scanDate != null || settings.compareScanDate != null`
+- При `hasExplicitSettings`:
+  - `compareScanDate = settings.compareScanDate === undefined` → авто (предпоследняя дата)
+  - `settings.compareScanDate === ""` → `null` (без сравнения)
+  - `settings.compareScanDate === "YYYY-MM-DD"` → конкретная дата
+- При `!hasExplicitSettings` — полностью автоматический режим (как раньше)
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `components/topvisor/topvisor-scan-settings.tsx` | setScanDate, setCompareScanDate — сохранение "" как явного "без сравнения" |
+| `lib/blocks/positions_summary.ts` | hasExplicitSettings логика, "" → null |
+| `lib/blocks/positions_table.ts` | hasExplicitSettings логика, "" → null |
+
+---
+
+### Запрос 17 (доработка) — реальная причина бага «без сравнения»
+
+**Проблема осталась после первого фикса** — нужна была более глубокая диагностика.
+
+#### Реальная причина
+
+Проверка `block.settings` в БД показала:
+```json
+{ "groupIds": [52887841], "regionIndex": 1 }
+```
+Ни `scanDate`, ни `compareScanDate` в settings **не сохранялись вообще**. Это означало что в блоках `hasExplicitSettings = false` → всегда автоматический режим → всегда две последние даты.
+
+`topvisorScanSettings` при `onChange` в `useEffect` записывал только `regionIndex` (единственное поле, которое явно вызывало `onChange`). `scanDate` и `compareScanDate` в state оставались `undefined`, а `spread` с `undefined`-значениями не записывает ключи.
+
+#### Исправление
+
+**`components/topvisor/topvisor-scan-settings.tsx`** — в `useEffect` после загрузки meta теперь сразу явно инициализирует `scanDate` и `compareScanDate` если они ещё не установлены:
+- `scanDate`: если не задан — ставит последнюю дату из списка
+- `compareScanDate`: если `undefined` (не трогали) — ставит предпоследнюю дату (или `""` если нет)
+- Если пользователь уже трогал `compareScanDate` (в т.ч. выбрал `""`) — не перезаписывает
+
+Теперь в `block.settings` всегда лежат явные значения, и блоки используют ветку `hasExplicitSettings=true` → `"" || null = null` (без сравнения).
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `components/topvisor/topvisor-scan-settings.tsx` | useEffect: явная инициализация scanDate + compareScanDate при загрузке |
+| `lib/report-generator.ts` | удалён диагностический console.log |
+
+---

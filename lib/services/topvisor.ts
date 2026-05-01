@@ -33,10 +33,25 @@ export interface TopvisorGroup {
   name: string;
 }
 
+interface TopvisorRegion {
+  index: string | number;
+  name: string;
+  countryCode?: string;
+}
+
+interface TopvisorSearcher {
+  name: string;
+  key: number;
+  regions: TopvisorRegion[];
+}
+
 interface TopvisorExistsDatesResult {
   existsDates: string[] | null;
   keywords: [];
-  headers: { dates: string[] };
+  headers: {
+    dates: string[];
+    projects?: { searchers?: TopvisorSearcher[] }[];
+  };
 }
 
 export interface TopvisorHistoryResult {
@@ -46,10 +61,25 @@ export interface TopvisorHistoryResult {
   visibility?: number | null;
   headers?: {
     dates?: string[];
+    projects?: { searchers?: TopvisorSearcher[] }[];
   };
 }
 
 // ── Derived data types (stored in snapshotData) ──────────────────────────────
+
+export interface SearcherSummary {
+  name: string;          // "Яндекс" | "Google"
+  regionName: string;    // "Москва", "Россия", etc.
+  totalKeywords: number;
+  top1: number;
+  top3: number;
+  top5: number;
+  top10: number;
+  prevTop1: number | null;
+  prevTop3: number | null;
+  prevTop5: number | null;
+  prevTop10: number | null;
+}
 
 export interface PositionsSummaryData {
   totalKeywords: number;
@@ -63,8 +93,9 @@ export interface PositionsSummaryData {
   prevTop5: number | null;
   prevTop10: number | null;
   prevVisibility: number | null;
-  scanDate: string | null;       // actual last scan date used
-  compareScanDate: string | null; // actual compare scan date used
+  scanDate: string | null;
+  compareScanDate: string | null;
+  bySearcher: SearcherSummary[];  // per-searcher breakdown (Яндекс / Google)
 }
 
 export interface PositionsKeyword {
@@ -132,22 +163,89 @@ export class TopvisorClient {
     return Array.isArray(result) ? result : [];
   }
 
-  // Returns sorted list of dates when positions were actually scanned.
-  async getExistsDates(projectId: number, regionIndex = 1): Promise<string[]> {
+  // Returns all searchers+regions for a project via a broad probe request (indexes 1..20).
+  // Result shape: [{ searcherName, searcherKey, regionIndex, regionName }]
+  async getProjectSearchers(projectId: number): Promise<{ searcherName: string; searcherKey: number; regionIndex: number; regionName: string }[]> {
     const today = new Date().toISOString().slice(0, 10);
+    const probeIndexes = Array.from({ length: 20 }, (_, i) => i + 1);
     const result = await this.request<TopvisorExistsDatesResult>(
       "get/positions_2/history",
       {
         project_id: projectId,
-        regions_indexes: [regionIndex],
+        regions_indexes: probeIndexes,
         type_range: 1,
-        date1: "2020-01-01",
+        date1: today,
         date2: today,
         show_headers: true,
-        show_exists_dates: true,
       }
     );
-    return result.existsDates ?? [];
+    const searchers = result.headers?.projects?.[0]?.searchers ?? [];
+    const out: { searcherName: string; searcherKey: number; regionIndex: number; regionName: string }[] = [];
+    for (const s of searchers) {
+      // Only Yandex (key=0) and Google (key=1) — skip placeholder entries
+      if (s.key !== 0 && s.key !== 1) continue;
+      for (const r of s.regions ?? []) {
+        const idx = Number(r.index);
+        if (idx >= 1) {
+          out.push({ searcherName: s.name, searcherKey: s.key, regionIndex: idx, regionName: r.name });
+        }
+      }
+    }
+    return out;
+  }
+
+  // Returns all region indexes configured for a project.
+  async getProjectRegionIndexes(projectId: number): Promise<number[]> {
+    const searchers = await this.getProjectSearchers(projectId);
+    const indexes = searchers.map((s) => s.regionIndex);
+    return indexes.length > 0 ? indexes : [1];
+  }
+
+  // Returns sorted list of dates when positions were actually scanned.
+  // Passes all known region indexes at once — existsDates is the union across all regions.
+  // Also returns the first region index that has data (for getPositionsHistory calls).
+  async getExistsDates(projectId: number, regionIndex?: number): Promise<{ dates: string[]; regionIndex: number }> {
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (regionIndex != null) {
+      const result = await this.request<TopvisorExistsDatesResult>(
+        "get/positions_2/history",
+        {
+          project_id: projectId,
+          regions_indexes: [regionIndex],
+          type_range: 1,
+          date1: "2020-01-01",
+          date2: today,
+          show_headers: true,
+          show_exists_dates: true,
+        }
+      );
+      return { dates: result.existsDates ?? [], regionIndex };
+    }
+
+    // Discover all regions, try each until we find one with dates
+    const searchers = await this.getProjectSearchers(projectId);
+    const allIndexes = searchers.map((s) => s.regionIndex);
+    const probeIndexes = allIndexes.length > 0 ? allIndexes : [1];
+
+    for (const idx of probeIndexes) {
+      const result = await this.request<TopvisorExistsDatesResult>(
+        "get/positions_2/history",
+        {
+          project_id: projectId,
+          regions_indexes: [idx],
+          type_range: 1,
+          date1: "2020-01-01",
+          date2: today,
+          show_headers: true,
+          show_exists_dates: true,
+        }
+      );
+      const dates = result.existsDates ?? [];
+      if (dates.length > 0) return { dates, regionIndex: idx };
+    }
+
+    return { dates: [], regionIndex: probeIndexes[0] ?? 1 };
   }
 
   // Fetches keyword positions for specific dates.
@@ -232,10 +330,34 @@ function countTopsFromKeywords(
   }).length;
 }
 
+function buildSearcherSummary(
+  keywords: TopvisorKeyword[],
+  searcherName: string,
+  regionName: string,
+  scanDate: string,
+  compareScanDate: string | null,
+): SearcherSummary {
+  return {
+    name: searcherName,
+    regionName,
+    totalKeywords: keywords.length,
+    top1:  countTopsFromKeywords(keywords, scanDate, 1),
+    top3:  countTopsFromKeywords(keywords, scanDate, 3),
+    top5:  countTopsFromKeywords(keywords, scanDate, 5),
+    top10: countTopsFromKeywords(keywords, scanDate, 10),
+    prevTop1:  compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 1)  : null,
+    prevTop3:  compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 3)  : null,
+    prevTop5:  compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 5)  : null,
+    prevTop10: compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 10) : null,
+  };
+}
+
 export function buildSummaryData(
   result: TopvisorHistoryResult,
   scanDate: string,
-  compareScanDate: string | null
+  compareScanDate: string | null,
+  searcherName = "Яндекс",
+  regionName = "",
 ): PositionsSummaryData {
   const { keywords, visibility } = result;
 
@@ -248,6 +370,10 @@ export function buildSummaryData(
   const prevTop3  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 3)  : null;
   const prevTop5  = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 5)  : null;
   const prevTop10 = compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 10) : null;
+
+  const bySearcher: SearcherSummary[] = [
+    buildSearcherSummary(keywords, searcherName, regionName, scanDate, compareScanDate),
+  ];
 
   return {
     totalKeywords: keywords.length,
@@ -263,6 +389,43 @@ export function buildSummaryData(
     prevVisibility: null,
     scanDate,
     compareScanDate,
+    bySearcher,
+  };
+}
+
+// Builds summary data from multiple per-searcher results (for multi-searcher projects).
+export function buildMultiSearcherSummaryData(
+  results: { result: TopvisorHistoryResult; searcherName: string; regionName: string }[],
+  scanDate: string,
+  compareScanDate: string | null,
+): PositionsSummaryData {
+  const bySearcher: SearcherSummary[] = results.map(({ result, searcherName, regionName }) =>
+    buildSearcherSummary(result.keywords, searcherName, regionName, scanDate, compareScanDate)
+  );
+
+  // Aggregate across all searchers (de-duplicate keyword names for totalKeywords)
+  const allKeywordNames = new Set(results.flatMap((r) => r.result.keywords.map((k) => k.name)));
+  const totalKeywords = allKeywordNames.size;
+
+  // Sum tops across searchers — use first searcher's data for aggregate (Яндекс primary)
+  const primary = results[0]?.result;
+  const keywords = primary?.keywords ?? [];
+
+  return {
+    totalKeywords,
+    visibility: typeof primary?.visibility === "number" ? primary.visibility : null,
+    top1:  countTopsFromKeywords(keywords, scanDate, 1),
+    top3:  countTopsFromKeywords(keywords, scanDate, 3),
+    top5:  countTopsFromKeywords(keywords, scanDate, 5),
+    top10: countTopsFromKeywords(keywords, scanDate, 10),
+    prevTop1:  compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 1)  : null,
+    prevTop3:  compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 3)  : null,
+    prevTop5:  compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 5)  : null,
+    prevTop10: compareScanDate ? countTopsFromKeywords(keywords, compareScanDate, 10) : null,
+    prevVisibility: null,
+    scanDate,
+    compareScanDate,
+    bySearcher,
   };
 }
 

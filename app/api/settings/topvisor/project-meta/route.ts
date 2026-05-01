@@ -15,11 +15,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const client = new TopvisorClient(creds.userId, creds.apiKey);
-    const [existsDates, groups] = await Promise.all([
+    const [{ dates: existsDates, regionIndex }, groups] = await Promise.all([
       client.getExistsDates(projectId),
       client.getGroups(projectId),
     ]);
-    return NextResponse.json({ existsDates, groups });
+    return NextResponse.json({ existsDates, regionIndex, groups });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Ошибка Topvisor API";
     return NextResponse.json({ error: message }, { status: 502 });
