@@ -28,13 +28,15 @@ export interface WebmasterIkhData {
 
 export interface IndexingPoint {
   date: string;  // YYYY-MM-DD
-  indexed: number;   // HTTP_2XX
+  indexed: number;   // HTTP_2XX (успешно просканировано)
   excluded: number;  // HTTP_4XX + HTTP_5XX + OTHER
 }
 
 export interface WebmasterIndexingData {
   points: IndexingPoint[];
   hostUrl: string;
+  currentIndexed?: number;   // searchable_pages_count из /summary
+  currentExcluded?: number;  // excluded_pages_count из /summary
 }
 
 export interface BacklinksPoint {
@@ -101,7 +103,7 @@ export class WebmasterClient {
     return { points, hostUrl: hostId };
   }
 
-  // История индексирования
+  // История индексирования + актуальное число из /summary
   async getIndexingHistory(
     hostId: string,
     dateFrom: string,
@@ -109,19 +111,23 @@ export class WebmasterClient {
   ): Promise<WebmasterIndexingData> {
     const uid = await this.getUserId();
     const encoded = encodeURIComponent(hostId);
-    const data = await this.get<{
-      indicators: Record<string, HistoryPoint[]>;
-    }>(`${uid}/hosts/${encoded}/indexing/history`, {
-      date_from: dateFrom,
-      date_to: dateTo,
-    });
-    const ind = data.indicators ?? {};
+
+    const [historyData, summaryData] = await Promise.all([
+      this.get<{ indicators: Record<string, HistoryPoint[]> }>(
+        `${uid}/hosts/${encoded}/indexing/history`,
+        { date_from: dateFrom, date_to: dateTo },
+      ),
+      this.get<{ searchable_pages_count?: number; excluded_pages_count?: number }>(
+        `${uid}/hosts/${encoded}/summary`,
+      ).catch(() => ({} as { searchable_pages_count?: number; excluded_pages_count?: number })),
+    ]);
+
+    const ind = historyData.indicators ?? {};
     const indexed = ind["HTTP_2XX"] ?? [];
     const excl4xx = ind["HTTP_4XX"] ?? [];
     const excl5xx = ind["HTTP_5XX"] ?? [];
     const exclOth = ind["OTHER"] ?? [];
 
-    // Build date-keyed maps
     const idxMap = new Map(indexed.map((p) => [p.date.slice(0, 10), p.value]));
     const exclMap = new Map<string, number>();
     for (const arr of [excl4xx, excl5xx, exclOth]) {
@@ -136,7 +142,13 @@ export class WebmasterClient {
       indexed: idxMap.get(d) ?? 0,
       excluded: exclMap.get(d) ?? 0,
     }));
-    return { points, hostUrl: hostId };
+
+    return {
+      points,
+      hostUrl: hostId,
+      currentIndexed: summaryData.searchable_pages_count,
+      currentExcluded: summaryData.excluded_pages_count,
+    };
   }
 
   // Внешние ссылки — динамика

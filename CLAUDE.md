@@ -249,8 +249,8 @@ type BlockType =
   | 'traffic_summary'       // KPI: визиты, уники, отказы, глубина, время
   | 'traffic_channels'      // Распределение по каналам (donut + таблица)
   | 'traffic_search_engines'// По поисковым системам (donut + легенда, без таблицы; dim: ym:s:SearchEngineRoot)
-  | 'search_engines_dynamics'// Динамика переходов из поисковых систем (LineChart по движкам + таблица с динамикой)
-  | 'traffic_search_dynamics'// LineChart: посетители по поисковым системам по дням (те же данные что search_engines_dynamics, без таблицы)
+  | 'search_engines_dynamics'// УСТАРЕЛО — не используется в DEFAULT_BLOCKS, оставлен для совместимости со старыми отчётами
+  | 'traffic_search_dynamics'// Динамика поискового трафика: LineChart посетителей по движкам по дням + сводная таблица
   | 'traffic_yoy'           // Сравнение с прошлым годом (area chart, только organic-трафик)
   | 'traffic_geography'     // География (donut + таблица регионов)
   | 'traffic_devices'       // Устройства (donut + таблица)
@@ -262,8 +262,9 @@ type BlockType =
   | 'positions_summary'     // Сводка: всего запросов, видимость, ТОП-1/3/5/10
   | 'positions_table'       // Таблица позиций по группам
   // Яндекс Вебмастер
-  | 'webmaster_queries'     // Топ запросов: показы/клики/CTR/позиция (Webmaster API v4)
-  | 'webmaster_indexing'    // Индексация: в индексе / исключено / ошибки сканирования
+  | 'webmaster_ikh'         // Индекс качества сайта (ИКС) — LineChart за 3 мес до конца отчётного периода
+  | 'webmaster_indexing'    // Страницы в поиске: KPI из /summary (searchable_pages_count) + график краулинга (/indexing/history)
+  | 'webmaster_backlinks'   // Внешние ссылки — динамика LINKS_TOTAL_COUNT
   // Google Search Console
   | 'gsc_queries'           // Топ запросов GSC: клики/показы/CTR/позиция
   | 'gsc_pages'             // Топ страниц GSC: клики/показы/CTR/позиция
@@ -587,14 +588,14 @@ Remove-Item -Recurse -Force .next
    - Вебмастер: scope не передаём явно — разрешения настраиваются на oauth.yandex.ru уровне приложения
 3. Конструктор шаблонов + генератор отчётов + Метрика + публичная страница
    - ✅ /templates, /templates/new, /templates/[id]: конструктор с dnd-kit, блоки вкл/выкл, комментарии
-   - ✅ DEFAULT_BLOCKS (16 блоков), seed "Стандартный отчёт" в БД
+   - ✅ DEFAULT_BLOCKS (18 блоков → убран search_engines_dynamics → 17), seed "Стандартный отчёт" в БД
    - ✅ MetrikaClient (12 методов), generateReport оркестратор, fire-and-forget генерация
    - ✅ /reports/new: 3-шаговая форма (проект+период → блоки → тексты), polling → /r/[slug]
    - ✅ /reports: история с бейджами статуса, open/copy/delete
    - ✅ /r/[slug]: публичная страница (без авторизации), SSR, все блоки Метрики, recharts DonutChart + AreaChart + LineChart, print-стили
    - ✅ Динамика (DiffSup ↑↓) во всех таблицах блоков, lang=ru для Метрики, базовая метрика ym:s:users
-   - ✅ Новый блок search_engines_dynamics: LineChart по поисковикам + таблица с динамикой
-   - ✅ traffic_search_dynamics переработан: LineChart посетителей по движкам по дням + сводная таблица
+   - ✅ search_engines_dynamics: LineChart по поисковикам + таблица с динамикой (убран из DEFAULT_BLOCKS, оставлен для совместимости)
+   - ✅ traffic_search_dynamics: LineChart посетителей по движкам по дням + сводная таблица (основной блок динамики)
    - ✅ traffic_search_engines: только donut; dim: ym:s:SearchEngineRoot; топ-6, фильтр пустых
    - ✅ traffic_yoy: фильтр organic, график по visits, KPI через totals, getAllReportPages
    - ✅ traffic_geography: топ-6 + "Другие", фильтр "Не определено"
@@ -644,16 +645,20 @@ Remove-Item -Recurse -Force .next
    - ✅ positions_summary компонент: секция на каждый поисковик с именем + регионом + ТОП-1/3/5/10
    - ✅ Конвенция compareScanDate: undefined=авто, ""=без сравнения, "YYYY-MM-DD"=явная; TopvisorScanSettings инициализирует явно при загрузке
    **Яндекс Вебмастер:**
-   - [ ] lib/services/webmaster.ts — клиент Webmaster API v4 (токен из ConnectedAccount)
-         Методы: getSearchQueries, getIndexingStats
-   - [ ] lib/blocks/webmaster_queries.ts — топ запросов: показы/клики/CTR/позиция
-         API: GET /v4/user/site/{host-id}/search-queries/popular?order_by=IMPRESSIONS
-   - [ ] lib/blocks/webmaster_indexing.ts — сводка индексации: в индексе / исключено / ошибки
-         API: GET /v4/user/site/{host-id}/indexing/stats
-   - [ ] components/report/blocks/webmaster-queries.tsx — таблица запросов (показы/клики/CTR/позиция)
-   - [ ] components/report/blocks/webmaster-indexing.tsx — KPI-карточки + динамика
-   - [ ] Привязка host-id Вебмастера к Project (сейчас хранится только metrіkaCounterId)
-         Вариант: добавить поле webmasterHostId: String? в модель Project
+   - ✅ lib/services/webmaster.ts — WebmasterClient: getUserId, getHosts, getSqiHistory, getIndexingHistory, getBacklinksHistory
+   - ✅ lib/blocks/webmaster_ikh.ts — ИКС, период dateTo-3мес..dateTo
+   - ✅ lib/blocks/webmaster_indexing.ts — KPI из /summary + история краулинга из /indexing/history
+   - ✅ lib/blocks/webmaster_backlinks.ts — внешние ссылки LINKS_TOTAL_COUNT
+   - ✅ components/report/blocks/webmaster-ikh.tsx — LineChart ИКС, цвет #2563eb
+   - ✅ components/report/blocks/webmaster-indexing.tsx — KPI (searchable_pages_count из /summary) + AreaChart краулинга
+   - ✅ components/report/blocks/webmaster-backlinks.tsx — LineChart внешних ссылок
+   - ✅ components/webmaster/webmaster-select.tsx — UI выбора аккаунта + сайта (каскадные дропдауны)
+   - ✅ webmasterAccountId + webmasterHostId в модели Report; выбор в форме создания и в редакторе
+   - **Webmaster API — важные особенности:**
+     - ИКС (/sqi-history): период всегда 3 месяца до dateTo, не зависит от периода отчёта
+     - Индексация KPI: `/summary` → `searchable_pages_count` / `excluded_pages_count` (реальный индекс)
+     - Индексация график: `/indexing/history` с HTTP_2XX (успешные краулы) — не то же самое что индекс
+     - Ссылки: `/links/external/history?indicator=LINKS_TOTAL_COUNT`
    **Google Search Console:**
    - [ ] OAuth через Google — добавить в /sources (ConnectedService.GOOGLE_SEARCH_CONSOLE уже есть в enum)
          Scopes: https://www.googleapis.com/auth/webmasters.readonly

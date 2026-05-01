@@ -22,11 +22,15 @@ interface Props {
 }
 
 export function WebmasterIndexingBlock({ data }: Props) {
-  if (!data.points || data.points.length === 0) {
-    return <p className="text-sm text-muted-foreground">Нет данных об индексировании за выбранный период</p>;
+  if (!data.points && data.currentIndexed == null) {
+    return <p className="text-sm text-muted-foreground">Нет данных об индексировании</p>;
   }
 
-  const last = data.points[data.points.length - 1];
+  // KPI: prefer summary values (actual index), fall back to last history point
+  const points = data.points ?? [];
+  const last = points[points.length - 1];
+  const kpiIndexed = data.currentIndexed ?? last?.indexed ?? 0;
+  const kpiExcluded = data.currentExcluded ?? last?.excluded ?? 0;
 
   return (
     <div className="space-y-4">
@@ -35,20 +39,20 @@ export function WebmasterIndexingBlock({ data }: Props) {
         <div>
           <p className="text-xs text-muted-foreground">Страниц в поиске</p>
           <p className="text-3xl font-bold tabular-nums text-green-600">
-            {last.indexed.toLocaleString("ru-RU")}
+            {kpiIndexed.toLocaleString("ru-RU")}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Исключено</p>
           <p className="text-3xl font-bold tabular-nums text-red-500">
-            {last.excluded.toLocaleString("ru-RU")}
+            {kpiExcluded.toLocaleString("ru-RU")}
           </p>
         </div>
       </div>
 
-      {/* Chart */}
-      <ResponsiveContainer width="100%" height={220}>
-        <AreaChart data={data.points} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+      {/* Chart — показываем только если есть исторические точки */}
+      {points.length > 0 && <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={points} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="gradIndexed" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
@@ -105,7 +109,7 @@ export function WebmasterIndexingBlock({ data }: Props) {
             dot={false}
           />
         </AreaChart>
-      </ResponsiveContainer>
+      </ResponsiveContainer>}
     </div>
   );
 }

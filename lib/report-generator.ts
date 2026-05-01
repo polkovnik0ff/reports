@@ -218,7 +218,11 @@ export async function generateReport(reportId: string): Promise<void> {
           const wmClient = new WebmasterClient(wmToken);
           let data: unknown;
           if (block.type === "webmaster_ikh") {
-            data = await fetchWebmasterIkh(wmClient, report.webmasterHostId, date1, date2);
+            // ИКС: всегда за 3 месяца до конца отчётного периода
+            const ikhTo = report.dateTo;
+            const ikhFrom = new Date(ikhTo);
+            ikhFrom.setMonth(ikhFrom.getMonth() - 3);
+            data = await fetchWebmasterIkh(wmClient, report.webmasterHostId, fmt(ikhFrom), fmt(ikhTo));
           } else if (block.type === "webmaster_indexing") {
             data = await fetchWebmasterIndexing(wmClient, report.webmasterHostId, date1, date2);
           } else {

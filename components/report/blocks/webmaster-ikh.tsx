@@ -26,8 +26,6 @@ export function WebmasterIkhBlock({ data }: Props) {
   }
 
   const last = data.points[data.points.length - 1];
-  const prev = data.points[0];
-  const delta = last.value - prev.value;
 
   return (
     <div className="space-y-4">
@@ -37,11 +35,6 @@ export function WebmasterIkhBlock({ data }: Props) {
           <p className="text-xs text-muted-foreground">Текущий ИКС</p>
           <p className="text-3xl font-bold tabular-nums">{last.value.toLocaleString("ru-RU")}</p>
         </div>
-        {delta !== 0 && (
-          <p className={`text-sm font-medium mb-1 ${delta > 0 ? "text-green-600" : "text-red-500"}`}>
-            {delta > 0 ? "+" : ""}{delta.toLocaleString("ru-RU")} за период
-          </p>
-        )}
       </div>
 
       {/* Chart */}
@@ -72,7 +65,7 @@ export function WebmasterIkhBlock({ data }: Props) {
           <Line
             type="monotone"
             dataKey="value"
-            stroke="hsl(var(--primary))"
+            stroke="#2563eb"
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4 }}
