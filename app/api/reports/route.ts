@@ -46,7 +46,9 @@ const createSchema = z.object({
   attribution:       z.enum(ATTRIBUTION_VALUES).default("lastsign"),
   withRobots:        z.boolean().default(false),
   crossDevice:       z.boolean().default(false),
-  topvisorProjectId: z.number().int().positive().nullable().optional(),
+  topvisorProjectId:  z.number().int().positive().nullable().optional(),
+  webmasterAccountId: z.string().nullable().optional(),
+  webmasterHostId:    z.string().nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -61,6 +63,7 @@ export async function POST(req: NextRequest) {
     projectId, templateId, title, dateFrom, dateTo,
     compareFrom, compareTo, reportConfig, workDone, workPlan,
     attribution, withRobots, crossDevice, topvisorProjectId,
+    webmasterAccountId, webmasterHostId,
   } = parsed.data;
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -92,7 +95,9 @@ export async function POST(req: NextRequest) {
       attribution,
       withRobots,
       crossDevice,
-      topvisorProjectId: topvisorProjectId ?? null,
+      topvisorProjectId:  topvisorProjectId ?? null,
+      webmasterAccountId: webmasterAccountId ?? null,
+      webmasterHostId:    webmasterHostId ?? null,
     },
   });
 

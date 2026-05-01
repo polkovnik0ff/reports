@@ -761,3 +761,74 @@ existsDates: []
 | `lib/report-generator.ts` | удалён диагностический console.log |
 
 ---
+
+## Сессия 2026-05-01
+
+### Запрос — Яндекс Вебмастер: подключить блоки и UI (продолжение из предыдущей сессии)
+
+**Пользователь:** «окей. пока что закончили с топвизором. давай теперь пойдем к яндекс вебмастеру. В отчете мне нужны блоки: 1 - динамика икс (без сайтов конкурентов) 2 - история индексирования (страницы в поиске) 3 - Внешние ссылки (динамика). вход в аккаунт мы сделали уже. он вроде работает. теперь на уровне настройки отчета надо выбрать привязку нужного аккаунта»
+
+#### Что было готово до этой сессии (из предыдущего контекста):
+- Миграция БД: добавлены `webmasterAccountId String?` и `webmasterHostId String?` в модель Report
+- `lib/services/webmaster.ts` — WebmasterClient с методами getSqiHistory, getIndexingHistory, getBacklinksHistory
+- `lib/blocks/webmaster_ikh.ts`, `webmaster_indexing.ts`, `webmaster_backlinks.ts` — thin wrappers
+- `app/api/webmaster/accounts/route.ts` — список аккаунтов YANDEX_WEBMASTER
+- `app/api/webmaster/hosts/route.ts` — список верифицированных сайтов по accountId
+- `components/webmaster/webmaster-select.tsx` — каскадный UI аккаунт → сайт
+- Три рендер-компонента: `webmaster-ikh.tsx`, `webmaster-indexing.tsx`, `webmaster-backlinks.tsx`
+
+#### Реализовано в этой сессии:
+
+**Шаг 1: lib/blocks/defaults.ts**
+- Добавлены три типа: `webmaster_ikh`, `webmaster_indexing`, `webmaster_backlinks`
+- Добавлены метки в `BLOCK_LABELS`
+- Добавлены в `DEFAULT_BLOCKS` (порядки 15-17, enabled: false)
+- Блоки work_done/work_plan сдвинуты на order 18/19
+
+**Шаг 2: lib/report-generator.ts**
+- Импортированы WebmasterClient и три fetch-функции
+- Добавлен тип `webmasterBlockTypes`
+- Добавлена секция `// ── Webmaster blocks` после Topvisor
+- Логика: найти ConnectedAccount по webmasterAccountId → расшифровать токен → создать WebmasterClient → вызвать нужный метод
+- Ошибочные состояния: нет accountId, нет hostId, аккаунт недоступен
+
+**Шаг 3: components/report/report-renderer.tsx**
+- Импортированы три компонента
+- Добавлены в `renderBlock` switch
+- Добавлены типы в нулл-проверку (`blockData?.data == null` whitelist)
+
+**Шаг 4: API роуты**
+- `app/api/reports/route.ts` (POST): добавлены `webmasterAccountId`, `webmasterHostId` в схему Zod и в `prisma.report.create`
+- `app/api/reports/[id]/route.ts` (PATCH+GET): аналогично — схема, деструктуризация, обновление; в GET select добавлены оба поля
+
+**Шаг 5: UI форма и редактор**
+- `components/reports/report-form-embedded.tsx`: импорт WebmasterSelect, состояние `webmasterSettings`, секция «Яндекс Вебмастер» в шаге 0, передача в POST body
+- `components/reports/report-editor.tsx`: импорт, новые props `initialWebmasterAccountId/HostId`, состояние, секция в params-табе, передача в PATCH body
+- `app/(editor)/projects/[id]/reports/[reportId]/edit/page.tsx`: добавлены новые поля в select и переданы как пропсы в ReportEditor
+
+**Шаг 6: Исправление TS ошибок**
+- Recharts Tooltip `labelFormatter` и `formatter` требуют `any` cast — добавлено во всех трёх webmaster-компонентах (стандартная практика в проекте)
+
+#### Итог: что работает
+
+- В форме создания отчёта (шаг 0) и в редакторе (таб Параметры) → секция «Яндекс Вебмастер» с каскадным выбором аккаунт → сайт
+- При генерации отчёта: если выбраны accountId + hostId → вызывает Webmaster API, сохраняет данные в snapshot
+- Блоки `webmaster_ikh`, `webmaster_indexing`, `webmaster_backlinks` отображаются на публичной странице
+- TypeScript: 0 ошибок
+
+#### Файлы изменены/созданы:
+| Файл | Изменение |
+|------|-----------|
+| `lib/blocks/defaults.ts` | +3 типа, +3 метки, +3 default blocks |
+| `lib/report-generator.ts` | +webmaster imports, +webmaster blocks section |
+| `components/report/report-renderer.tsx` | +3 импорта, +3 case в switch, whitelist update |
+| `app/api/reports/route.ts` | +webmasterAccountId/HostId в схеме и create |
+| `app/api/reports/[id]/route.ts` | +webmasterAccountId/HostId в схеме, update, select |
+| `components/reports/report-form-embedded.tsx` | +WebmasterSelect импорт, состояние, UI, POST body |
+| `components/reports/report-editor.tsx` | +WebmasterSelect импорт, props, состояние, UI, PATCH body |
+| `app/(editor)/projects/[id]/reports/[reportId]/edit/page.tsx` | +webmaster поля в select и props |
+| `components/report/blocks/webmaster-ikh.tsx` | исправление TS: any cast в Tooltip |
+| `components/report/blocks/webmaster-backlinks.tsx` | исправление TS: any cast в Tooltip |
+| `components/report/blocks/webmaster-indexing.tsx` | исправление TS: any cast в Tooltip |
+
+---

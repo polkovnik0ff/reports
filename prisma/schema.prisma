@@ -124,7 +124,9 @@ model Report {
   attribution       String       @default("lastsign")
   withRobots        Boolean      @default(false)
   crossDevice       Boolean      @default(false)
-  topvisorProjectId Int?
+  topvisorProjectId   Int?
+  webmasterAccountId  String?
+  webmasterHostId     String?
 
   @@index([projectId, createdAt])
 }

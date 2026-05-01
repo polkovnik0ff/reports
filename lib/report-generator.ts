@@ -2,8 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { decryptToken } from "@/lib/crypto";
 import { MetrikaClient, AttributionModel } from "@/lib/services/metrika";
 import { TopvisorClient } from "@/lib/services/topvisor";
+import { WebmasterClient } from "@/lib/services/webmaster";
 import { fetchPositionsSummary } from "@/lib/blocks/positions_summary";
 import { fetchPositionsTable } from "@/lib/blocks/positions_table";
+import { fetchWebmasterIkh } from "@/lib/blocks/webmaster_ikh";
+import { fetchWebmasterIndexing } from "@/lib/blocks/webmaster_indexing";
+import { fetchWebmasterBacklinks } from "@/lib/blocks/webmaster_backlinks";
 import { getTopvisorCredentials } from "@/lib/topvisor-settings";
 import { BlockConfig, BlockType } from "@/lib/blocks/defaults";
 
@@ -58,6 +62,9 @@ async function fetchBlockData(
     case "custom_kpi":
     case "positions_summary":
     case "positions_table":
+    case "webmaster_ikh":
+    case "webmaster_indexing":
+    case "webmaster_backlinks":
       return null; // handled separately
     default:
       return null;
@@ -99,6 +106,7 @@ export async function generateReport(reportId: string): Promise<void> {
       "referrals", "high_bounce_pages",
     ];
     const topvisorBlockTypes: BlockType[] = ["positions_summary", "positions_table"];
+    const webmasterBlockTypes: BlockType[] = ["webmaster_ikh", "webmaster_indexing", "webmaster_backlinks"];
 
     const enabledBlocks = blocks.filter((b) => b.enabled);
     const snapshotData: Record<string, unknown> = {};
@@ -177,6 +185,49 @@ export async function generateReport(reportId: string): Promise<void> {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error(`[generateReport] topvisor block ${block.id} failed:`, message);
+          snapshotData[block.id] = { error: message };
+        }
+      }
+    }
+
+    // ── Webmaster blocks ────────────────────────────────────────────────────
+    const webmasterBlocks = enabledBlocks.filter((b) =>
+      webmasterBlockTypes.includes(b.type as BlockType)
+    );
+
+    if (webmasterBlocks.length > 0) {
+      const webmasterAccount = report.webmasterAccountId
+        ? await prisma.connectedAccount.findFirst({
+            where: { id: report.webmasterAccountId, service: "YANDEX_WEBMASTER", status: "CONNECTED" },
+          })
+        : null;
+
+      for (const block of webmasterBlocks) {
+        if (!webmasterAccount || !report.webmasterHostId) {
+          const reason = !report.webmasterAccountId
+            ? "Не выбран аккаунт Яндекс Вебмастера"
+            : !report.webmasterHostId
+            ? "Не выбран сайт в Вебмастере"
+            : "Аккаунт Вебмастера недоступен";
+          snapshotData[block.id] = { error: reason };
+          continue;
+        }
+
+        try {
+          const wmToken = decryptToken(webmasterAccount.accessToken);
+          const wmClient = new WebmasterClient(wmToken);
+          let data: unknown;
+          if (block.type === "webmaster_ikh") {
+            data = await fetchWebmasterIkh(wmClient, report.webmasterHostId, date1, date2);
+          } else if (block.type === "webmaster_indexing") {
+            data = await fetchWebmasterIndexing(wmClient, report.webmasterHostId, date1, date2);
+          } else {
+            data = await fetchWebmasterBacklinks(wmClient, report.webmasterHostId, date1, date2);
+          }
+          snapshotData[block.id] = { data };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[generateReport] webmaster block ${block.id} failed:`, message);
           snapshotData[block.id] = { error: message };
         }
       }

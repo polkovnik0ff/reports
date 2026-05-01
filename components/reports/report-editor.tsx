@@ -11,6 +11,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import TemplateBuilder from "@/components/templates/template-builder";
 import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
 import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
+import { WebmasterSelect, WebmasterSettings } from "@/components/webmaster/webmaster-select";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Date helpers ───────────────────────────────────────────────────────────
@@ -81,6 +82,8 @@ interface Props {
   initialCrossDevice: boolean;
   initialBlocks: BlockConfig[];
   initialTopvisorProjectId?: number | null;
+  initialWebmasterAccountId?: string | null;
+  initialWebmasterHostId?: string | null;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -100,6 +103,8 @@ export default function ReportEditor({
   initialCrossDevice,
   initialBlocks,
   initialTopvisorProjectId,
+  initialWebmasterAccountId,
+  initialWebmasterHostId,
 }: Props) {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -121,6 +126,10 @@ export default function ReportEditor({
   const [withRobots, setWithRobots] = useState(initialWithRobots);
   const [crossDevice, setCrossDevice] = useState(initialCrossDevice);
   const [topvisorProjectId, setTopvisorProjectId] = useState<number | null>(initialTopvisorProjectId ?? null);
+  const [webmasterSettings, setWebmasterSettings] = useState<WebmasterSettings>({
+    accountId: initialWebmasterAccountId ?? null,
+    hostId: initialWebmasterHostId ?? null,
+  });
 
   // Topvisor positions settings (shared for both positions blocks)
   const firstPosBlock = initialBlocks.find(
@@ -222,6 +231,8 @@ export default function ReportEditor({
           withRobots,
           crossDevice,
           topvisorProjectId: topvisorProjectId ?? null,
+          webmasterAccountId: webmasterSettings.accountId ?? null,
+          webmasterHostId: webmasterSettings.hostId ?? null,
         }),
       });
       const data = await res.json();
@@ -394,6 +405,12 @@ export default function ReportEditor({
                     />
                   </div>
                 )}
+
+                {/* Webmaster settings */}
+                <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                  <p className="text-sm font-medium">Яндекс Вебмастер</p>
+                  <WebmasterSelect value={webmasterSettings} onChange={setWebmasterSettings} />
+                </div>
 
                 {/* Period */}
                 <div className="grid gap-1.5">

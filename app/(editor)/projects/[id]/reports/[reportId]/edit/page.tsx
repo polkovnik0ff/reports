@@ -28,7 +28,9 @@ export default async function EditReportPage({ params }: Props) {
       attribution: true,
       withRobots: true,
       crossDevice: true,
-      topvisorProjectId: true,
+      topvisorProjectId:  true,
+      webmasterAccountId: true,
+      webmasterHostId:    true,
       reportConfig: true,
       project: { select: { id: true, name: true, url: true } },
     },
@@ -59,6 +61,8 @@ export default async function EditReportPage({ params }: Props) {
       initialWithRobots={report.withRobots}
       initialCrossDevice={report.crossDevice}
       initialTopvisorProjectId={report.topvisorProjectId}
+      initialWebmasterAccountId={report.webmasterAccountId}
+      initialWebmasterHostId={report.webmasterHostId}
       initialBlocks={report.reportConfig as unknown as BlockConfig[]}
     />
   );

@@ -17,6 +17,9 @@ import { HighBouncePagesBlock } from "./blocks/high-bounce-pages";
 import { RichTextBlock } from "./blocks/rich-text-block";
 import { PositionsSummaryBlock } from "./blocks/positions-summary";
 import { PositionsTableBlock } from "./blocks/positions-table";
+import { WebmasterIkhBlock } from "./blocks/webmaster-ikh";
+import { WebmasterIndexingBlock } from "./blocks/webmaster-indexing";
+import { WebmasterBacklinksBlock } from "./blocks/webmaster-backlinks";
 
 interface ReportRendererProps {
   reportConfig: BlockConfig[];
@@ -35,7 +38,7 @@ function ErrorBlock({ message }: { message?: string }) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string } | null, snapshotData: Record<string, any>) {
   if (blockData?.error) return <ErrorBlock message={blockData.error} />;
-  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi", "search_engines_dynamics"].includes(block.type)) {
+  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi", "search_engines_dynamics", "webmaster_ikh", "webmaster_indexing", "webmaster_backlinks"].includes(block.type)) {
     return <ErrorBlock />;
   }
 
@@ -91,6 +94,12 @@ function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string
       return <PositionsSummaryBlock data={data} />;
     case "positions_table":
       return <PositionsTableBlock data={data} />;
+    case "webmaster_ikh":
+      return data ? <WebmasterIkhBlock data={data} /> : <ErrorBlock message="Нет данных ИКС" />;
+    case "webmaster_indexing":
+      return data ? <WebmasterIndexingBlock data={data} /> : <ErrorBlock message="Нет данных индексации" />;
+    case "webmaster_backlinks":
+      return data ? <WebmasterBacklinksBlock data={data} /> : <ErrorBlock message="Нет данных о ссылках" />;
     default:
       return <ErrorBlock />;
   }

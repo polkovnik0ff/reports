@@ -32,7 +32,9 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       attribution: true,
       withRobots: true,
       crossDevice: true,
-      topvisorProjectId: true,
+      topvisorProjectId:  true,
+      webmasterAccountId: true,
+      webmasterHostId:    true,
       ...(full && { reportConfig: true }),
       project: { select: { id: true, name: true, url: true } },
     },
@@ -56,7 +58,9 @@ const patchSchema = z.object({
   crossDevice:       z.boolean().optional(),
   workDone:          z.string().optional(),
   workPlan:          z.string().optional(),
-  topvisorProjectId: z.number().int().positive().nullable().optional(),
+  topvisorProjectId:  z.number().int().positive().nullable().optional(),
+  webmasterAccountId: z.string().nullable().optional(),
+  webmasterHostId:    z.string().nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
@@ -75,6 +79,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     title, dateFrom, dateTo, compareFrom, compareTo,
     reportConfig, attribution, withRobots, crossDevice,
     workDone, workPlan, topvisorProjectId,
+    webmasterAccountId, webmasterHostId,
   } = parsed.data;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,6 +105,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       ...(withRobots         !== undefined && { withRobots }),
       ...(crossDevice        !== undefined && { crossDevice }),
       ...(topvisorProjectId  !== undefined && { topvisorProjectId: topvisorProjectId ?? null }),
+      ...(webmasterAccountId !== undefined && { webmasterAccountId: webmasterAccountId ?? null }),
+      ...(webmasterHostId    !== undefined && { webmasterHostId: webmasterHostId ?? null }),
       status: "GENERATING",
       snapshotData: undefined,
     },

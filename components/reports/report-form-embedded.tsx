@@ -12,6 +12,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import TemplateBuilder from "@/components/templates/template-builder";
 import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
 import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
+import { WebmasterSelect, WebmasterSettings } from "@/components/webmaster/webmaster-select";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -186,6 +187,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
     compareScanDate?: string;
     groupIds?: number[];
   }>({});
+  const [webmasterSettings, setWebmasterSettings] = useState<WebmasterSettings>({ accountId: null, hostId: null });
 
   // Step 1 state
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
@@ -293,6 +295,8 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
           withRobots,
           crossDevice,
           topvisorProjectId: topvisorProjectId ?? null,
+          webmasterAccountId: webmasterSettings.accountId ?? null,
+          webmasterHostId: webmasterSettings.hostId ?? null,
         }),
       });
       const data = await res.json();
@@ -425,6 +429,12 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
                   />
                 </div>
               )}
+
+              {/* Webmaster settings */}
+              <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm font-medium">Яндекс Вебмастер</p>
+                <WebmasterSelect value={webmasterSettings} onChange={setWebmasterSettings} />
+              </div>
 
               {/* Period preset */}
               <div className="grid gap-1.5">
