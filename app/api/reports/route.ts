@@ -49,6 +49,8 @@ const createSchema = z.object({
   topvisorProjectId:  z.number().int().positive().nullable().optional(),
   webmasterAccountId: z.string().nullable().optional(),
   webmasterHostId:    z.string().nullable().optional(),
+  gscAccountId:       z.string().nullable().optional(),
+  gscSiteUrl:         z.string().nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
     projectId, templateId, title, dateFrom, dateTo,
     compareFrom, compareTo, reportConfig, workDone, workPlan,
     attribution, withRobots, crossDevice, topvisorProjectId,
-    webmasterAccountId, webmasterHostId,
+    webmasterAccountId, webmasterHostId, gscAccountId, gscSiteUrl,
   } = parsed.data;
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -98,6 +100,8 @@ export async function POST(req: NextRequest) {
       topvisorProjectId:  topvisorProjectId ?? null,
       webmasterAccountId: webmasterAccountId ?? null,
       webmasterHostId:    webmasterHostId ?? null,
+      gscAccountId:       gscAccountId ?? null,
+      gscSiteUrl:         gscSiteUrl ?? null,
     },
   });
 
@@ -108,6 +112,8 @@ export async function POST(req: NextRequest) {
       defaultTopvisorProjectId:  topvisorProjectId ?? null,
       defaultWebmasterAccountId: webmasterAccountId ?? null,
       defaultWebmasterHostId:    webmasterHostId ?? null,
+      defaultGscAccountId:       gscAccountId ?? null,
+      defaultGscSiteUrl:         gscSiteUrl ?? null,
     },
   });
 

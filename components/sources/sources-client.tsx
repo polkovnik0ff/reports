@@ -146,6 +146,12 @@ export default function SourcesClient({ success, error }: Props) {
         >
           + Яндекс.Вебмастер
         </a>
+        <a
+          href="/api/oauth/google/start"
+          className={cn(buttonVariants({ variant: "outline" }))}
+        >
+          + Google Search Console
+        </a>
         {accounts.length > 0 && (
           <Button
             variant="ghost"

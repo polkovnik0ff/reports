@@ -35,6 +35,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       topvisorProjectId:  true,
       webmasterAccountId: true,
       webmasterHostId:    true,
+      gscAccountId:       true,
+      gscSiteUrl:         true,
       ...(full && { reportConfig: true }),
       project: { select: { id: true, name: true, url: true } },
     },
@@ -61,6 +63,8 @@ const patchSchema = z.object({
   topvisorProjectId:  z.number().int().positive().nullable().optional(),
   webmasterAccountId: z.string().nullable().optional(),
   webmasterHostId:    z.string().nullable().optional(),
+  gscAccountId:       z.string().nullable().optional(),
+  gscSiteUrl:         z.string().nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
@@ -80,6 +84,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     reportConfig, attribution, withRobots, crossDevice,
     workDone, workPlan, topvisorProjectId,
     webmasterAccountId, webmasterHostId,
+    gscAccountId, gscSiteUrl,
   } = parsed.data;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,6 +112,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       ...(topvisorProjectId  !== undefined && { topvisorProjectId: topvisorProjectId ?? null }),
       ...(webmasterAccountId !== undefined && { webmasterAccountId: webmasterAccountId ?? null }),
       ...(webmasterHostId    !== undefined && { webmasterHostId: webmasterHostId ?? null }),
+      ...(gscAccountId       !== undefined && { gscAccountId: gscAccountId ?? null }),
+      ...(gscSiteUrl         !== undefined && { gscSiteUrl: gscSiteUrl ?? null }),
       status: "GENERATING",
       snapshotData: undefined,
     },
@@ -119,6 +126,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       ...(topvisorProjectId  !== undefined && { defaultTopvisorProjectId:  topvisorProjectId ?? null }),
       ...(webmasterAccountId !== undefined && { defaultWebmasterAccountId: webmasterAccountId ?? null }),
       ...(webmasterHostId    !== undefined && { defaultWebmasterHostId:    webmasterHostId ?? null }),
+      ...(gscAccountId       !== undefined && { defaultGscAccountId:       gscAccountId ?? null }),
+      ...(gscSiteUrl         !== undefined && { defaultGscSiteUrl:         gscSiteUrl ?? null }),
     },
   });
 

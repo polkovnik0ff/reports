@@ -88,6 +88,8 @@ model Project {
   defaultTopvisorProjectId  Int?
   defaultWebmasterAccountId String?
   defaultWebmasterHostId    String?
+  defaultGscAccountId       String?
+  defaultGscSiteUrl         String?
 }
 
 model Template {
@@ -132,6 +134,8 @@ model Report {
   topvisorProjectId   Int?
   webmasterAccountId  String?
   webmasterHostId     String?
+  gscAccountId        String?
+  gscSiteUrl          String?
 
   @@index([projectId, createdAt])
 }

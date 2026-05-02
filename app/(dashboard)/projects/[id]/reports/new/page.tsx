@@ -20,6 +20,8 @@ export default async function NewReportPage({ params }: Props) {
       defaultTopvisorProjectId: true,
       defaultWebmasterAccountId: true,
       defaultWebmasterHostId: true,
+      defaultGscAccountId: true,
+      defaultGscSiteUrl: true,
     },
   });
 
@@ -33,6 +35,8 @@ export default async function NewReportPage({ params }: Props) {
       defaultTopvisorProjectId={project.defaultTopvisorProjectId ?? undefined}
       defaultWebmasterAccountId={project.defaultWebmasterAccountId ?? undefined}
       defaultWebmasterHostId={project.defaultWebmasterHostId ?? undefined}
+      defaultGscAccountId={project.defaultGscAccountId ?? undefined}
+      defaultGscSiteUrl={project.defaultGscSiteUrl ?? undefined}
     />
   );
 }

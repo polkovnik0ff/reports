@@ -16,6 +16,7 @@ export type BlockType =
   | "webmaster_ikh"
   | "webmaster_indexing"
   | "webmaster_backlinks"
+  | "gsc_summary"
   | "work_done"
   | "work_plan"
   | "custom_text"
@@ -49,6 +50,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   webmaster_ikh: "Индекс качества сайта (ИКС)",
   webmaster_indexing: "Страницы в поиске",
   webmaster_backlinks: "Внешние ссылки",
+  gsc_summary: "Google Search Console — сводка",
   work_done: "Проделанная работа",
   work_plan: "План работ",
   custom_text: "Произвольный текст",
@@ -72,6 +74,7 @@ export const DEFAULT_BLOCKS: BlockConfig[] = [
   { id: "webmaster_ikh",            type: "webmaster_ikh",            enabled: false, order: 14, commentAbove: "", commentBelow: "", settings: {} },
   { id: "webmaster_indexing",       type: "webmaster_indexing",       enabled: false, order: 15, commentAbove: "", commentBelow: "", settings: {} },
   { id: "webmaster_backlinks",      type: "webmaster_backlinks",      enabled: false, order: 16, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "work_done",                type: "work_done",                enabled: true,  order: 17, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "work_plan",                type: "work_plan",                enabled: true,  order: 18, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "gsc_summary",              type: "gsc_summary",              enabled: false, order: 17, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "work_done",                type: "work_done",                enabled: true,  order: 18, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "work_plan",                type: "work_plan",                enabled: true,  order: 19, commentAbove: "", commentBelow: "", settings: {} },
 ];

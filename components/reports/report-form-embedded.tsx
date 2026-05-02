@@ -13,6 +13,7 @@ import TemplateBuilder from "@/components/templates/template-builder";
 import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
 import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
 import { WebmasterSelect, WebmasterSettings } from "@/components/webmaster/webmaster-select";
+import { GscSelect, GscSettings } from "@/components/gsc/gsc-select";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -238,9 +239,11 @@ interface Props {
   defaultTopvisorProjectId?: number;
   defaultWebmasterAccountId?: string;
   defaultWebmasterHostId?: string;
+  defaultGscAccountId?: string;
+  defaultGscSiteUrl?: string;
 }
 
-export default function ReportFormEmbedded({ projectId, projectName, projectUrl, defaultTopvisorProjectId, defaultWebmasterAccountId, defaultWebmasterHostId }: Props) {
+export default function ReportFormEmbedded({ projectId, projectName, projectUrl, defaultTopvisorProjectId, defaultWebmasterAccountId, defaultWebmasterHostId, defaultGscAccountId, defaultGscSiteUrl }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
 
@@ -270,6 +273,10 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
   const [webmasterSettings, setWebmasterSettings] = useState<WebmasterSettings>({
     accountId: defaultWebmasterAccountId ?? null,
     hostId: defaultWebmasterHostId ?? null,
+  });
+  const [gscSettings, setGscSettings] = useState<GscSettings>({
+    accountId: defaultGscAccountId ?? null,
+    siteUrl: defaultGscSiteUrl ?? null,
   });
 
   // Step 1 state
@@ -384,6 +391,8 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
           topvisorProjectId: topvisorProjectId ?? null,
           webmasterAccountId: webmasterSettings.accountId ?? null,
           webmasterHostId: webmasterSettings.hostId ?? null,
+          gscAccountId: gscSettings.accountId ?? null,
+          gscSiteUrl: gscSettings.siteUrl ?? null,
         }),
       });
       const data = await res.json();
@@ -521,6 +530,12 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
               <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
                 <p className="text-sm font-medium">Яндекс Вебмастер</p>
                 <WebmasterSelect value={webmasterSettings} onChange={setWebmasterSettings} />
+              </div>
+
+              {/* GSC settings */}
+              <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm font-medium">Google Search Console</p>
+                <GscSelect value={gscSettings} onChange={setGscSettings} />
               </div>
 
               {/* Period preset */}

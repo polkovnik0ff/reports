@@ -8,6 +8,9 @@ import { fetchPositionsTable } from "@/lib/blocks/positions_table";
 import { fetchWebmasterIkh } from "@/lib/blocks/webmaster_ikh";
 import { fetchWebmasterIndexing } from "@/lib/blocks/webmaster_indexing";
 import { fetchWebmasterBacklinks } from "@/lib/blocks/webmaster_backlinks";
+import { fetchGscSummary } from "@/lib/blocks/gsc_summary";
+import { GscClient } from "@/lib/services/gsc";
+import { encryptToken } from "@/lib/crypto";
 import { getTopvisorCredentials } from "@/lib/topvisor-settings";
 import { BlockConfig, BlockType } from "@/lib/blocks/defaults";
 
@@ -107,6 +110,7 @@ export async function generateReport(reportId: string): Promise<void> {
     ];
     const topvisorBlockTypes: BlockType[] = ["positions_summary", "positions_table"];
     const webmasterBlockTypes: BlockType[] = ["webmaster_ikh", "webmaster_indexing", "webmaster_backlinks"];
+    const gscBlockTypes: BlockType[] = ["gsc_summary"];
 
     const enabledBlocks = blocks.filter((b) => b.enabled);
     const snapshotData: Record<string, unknown> = {};
@@ -232,6 +236,59 @@ export async function generateReport(reportId: string): Promise<void> {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error(`[generateReport] webmaster block ${block.id} failed:`, message);
+          snapshotData[block.id] = { error: message };
+        }
+      }
+    }
+
+    // ── GSC blocks ─────────────────────────────────────────────────────────
+    const gscBlocks = enabledBlocks.filter((b) =>
+      gscBlockTypes.includes(b.type as BlockType)
+    );
+
+    if (gscBlocks.length > 0) {
+      const clientId = process.env.GOOGLE_CLIENT_ID ?? "";
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
+
+      const gscAccount = report.gscAccountId
+        ? await prisma.connectedAccount.findFirst({
+            where: { id: report.gscAccountId, service: "GOOGLE_SEARCH_CONSOLE", status: "CONNECTED" },
+          })
+        : null;
+
+      for (const block of gscBlocks) {
+        if (!gscAccount || !report.gscSiteUrl) {
+          const reason = !report.gscAccountId
+            ? "Не выбран аккаунт Google Search Console"
+            : !report.gscSiteUrl
+            ? "Не выбран сайт в GSC"
+            : "Аккаунт GSC недоступен";
+          snapshotData[block.id] = { error: reason };
+          continue;
+        }
+
+        try {
+          const token = decryptToken(gscAccount.accessToken);
+          const refreshToken = gscAccount.refreshToken ? decryptToken(gscAccount.refreshToken) : null;
+          const gscClient = new GscClient(token, refreshToken, clientId, clientSecret, async (newToken, expiresAt) => {
+            await prisma.connectedAccount.update({
+              where: { id: gscAccount.id },
+              data: { accessToken: encryptToken(newToken), expiresAt },
+            });
+          });
+
+          const data = await fetchGscSummary(
+            gscClient,
+            report.gscSiteUrl,
+            date1,
+            date2,
+            compareDate1,
+            compareDate2,
+          );
+          snapshotData[block.id] = { data };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[generateReport] gsc block ${block.id} failed:`, message);
           snapshotData[block.id] = { error: message };
         }
       }

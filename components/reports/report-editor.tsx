@@ -12,6 +12,7 @@ import TemplateBuilder from "@/components/templates/template-builder";
 import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-select";
 import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
 import { WebmasterSelect, WebmasterSettings } from "@/components/webmaster/webmaster-select";
+import { GscSelect, GscSettings } from "@/components/gsc/gsc-select";
 import { BlockConfig } from "@/lib/blocks/defaults";
 
 // ── Date helpers ───────────────────────────────────────────────────────────
@@ -84,6 +85,8 @@ interface Props {
   initialTopvisorProjectId?: number | null;
   initialWebmasterAccountId?: string | null;
   initialWebmasterHostId?: string | null;
+  initialGscAccountId?: string | null;
+  initialGscSiteUrl?: string | null;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -105,6 +108,8 @@ export default function ReportEditor({
   initialTopvisorProjectId,
   initialWebmasterAccountId,
   initialWebmasterHostId,
+  initialGscAccountId,
+  initialGscSiteUrl,
 }: Props) {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -129,6 +134,10 @@ export default function ReportEditor({
   const [webmasterSettings, setWebmasterSettings] = useState<WebmasterSettings>({
     accountId: initialWebmasterAccountId ?? null,
     hostId: initialWebmasterHostId ?? null,
+  });
+  const [gscSettings, setGscSettings] = useState<GscSettings>({
+    accountId: initialGscAccountId ?? null,
+    siteUrl: initialGscSiteUrl ?? null,
   });
 
   // Topvisor positions settings (shared for both positions blocks)
@@ -233,6 +242,8 @@ export default function ReportEditor({
           topvisorProjectId: topvisorProjectId ?? null,
           webmasterAccountId: webmasterSettings.accountId ?? null,
           webmasterHostId: webmasterSettings.hostId ?? null,
+          gscAccountId: gscSettings.accountId ?? null,
+          gscSiteUrl: gscSettings.siteUrl ?? null,
         }),
       });
       const data = await res.json();
@@ -410,6 +421,12 @@ export default function ReportEditor({
                 <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
                   <p className="text-sm font-medium">Яндекс Вебмастер</p>
                   <WebmasterSelect value={webmasterSettings} onChange={setWebmasterSettings} />
+                </div>
+
+                {/* GSC settings */}
+                <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                  <p className="text-sm font-medium">Google Search Console</p>
+                  <GscSelect value={gscSettings} onChange={setGscSettings} />
                 </div>
 
                 {/* Period */}

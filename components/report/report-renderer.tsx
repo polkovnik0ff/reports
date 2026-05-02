@@ -20,6 +20,7 @@ import { PositionsTableBlock } from "./blocks/positions-table";
 import { WebmasterIkhBlock } from "./blocks/webmaster-ikh";
 import { WebmasterIndexingBlock } from "./blocks/webmaster-indexing";
 import { WebmasterBacklinksBlock } from "./blocks/webmaster-backlinks";
+import { GscSummaryBlock } from "./blocks/gsc-summary";
 
 interface ReportRendererProps {
   reportConfig: BlockConfig[];
@@ -38,7 +39,7 @@ function ErrorBlock({ message }: { message?: string }) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string } | null, snapshotData: Record<string, any>) {
   if (blockData?.error) return <ErrorBlock message={blockData.error} />;
-  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi", "search_engines_dynamics", "webmaster_ikh", "webmaster_indexing", "webmaster_backlinks"].includes(block.type)) {
+  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi", "search_engines_dynamics", "webmaster_ikh", "webmaster_indexing", "webmaster_backlinks", "gsc_summary"].includes(block.type)) {
     return <ErrorBlock />;
   }
 
@@ -100,6 +101,8 @@ function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string
       return data ? <WebmasterIndexingBlock data={data} /> : <ErrorBlock message="Нет данных индексации" />;
     case "webmaster_backlinks":
       return data ? <WebmasterBacklinksBlock data={data} /> : <ErrorBlock message="Нет данных о ссылках" />;
+    case "gsc_summary":
+      return data ? <GscSummaryBlock data={data} /> : <ErrorBlock message="Нет данных GSC" />;
     default:
       return <ErrorBlock />;
   }

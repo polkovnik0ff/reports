@@ -31,6 +31,8 @@ export default async function EditReportPage({ params }: Props) {
       topvisorProjectId:  true,
       webmasterAccountId: true,
       webmasterHostId:    true,
+      gscAccountId:       true,
+      gscSiteUrl:         true,
       reportConfig: true,
       project: { select: { id: true, name: true, url: true } },
     },
@@ -63,6 +65,8 @@ export default async function EditReportPage({ params }: Props) {
       initialTopvisorProjectId={report.topvisorProjectId}
       initialWebmasterAccountId={report.webmasterAccountId}
       initialWebmasterHostId={report.webmasterHostId}
+      initialGscAccountId={report.gscAccountId}
+      initialGscSiteUrl={report.gscSiteUrl}
       initialBlocks={report.reportConfig as unknown as BlockConfig[]}
     />
   );
