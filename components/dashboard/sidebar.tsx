@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   BarChart2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -29,14 +30,18 @@ const navItems = [
 
 interface SidebarProps {
   email: string;
+  role: string;
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role: string }) {
   const pathname = usePathname();
+  const items = role === "OWNER"
+    ? [...navItems, { href: "/team", label: "Команда", icon: Users }]
+    : navItems;
 
   return (
     <nav className="flex-1 px-3 py-2 space-y-1">
-      {navItems.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
           <Link
@@ -61,9 +66,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 function SidebarContent({
   email,
+  role,
   onNavigate,
 }: {
   email: string;
+  role: string;
   onNavigate?: () => void;
 }) {
   const router = useRouter();
@@ -83,7 +90,7 @@ function SidebarContent({
 
       <Separator />
 
-      <NavLinks onNavigate={onNavigate} />
+      <NavLinks onNavigate={onNavigate} role={role} />
 
       <div className="mt-auto">
         <Separator />
@@ -106,12 +113,12 @@ function SidebarContent({
   );
 }
 
-export default function Sidebar({ email }: SidebarProps) {
+export default function Sidebar({ email, role }: SidebarProps) {
   return (
     <>
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-background">
-        <SidebarContent email={email} />
+        <SidebarContent email={email} role={role} />
       </aside>
 
       {/* Mobile: hamburger + sheet */}
@@ -122,7 +129,7 @@ export default function Sidebar({ email }: SidebarProps) {
             <span className="sr-only">Открыть меню</span>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
-            <SidebarContent email={email} onNavigate={() => {}} />
+            <SidebarContent email={email} role={role} onNavigate={() => {}} />
           </SheetContent>
         </Sheet>
       </div>

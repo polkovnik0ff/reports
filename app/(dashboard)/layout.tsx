@@ -13,7 +13,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar email={session.email} />
+      <Sidebar email={session.email} role={session.role} />
       <main className="flex-1 overflow-y-auto">
         <div className="md:hidden h-14" /> {/* spacer for mobile hamburger */}
         {children}
