@@ -1068,3 +1068,57 @@ existsDates: []
 
 ---
 
+## Сессия 2026-05-02
+
+### Запрос — Google Search Console интеграция (gsc_summary блок)
+
+**Пользователь:** хочу сводный блок GSC с метриками клики/показы/CTR/позиция
+
+**Шаг 1: OAuth Google**
+- `app/api/oauth/google/start/route.ts` — redirect на Google OAuth, scope: `openid email webmasters.readonly`, `access_type=offline`, `prompt=consent` для получения refresh_token
+- `app/api/oauth/google/callback/route.ts` — обмен кода на токены, userinfo через `/oauth2/v2/userinfo`, шифрование и upsert в ConnectedAccount
+
+**Шаг 2: GscClient**
+- `lib/services/gsc.ts` — `GscClient`: `getSites()`, `getSummary()`. Авто-refresh при 401 с callback `onTokenRefresh` — сохраняет новый токен в БД.
+
+**Шаг 3: Блок данных и компонент**
+- `lib/blocks/gsc_summary.ts` — тонкая обёртка над `client.getSummary`
+- `components/report/blocks/gsc-summary.tsx` — 4 KPI-карточки (клики, показы, CTR, позиция). Для позиции динамика инвертирована (снижение = зелёный).
+
+**Шаг 4: API роуты, UI, схема — аналогично Webmaster**
+- `app/api/gsc/accounts/route.ts`, `app/api/gsc/sites/route.ts`
+- `components/gsc/gsc-select.tsx` — каскадный dropdown
+- `prisma/schema.prisma`: gscAccountId/gscSiteUrl в Report, defaultGscAccountId/defaultGscSiteUrl в Project
+- Миграция SQL выполнена напрямую, зафиксирована через `migrate resolve --applied`
+
+**Ошибки при подключении OAuth:**
+1. **403 access_denied** — не добавлен test user. Решение: Google Auth Platform → Audience → Test users.
+2. **user_info_error 401** — scope только `webmasters.readonly`, `/userinfo` требует `openid email`. Решение: добавить в scope start route + в Data Access в Cloud Console.
+3. **PrismaClientValidationError** — Turbopack кэш. Решение: `npx prisma generate` + перезапуск.
+
+#### Файлы созданы/изменены:
+| Файл | Изменение |
+|------|-----------|
+| `app/api/oauth/google/start/route.ts` | Создан |
+| `app/api/oauth/google/callback/route.ts` | Создан |
+| `app/api/gsc/accounts/route.ts` | Создан |
+| `app/api/gsc/sites/route.ts` | Создан |
+| `lib/services/gsc.ts` | Создан: GscClient |
+| `lib/blocks/gsc_summary.ts` | Создан |
+| `lib/blocks/defaults.ts` | +gsc_summary |
+| `components/report/blocks/gsc-summary.tsx` | Создан |
+| `components/gsc/gsc-select.tsx` | Создан |
+| `components/sources/sources-client.tsx` | +кнопка GSC |
+| `components/report/report-renderer.tsx` | +gsc_summary case |
+| `components/reports/report-form-embedded.tsx` | +GscSelect |
+| `components/reports/report-editor.tsx` | +GscSelect |
+| `app/(dashboard)/projects/[id]/reports/new/page.tsx` | +defaultGsc |
+| `app/(editor)/projects/[id]/reports/[reportId]/edit/page.tsx` | +gsc поля |
+| `app/api/reports/route.ts` | +gsc поля |
+| `app/api/reports/[id]/route.ts` | +gsc поля |
+| `lib/report-generator.ts` | +GSC секция |
+| `prisma/schema.prisma` | +4 gsc поля |
+| `prisma/migrations/20260502000000_gsc_fields/migration.sql` | Создан |
+
+---
+

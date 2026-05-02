@@ -188,6 +188,8 @@ model Project {
   defaultTopvisorProjectId  Int?
   defaultWebmasterAccountId String?
   defaultWebmasterHostId    String?
+  defaultGscAccountId       String?
+  defaultGscSiteUrl         String?
 }
 
 model Template {
@@ -243,6 +245,8 @@ model Report {
   topvisorProjectId   Int?
   webmasterAccountId  String?
   webmasterHostId     String?
+  gscAccountId        String?
+  gscSiteUrl          String?
 
   @@index([projectId, createdAt])
 }
@@ -277,6 +281,7 @@ type BlockType =
   | 'webmaster_indexing'    // Страницы в поиске: KPI из /summary (searchable_pages_count) + график краулинга (/indexing/history)
   | 'webmaster_backlinks'   // Внешние ссылки — динамика LINKS_TOTAL_COUNT
   // Google Search Console
+  | 'gsc_summary'           // Сводка GSC: клики, показы, CTR, средняя позиция
   | 'gsc_queries'           // Топ запросов GSC: клики/показы/CTR/позиция
   | 'gsc_pages'             // Топ страниц GSC: клики/показы/CTR/позиция
   // Ручные
@@ -677,21 +682,26 @@ Remove-Item -Recurse -Force .next
      - Индексация график: `/indexing/history` с HTTP_2XX (успешные краулы) — не то же самое что индекс
      - Ссылки: `/links/external/history?indicator=LINKS_TOTAL_COUNT`
    **Google Search Console:**
-   - [ ] OAuth через Google — добавить в /sources (ConnectedService.GOOGLE_SEARCH_CONSOLE уже есть в enum)
-         Scopes: https://www.googleapis.com/auth/webmasters.readonly
+   - ✅ OAuth через Google — `/sources` кнопка «+ Google Search Console»
+         Scopes: `openid email https://www.googleapis.com/auth/webmasters.readonly`
          OAuth endpoints: accounts.google.com/o/oauth2/v2/auth, oauth2.googleapis.com/token
-   - [ ] lib/services/gsc.ts — клиент Search Console API v1 (токен из ConnectedAccount)
-         Методы: searchAnalytics (query, page, country, device), sitemaps
-         Базовый URL: https://www.googleapis.com/webmasters/v3/sites/{siteUrl}/searchAnalytics/query
-         Тело запроса: { startDate, endDate, dimensions, rowLimit }
+         Env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+         **Важно:** в Google Auth Platform → Audience выбрать External, добавить test users; в Data Access добавить scopes openid + email + webmasters.readonly
+   - ✅ lib/services/gsc.ts — GscClient: getSites(), getSummary(); авто-refresh токена при 401
+   - ✅ lib/blocks/gsc_summary.ts — сводка: клики, показы, CTR, средняя позиция (с динамикой если compareFrom/To)
+   - ✅ components/report/blocks/gsc-summary.tsx — 4 KPI-карточки; позиция инвертирована (ниже = лучше)
+   - ✅ components/gsc/gsc-select.tsx — каскадный UI: аккаунт → сайт (аналог WebmasterSelect)
+   - ✅ app/api/gsc/accounts/route.ts — список подключённых GSC аккаунтов
+   - ✅ app/api/gsc/sites/route.ts — список сайтов для аккаунта (через getSites)
+   - ✅ gscAccountId + gscSiteUrl в модели Report и Project (defaultGscAccountId/defaultGscSiteUrl)
+   - ✅ Refresh token: авто-обновление при 401 в GscClient, новый токен сохраняется в БД
    - [ ] lib/blocks/gsc_queries.ts — топ запросов GSC: клики/показы/CTR/позиция
    - [ ] lib/blocks/gsc_pages.ts — топ страниц GSC: клики/показы/CTR/позиция
-   - [ ] components/report/blocks/gsc-queries.tsx — таблица (аналог webmaster-queries но из Google)
-   - [ ] components/report/blocks/gsc-pages.tsx — таблица страниц
-   - [ ] Привязка siteUrl GSC к Project: добавить поле gscSiteUrl: String? в модель Project
-         siteUrl в GSC — строка вида "https://example.com/" или "sc-domain:example.com"
-   - [ ] Refresh token: GSC токены живут 1 час — нужен refresh через oauth2.googleapis.com/token
-         (хранить refreshToken в ConnectedAccount.refreshToken, шифровать AES-256)
+   - **GSC API особенности:**
+     - siteUrl в GSC — строка вида `"https://example.com/"` или `"sc-domain:example.com"`
+     - searchAnalytics/query без dimensions возвращает суммарные метрики за период (rowLimit: 1)
+     - Токены живут 1 час — refresh через oauth2.googleapis.com/token с grant_type=refresh_token
+     - `access_type: "offline"` + `prompt: "consent"` в start route — обязательно для получения refresh_token
    **PDF:**
    - ✅ lib/pdf.ts — Playwright headless, буфер в памяти (без сохранения на диск)
          viewport 1280px, waitForSelector('.recharts-wrapper') + 1.5s буфер для графиков

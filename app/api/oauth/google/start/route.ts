@@ -16,7 +16,7 @@ export async function GET() {
     response_type: "code",
     client_id: clientId,
     redirect_uri: `${appUrl}/api/oauth/google/callback`,
-    scope: "https://www.googleapis.com/auth/webmasters.readonly",
+    scope: "openid email https://www.googleapis.com/auth/webmasters.readonly",
     access_type: "offline",
     prompt: "consent",
     state: stateNonce,
