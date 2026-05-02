@@ -112,6 +112,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     },
   });
 
+  // Save chosen integrations as project defaults for next time
+  await prisma.project.update({
+    where: { id: updated.projectId },
+    data: {
+      ...(topvisorProjectId  !== undefined && { defaultTopvisorProjectId:  topvisorProjectId ?? null }),
+      ...(webmasterAccountId !== undefined && { defaultWebmasterAccountId: webmasterAccountId ?? null }),
+      ...(webmasterHostId    !== undefined && { defaultWebmasterHostId:    webmasterHostId ?? null }),
+    },
+  });
+
   generateReport(updated.id).catch((e) =>
     console.error("[PATCH /api/reports/[id]] generateReport failed:", e)
   );

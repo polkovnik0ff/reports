@@ -83,6 +83,11 @@ model Project {
   connectedAccountId String
   createdAt          DateTime         @default(now())
   reports            Report[]
+
+  // Defaults saved after each report generation
+  defaultTopvisorProjectId  Int?
+  defaultWebmasterAccountId String?
+  defaultWebmasterHostId    String?
 }
 
 model Template {

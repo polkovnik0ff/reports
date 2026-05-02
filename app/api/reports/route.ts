@@ -101,6 +101,16 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Save chosen integrations as project defaults for next time
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      defaultTopvisorProjectId:  topvisorProjectId ?? null,
+      defaultWebmasterAccountId: webmasterAccountId ?? null,
+      defaultWebmasterHostId:    webmasterHostId ?? null,
+    },
+  });
+
   generateReport(report.id).catch((e) =>
     console.error("[POST /api/reports] generateReport failed:", e)
   );

@@ -15,7 +15,12 @@ export default async function NewReportPage({ params }: Props) {
 
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, name: true, url: true },
+    select: {
+      id: true, name: true, url: true,
+      defaultTopvisorProjectId: true,
+      defaultWebmasterAccountId: true,
+      defaultWebmasterHostId: true,
+    },
   });
 
   if (!project) notFound();
@@ -25,6 +30,9 @@ export default async function NewReportPage({ params }: Props) {
       projectId={project.id}
       projectName={project.name}
       projectUrl={project.url}
+      defaultTopvisorProjectId={project.defaultTopvisorProjectId ?? undefined}
+      defaultWebmasterAccountId={project.defaultWebmasterAccountId ?? undefined}
+      defaultWebmasterHostId={project.defaultWebmasterHostId ?? undefined}
     />
   );
 }

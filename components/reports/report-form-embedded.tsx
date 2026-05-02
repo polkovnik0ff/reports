@@ -158,9 +158,12 @@ interface Props {
   projectId: string;
   projectName: string;
   projectUrl: string;
+  defaultTopvisorProjectId?: number;
+  defaultWebmasterAccountId?: string;
+  defaultWebmasterHostId?: string;
 }
 
-export default function ReportFormEmbedded({ projectId, projectName, projectUrl }: Props) {
+export default function ReportFormEmbedded({ projectId, projectName, projectUrl, defaultTopvisorProjectId, defaultWebmasterAccountId, defaultWebmasterHostId }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
 
@@ -181,13 +184,16 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl 
   const [attribution, setAttribution] = useState<"lastsign" | "first" | "last" | "auto" | "direct">("lastsign");
   const [withRobots, setWithRobots] = useState(true);
   const [crossDevice, setCrossDevice] = useState(true);
-  const [topvisorProjectId, setTopvisorProjectId] = useState<number | null>(null);
+  const [topvisorProjectId, setTopvisorProjectId] = useState<number | null>(defaultTopvisorProjectId ?? null);
   const [topvisorScanSettings, setTopvisorScanSettings] = useState<{
     scanDate?: string;
     compareScanDate?: string;
     groupIds?: number[];
   }>({});
-  const [webmasterSettings, setWebmasterSettings] = useState<WebmasterSettings>({ accountId: null, hostId: null });
+  const [webmasterSettings, setWebmasterSettings] = useState<WebmasterSettings>({
+    accountId: defaultWebmasterAccountId ?? null,
+    hostId: defaultWebmasterHostId ?? null,
+  });
 
   // Step 1 state
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
