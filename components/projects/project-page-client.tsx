@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Loader2, Trash2, ExternalLink, Copy, Clock, ArrowLeft, Pencil } from "lucide-react";
+import { FileText, Loader2, Trash2, ExternalLink, Copy, Clock, ArrowLeft, Pencil, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +50,7 @@ export default function ProjectPageClient({ projectId, projectName, projectUrl, 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -82,6 +83,23 @@ export default function ProjectPageClient({ projectId, projectName, projectUrl, 
       toast.success("Отчёт удалён");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDownloadPdf(report: Report) {
+    setDownloadingId(report.id);
+    try {
+      const res = await fetch(`/api/pdf/${report.slug}`);
+      if (!res.ok) { toast.error("Ошибка генерации PDF"); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${report.title || report.slug}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -200,6 +218,20 @@ export default function ProjectPageClient({ projectId, projectName, projectUrl, 
                             className="text-muted-foreground"
                           >
                             <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Скачать PDF"
+                            disabled={downloadingId === report.id}
+                            onClick={() => handleDownloadPdf(report)}
+                            className="text-muted-foreground"
+                          >
+                            {downloadingId === report.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
                           </Button>
                         </>
                       )}
