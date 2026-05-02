@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { DynamicsResult, YoYKpi } from "@/lib/services/metrika";
+import { DynamicsResult } from "@/lib/services/metrika";
 
 interface AreaChartBlockProps {
   data: DynamicsResult;
@@ -40,26 +40,62 @@ function KpiCard({
 }) {
   const diff = cmp != null ? pctDiff(cur, cmp) : null;
   const isGood = diff == null ? null : invertSign ? diff < 0 : diff > 0;
-  const color = isGood == null ? "text-gray-900" : isGood ? "text-green-600" : "text-red-500";
+  const isBad = diff == null ? null : invertSign ? diff > 0 : diff < 0;
   const arrow = diff == null ? null : diff > 0 ? "↑" : "↓";
 
   return (
-    <div className="bg-gray-50 rounded-lg p-3">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className={`text-lg font-bold ${diff != null ? color : "text-gray-900"}`}>
+    <div style={{
+      background: "var(--r-bg-card)",
+      border: "1px solid var(--r-hairline)",
+      borderRadius: "var(--r-radius-s)",
+      padding: "20px 24px",
+    }}>
+      <p style={{
+        fontFamily: "var(--r-f-mono)",
+        fontSize: 11,
+        letterSpacing: "1px",
+        textTransform: "uppercase",
+        color: "var(--r-ink-mute)",
+        marginBottom: 10,
+      }}>{label}</p>
+      <p style={{
+        fontFamily: "var(--r-f-display)",
+        fontWeight: 700,
+        fontSize: 28,
+        letterSpacing: "-0.02em",
+        color: "var(--r-ink)",
+        lineHeight: 1,
+        marginBottom: diff != null ? 8 : 0,
+      }}>
         {fmt(cur)}
         {diff != null && arrow && (
-          <sup style={{ fontSize: "0.65em", fontWeight: 600, marginLeft: "3px" }}>
+          <span style={{
+            fontSize: 12,
+            fontFamily: "var(--r-f-mono)",
+            fontWeight: 600,
+            marginLeft: 6,
+            color: isGood ? "var(--r-green)" : isBad ? "var(--r-red)" : "var(--r-ink-mute)",
+          }}>
             {arrow}{Math.abs(diff).toFixed(1)}%
-          </sup>
+          </span>
         )}
       </p>
       {cmp != null && (
-        <p className="text-xs text-gray-400">{fmt(cmp)}</p>
+        <p style={{ fontSize: 12, color: "var(--r-ink-mute)", fontFamily: "var(--r-f-mono)" }}>
+          {fmt(cmp)}
+        </p>
       )}
     </div>
   );
 }
+
+const CHART_TOOLTIP_STYLE = {
+  background: "var(--r-bg-card-2)",
+  border: "1px solid var(--r-hairline-2)",
+  borderRadius: 8,
+  fontSize: 12,
+  color: "var(--r-ink)",
+};
 
 export function AreaChartBlock({
   data,
@@ -92,36 +128,45 @@ export function AreaChartBlock({
 
   return (
     <div>
-      <div className="h-64 mb-6">
+      <div style={{ height: 280, marginBottom: 32 }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <defs>
-              <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.02} />
+              <linearGradient id="gradCurrent" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--r-accent)" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="var(--r-accent)" stopOpacity={0.02} />
               </linearGradient>
-              <linearGradient id="colorCompare" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#eab308" stopOpacity={0.02} />
+              <linearGradient id="gradCompare" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--r-yellow)" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="var(--r-yellow)" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--r-hairline)" />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              tick={{ fontSize: 11, fill: "var(--r-ink-mute)", fontFamily: "var(--r-f-mono)" }}
               tickLine={false}
+              axisLine={false}
               interval="preserveStartEnd"
             />
-            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 6 }} />
-            {hasComparison && <Legend wrapperStyle={{ fontSize: 12 }} />}
+            <YAxis
+              tick={{ fontSize: 11, fill: "var(--r-ink-mute)", fontFamily: "var(--r-f-mono)" }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+            {hasComparison && (
+              <Legend
+                wrapperStyle={{ fontSize: 12, color: "var(--r-ink-dim)", fontFamily: "var(--r-f-mono)" }}
+              />
+            )}
             <Area
               type="monotone"
               dataKey="current"
               name={currentLabel}
-              stroke="#14b8a6"
+              stroke="var(--r-accent)"
               strokeWidth={2}
-              fill="url(#colorCurrent)"
+              fill="url(#gradCurrent)"
               dot={false}
             />
             {hasComparison && (
@@ -129,9 +174,9 @@ export function AreaChartBlock({
                 type="monotone"
                 dataKey="compare"
                 name={compareLabel}
-                stroke="#eab308"
+                stroke="var(--r-yellow)"
                 strokeWidth={2}
-                fill="url(#colorCompare)"
+                fill="url(#gradCompare)"
                 dot={false}
                 strokeDasharray="5 3"
               />
@@ -141,7 +186,7 @@ export function AreaChartBlock({
       </div>
 
       {hasKpi && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
           <KpiCard
             label="Посетители"
             cur={currentKpi!.users}

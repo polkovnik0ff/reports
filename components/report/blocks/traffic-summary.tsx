@@ -3,8 +3,8 @@
 import { TrafficSummaryResult } from "@/lib/services/metrika";
 
 function fmtNum(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + " М";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + " К";
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + " М";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + " К";
   return Math.round(n).toLocaleString("ru-RU");
 }
 
@@ -25,18 +25,56 @@ interface KpiCardProps {
   label: string;
   value: string;
   diff?: number | null;
-  invertDiff?: boolean; // for bounce rate: lower is better
+  invertDiff?: boolean;
 }
 
 function KpiCard({ label, value, diff, invertDiff = false }: KpiCardProps) {
   const isGood = diff != null && (invertDiff ? diff < 0 : diff > 0);
   const isBad  = diff != null && (invertDiff ? diff > 0 : diff < 0);
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5 flex-1 min-w-[140px]">
-      <p className="text-sm text-gray-500 mb-1">{label}</p>
-      <p className="text-3xl font-bold text-gray-900 mb-2 leading-tight">{value}</p>
+    <div style={{
+      background: "var(--r-bg-card)",
+      border: "1px solid var(--r-hairline)",
+      borderRadius: "var(--r-radius-s)",
+      padding: "24px 28px",
+      flex: "1 1 160px",
+      minWidth: 0,
+    }}>
+      <p style={{
+        fontFamily: "var(--r-f-mono)",
+        fontSize: 11,
+        letterSpacing: "1px",
+        textTransform: "uppercase",
+        color: "var(--r-ink-mute)",
+        marginBottom: 12,
+      }}>
+        {label}
+      </p>
+      <p style={{
+        fontFamily: "var(--r-f-display)",
+        fontWeight: 700,
+        fontSize: "clamp(28px, 3vw, 40px)",
+        lineHeight: 1,
+        letterSpacing: "-0.02em",
+        color: "var(--r-ink)",
+        marginBottom: diff != null ? 12 : 0,
+      }}>
+        {value}
+      </p>
       {diff != null && (
-        <div className={`flex items-center gap-1 text-sm font-medium ${isGood ? "text-green-600" : isBad ? "text-red-500" : "text-gray-400"}`}>
+        <div style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          fontFamily: "var(--r-f-mono)",
+          fontSize: 12,
+          fontWeight: 600,
+          color: isGood ? "var(--r-green)" : isBad ? "var(--r-red)" : "var(--r-ink-mute)",
+          background: isGood ? "rgba(74,222,128,0.1)" : isBad ? "rgba(255,89,99,0.1)" : "transparent",
+          borderRadius: 4,
+          padding: "2px 6px",
+        }}>
           <span>{isGood ? "↑" : isBad ? "↓" : "—"}</span>
           <span>{Math.abs(diff).toFixed(1)}%</span>
         </div>
@@ -49,10 +87,12 @@ export function TrafficSummaryBlock({ data }: { data: TrafficSummaryResult }) {
   const c = data?.current;
   const p = data?.previous;
 
-  if (!c) return <p className="text-gray-400 italic text-sm">Нет данных</p>;
+  if (!c) return (
+    <p style={{ color: "var(--r-ink-mute)", fontStyle: "italic", fontSize: 14 }}>Нет данных</p>
+  );
 
   return (
-    <div className="flex gap-4 flex-wrap">
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
       <KpiCard
         label="Посетители"
         value={fmtNum(c.users)}

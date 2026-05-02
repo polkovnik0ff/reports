@@ -6,12 +6,16 @@ interface RichTextBlockProps {
 
 export function RichTextBlock({ content }: RichTextBlockProps) {
   if (!content) {
-    return <p className="text-gray-400 italic text-sm">Содержимое не заполнено</p>;
+    return (
+      <p style={{ color: "var(--r-ink-mute)", fontStyle: "italic", fontSize: 14 }}>
+        Содержимое не заполнено
+      </p>
+    );
   }
 
   return (
     <div
-      className="prose-report leading-relaxed"
+      className="prose-report"
       dangerouslySetInnerHTML={{ __html: content }}
     />
   );

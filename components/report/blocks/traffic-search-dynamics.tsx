@@ -36,24 +36,20 @@ function pctDiff(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
-function DiffSup({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
+function DiffBadge({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
   if (prev == null) {
     if (!hasCompare) return null;
     return (
-      <sup style={{ fontSize: "0.65em", fontWeight: 600, color: "#16a34a", marginLeft: "3px" }}>
-        ↑100%
-      </sup>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--r-green)", marginLeft: 4 }}>↑100%</span>
     );
   }
-  const diff = pctDiff(cur, prev);
-  if (diff == null) return null;
-  const up = diff > 0;
-  const color = up ? "#16a34a" : "#dc2626";
-  const arrow = up ? "↑" : "↓";
+  const d = pctDiff(cur, prev);
+  if (d == null) return null;
+  const up = d > 0;
   return (
-    <sup style={{ fontSize: "0.65em", fontWeight: 600, color, marginLeft: "3px" }}>
-      {arrow}{Math.abs(diff).toFixed(1)}%
-    </sup>
+    <span style={{ fontSize: 11, fontWeight: 600, color: up ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
+      {up ? "↑" : "↓"}{Math.abs(d).toFixed(1)}%
+    </span>
   );
 }
 
@@ -62,10 +58,47 @@ interface Props {
   tableData?: TrafficChannelsResult | null;
 }
 
+const TH: React.CSSProperties = {
+  fontFamily: "var(--r-f-mono)",
+  fontSize: 11,
+  letterSpacing: "0.8px",
+  textTransform: "uppercase",
+  color: "var(--r-ink-mute)",
+  fontWeight: 500,
+  padding: "10px 14px",
+  borderBottom: "1px solid var(--r-hairline)",
+  whiteSpace: "nowrap",
+};
+
+const TD: React.CSSProperties = {
+  fontFamily: "var(--r-f-body)",
+  fontSize: 13,
+  color: "var(--r-ink-dim)",
+  padding: "11px 14px",
+  borderBottom: "1px solid var(--r-hairline)",
+};
+
+const CHART_TOOLTIP_STYLE = {
+  background: "var(--r-bg-card-2)",
+  border: "1px solid var(--r-hairline-2)",
+  borderRadius: 8,
+  fontSize: 12,
+  color: "var(--r-ink)",
+};
+
 export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
   if (!data || data.dates.length === 0) {
     return (
-      <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-6 text-center text-sm text-gray-400 italic">
+      <div style={{
+        background: "var(--r-bg-card)",
+        border: "1px solid var(--r-hairline)",
+        borderRadius: "var(--r-radius-s)",
+        padding: "24px",
+        textAlign: "center",
+        color: "var(--r-ink-mute)",
+        fontStyle: "italic",
+        fontSize: 14,
+      }}>
         Данные недоступны
       </div>
     );
@@ -83,50 +116,34 @@ export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
     return point;
   });
 
-  // Build summary table rows: top 6 + "Другие"
   const rawRows = tableData?.rows ?? [];
   const TOP = 6;
   const topRows = rawRows.slice(0, TOP);
   const otherRows = rawRows.slice(TOP);
-
   const hasCompare = rawRows.some((r) => r.prevVisits != null);
 
   let tableRows: TableRow[] = topRows;
   if (otherRows.length > 0) {
     const otherVisits = otherRows.reduce((s, r) => s + r.visits, 0);
-    const otherPrevVisits = hasCompare
-      ? otherRows.reduce((s, r) => s + (r.prevVisits ?? 0), 0)
-      : undefined;
-
+    const otherPrevVisits = hasCompare ? otherRows.reduce((s, r) => s + (r.prevVisits ?? 0), 0) : undefined;
     const otherBounce = otherRows.every((r) => r.bounceRate != null)
-      ? otherRows.reduce((s, r) => s + r.bounceRate! * r.visits, 0) /
-        Math.max(otherVisits, 1)
+      ? otherRows.reduce((s, r) => s + r.bounceRate! * r.visits, 0) / Math.max(otherVisits, 1)
       : undefined;
-    const otherPrevBounce =
-      hasCompare && otherRows.every((r) => r.prevBounceRate != null)
-        ? otherRows.reduce((s, r) => s + r.prevBounceRate! * (r.prevVisits ?? 0), 0) /
-          Math.max(otherPrevVisits ?? 1, 1)
-        : undefined;
-
+    const otherPrevBounce = hasCompare && otherRows.every((r) => r.prevBounceRate != null)
+      ? otherRows.reduce((s, r) => s + r.prevBounceRate! * (r.prevVisits ?? 0), 0) / Math.max(otherPrevVisits ?? 1, 1)
+      : undefined;
     const otherDepth = otherRows.every((r) => r.pageDepth != null)
-      ? otherRows.reduce((s, r) => s + r.pageDepth! * r.visits, 0) /
-        Math.max(otherVisits, 1)
+      ? otherRows.reduce((s, r) => s + r.pageDepth! * r.visits, 0) / Math.max(otherVisits, 1)
       : undefined;
-    const otherPrevDepth =
-      hasCompare && otherRows.every((r) => r.prevPageDepth != null)
-        ? otherRows.reduce((s, r) => s + r.prevPageDepth! * (r.prevVisits ?? 0), 0) /
-          Math.max(otherPrevVisits ?? 1, 1)
-        : undefined;
-
+    const otherPrevDepth = hasCompare && otherRows.every((r) => r.prevPageDepth != null)
+      ? otherRows.reduce((s, r) => s + r.prevPageDepth! * (r.prevVisits ?? 0), 0) / Math.max(otherPrevVisits ?? 1, 1)
+      : undefined;
     const otherDuration = otherRows.every((r) => r.avgDuration != null)
-      ? otherRows.reduce((s, r) => s + r.avgDuration! * r.visits, 0) /
-        Math.max(otherVisits, 1)
+      ? otherRows.reduce((s, r) => s + r.avgDuration! * r.visits, 0) / Math.max(otherVisits, 1)
       : undefined;
-    const otherPrevDuration =
-      hasCompare && otherRows.every((r) => r.prevAvgDuration != null)
-        ? otherRows.reduce((s, r) => s + r.prevAvgDuration! * (r.prevVisits ?? 0), 0) /
-          Math.max(otherPrevVisits ?? 1, 1)
-        : undefined;
+    const otherPrevDuration = hasCompare && otherRows.every((r) => r.prevAvgDuration != null)
+      ? otherRows.reduce((s, r) => s + r.prevAvgDuration! * (r.prevVisits ?? 0), 0) / Math.max(otherPrevVisits ?? 1, 1)
+      : undefined;
 
     tableRows = [
       ...topRows,
@@ -150,28 +167,33 @@ export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
   return (
     <div>
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 mb-3">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginBottom: 20 }}>
         {data.series.map((s, i) => (
-          <div key={s.name} className="flex items-center gap-1.5 text-sm text-gray-600">
-            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getEngineColor(s.name, i) }} />
-            {s.name}
+          <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: getEngineColor(s.name, i), flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: "var(--r-ink-dim)", fontFamily: "var(--r-f-body)" }}>{s.name}</span>
           </div>
         ))}
       </div>
 
       {/* Chart */}
-      <div className="h-64 mb-6">
+      <div style={{ height: 280, marginBottom: 40 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--r-hairline)" />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              tick={{ fontSize: 11, fill: "var(--r-ink-mute)", fontFamily: "var(--r-f-mono)" }}
               tickLine={false}
+              axisLine={false}
               interval="preserveStartEnd"
             />
-            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 6 }} />
+            <YAxis
+              tick={{ fontSize: 11, fill: "var(--r-ink-mute)", fontFamily: "var(--r-f-mono)" }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
             {data.series.map((s, i) => (
               <Line
                 key={s.name}
@@ -188,63 +210,51 @@ export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
 
       {/* Summary table */}
       {tableRows.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 px-3 text-gray-500 font-medium">Поисковая система</th>
-                <th className="text-right py-2 px-3 text-gray-500 font-medium">Посетители</th>
-                {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Отказы</th>}
-                {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Глубина</th>}
-                {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Время</th>}
+              <tr>
+                <th style={TH}>Поисковая система</th>
+                <th style={{ ...TH, textAlign: "right" }}>Посетители</th>
+                {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Отказы</th>}
+                {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Глубина</th>}
+                {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Время</th>}
               </tr>
             </thead>
             <tbody>
               {tableRows.map((r, i) => (
-                <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-2 px-3">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{
-                          backgroundColor:
-                            r.name === "Другие" ? "#9ca3af" : getEngineColor(r.id ?? r.name, i),
-                        }}
-                      />
+                <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                  <td style={TD}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{
+                        width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                        background: r.name === "Другие" ? "var(--r-ink-mute)" : getEngineColor(r.id ?? r.name, i),
+                      }} />
                       {r.name}
                     </div>
                   </td>
-                  <td className="text-right py-2 px-3 font-medium tabular-nums">
+                  <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)", color: "var(--r-ink)", fontWeight: 500 }}>
                     {r.visits.toLocaleString("ru-RU")}
-                    <DiffSup cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
+                    <DiffBadge cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
                   </td>
                   {hasExtended && (
-                    <td className="text-right py-2 px-3 tabular-nums">
+                    <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)" }}>
                       {r.bounceRate != null ? (
-                        <>
-                          {r.bounceRate.toFixed(1)}%
-                          <DiffSup cur={r.bounceRate} prev={r.prevBounceRate} hasCompare={hasCompare} />
-                        </>
+                        <>{r.bounceRate.toFixed(1)}%<DiffBadge cur={r.bounceRate} prev={r.prevBounceRate} hasCompare={hasCompare} /></>
                       ) : "—"}
                     </td>
                   )}
                   {hasExtended && (
-                    <td className="text-right py-2 px-3 tabular-nums">
+                    <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)" }}>
                       {r.pageDepth != null ? (
-                        <>
-                          {r.pageDepth.toFixed(2)}
-                          <DiffSup cur={r.pageDepth} prev={r.prevPageDepth} hasCompare={hasCompare} />
-                        </>
+                        <>{r.pageDepth.toFixed(2)}<DiffBadge cur={r.pageDepth} prev={r.prevPageDepth} hasCompare={hasCompare} /></>
                       ) : "—"}
                     </td>
                   )}
                   {hasExtended && (
-                    <td className="text-right py-2 px-3 tabular-nums">
+                    <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)" }}>
                       {r.avgDuration != null ? (
-                        <>
-                          {fmtTime(r.avgDuration)}
-                          <DiffSup cur={r.avgDuration} prev={r.prevAvgDuration} hasCompare={hasCompare} />
-                        </>
+                        <>{fmtTime(r.avgDuration)}<DiffBadge cur={r.avgDuration} prev={r.prevAvgDuration} hasCompare={hasCompare} /></>
                       ) : "—"}
                     </td>
                   )}

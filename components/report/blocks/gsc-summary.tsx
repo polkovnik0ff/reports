@@ -8,15 +8,6 @@ function diff(current: number, compare: number | undefined): { value: string; po
   return { value: `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`, positive: pct >= 0 };
 }
 
-function DiffSup({ d }: { d: ReturnType<typeof diff> }) {
-  if (!d) return null;
-  return (
-    <sup className={`ml-1 text-[10px] font-semibold ${d.positive ? "text-green-600" : "text-red-500"}`}>
-      {d.value}
-    </sup>
-  );
-}
-
 interface Props {
   data: GscSummaryData;
 }
@@ -43,26 +34,68 @@ export function GscSummaryBlock({ data }: Props) {
     {
       label: "Средняя позиция",
       value: data.position.toFixed(1),
-      // For position, lower is better — invert positive/negative
       d: (() => {
-        const d = diff(data.position, data.comparePosition);
-        if (!d) return null;
-        return { value: d.value, positive: !d.positive };
+        const dd = diff(data.position, data.comparePosition);
+        if (!dd) return null;
+        return { value: dd.value, positive: !dd.positive };
       })(),
     },
   ];
 
   return (
     <div>
-      <p className="text-xs text-muted-foreground mb-4">{data.siteUrl}</p>
-      <div className={`grid gap-4 ${hasCompare ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-4"}`}>
+      <p style={{
+        fontFamily: "var(--r-f-mono)",
+        fontSize: 11,
+        color: "var(--r-ink-mute)",
+        marginBottom: 24,
+        letterSpacing: "0.5px",
+      }}>
+        {data.siteUrl}
+      </p>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+        gap: 16,
+      }}>
         {kpis.map((kpi) => (
-          <div key={kpi.label} className="rounded-lg border bg-card p-4">
-            <p className="text-xs text-muted-foreground mb-1">{kpi.label}</p>
-            <p className="text-2xl font-bold tabular-nums">
-              {kpi.value}
-              <DiffSup d={kpi.d} />
-            </p>
+          <div key={kpi.label} style={{
+            background: "var(--r-bg-card)",
+            border: "1px solid var(--r-hairline)",
+            borderRadius: "var(--r-radius-s)",
+            padding: "20px 24px",
+          }}>
+            <p style={{
+              fontFamily: "var(--r-f-mono)",
+              fontSize: 11,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "var(--r-ink-mute)",
+              marginBottom: 10,
+            }}>{kpi.label}</p>
+            <p style={{
+              fontFamily: "var(--r-f-display)",
+              fontWeight: 700,
+              fontSize: 36,
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+              color: "var(--r-ink)",
+              marginBottom: kpi.d ? 8 : 0,
+            }}>{kpi.value}</p>
+            {kpi.d && (
+              <span style={{
+                fontFamily: "var(--r-f-mono)",
+                fontSize: 12,
+                fontWeight: 600,
+                color: kpi.d.positive ? "var(--r-green)" : "var(--r-red)",
+                background: kpi.d.positive ? "rgba(74,222,128,0.1)" : "rgba(255,89,99,0.1)",
+                borderRadius: 4,
+                padding: "2px 6px",
+                display: "inline-block",
+              }}>
+                {kpi.d.value}
+              </span>
+            )}
           </div>
         ))}
       </div>

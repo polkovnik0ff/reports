@@ -71,26 +71,24 @@ export default async function PublicReportPage({ params }: Props) {
     }));
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-[1440px] mx-auto px-6 py-10">
+    <div className="report-page">
+      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", maxWidth: 1680, margin: "0 auto" }}>
         <Suspense>
-          <ReportHeader
-            title={report.title}
-            dateFrom={report.dateFrom}
-            dateTo={report.dateTo}
-            compareFrom={report.compareFrom}
-            compareTo={report.compareTo}
-            generatedAt={report.generatedAt}
-          />
+          <ReportNav items={navItems} slug={slug} title={report.title} />
         </Suspense>
-        <div className="flex gap-8 items-start">
+        <main style={{ padding: "32px 56px 120px", minWidth: 0 }}>
           <Suspense>
-            <ReportNav items={navItems} slug={slug} title={report.title} />
+            <ReportHeader
+              title={report.title}
+              dateFrom={report.dateFrom}
+              dateTo={report.dateTo}
+              compareFrom={report.compareFrom}
+              compareTo={report.compareTo}
+              generatedAt={report.generatedAt}
+            />
           </Suspense>
-          <div className="min-w-0 flex-1">
-            <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
-          </div>
-        </div>
+          <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
+        </main>
       </div>
     </div>
   );

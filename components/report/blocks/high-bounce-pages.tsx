@@ -9,14 +9,14 @@ function pctDiff(cur: number, prev: number) {
   return ((cur - prev) / prev) * 100;
 }
 
-function DiffSup({ cur, prev, invertSign = false, hasCompare = false }: { cur: number; prev?: number; invertSign?: boolean; hasCompare?: boolean }) {
+function DiffBadge({ cur, prev, invertSign = false, hasCompare = false }: { cur: number; prev?: number; invertSign?: boolean; hasCompare?: boolean }) {
   if (prev == null) {
     if (!hasCompare) return null;
-    const good = invertSign ? false : true;
+    const good = !invertSign;
     return (
-      <sup style={{ fontSize: "0.65em", fontWeight: 600, color: good ? "#16a34a" : "#dc2626", marginLeft: "3px" }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: good ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
         ↑100%
-      </sup>
+      </span>
     );
   }
   const diff = pctDiff(cur, prev);
@@ -24,9 +24,9 @@ function DiffSup({ cur, prev, invertSign = false, hasCompare = false }: { cur: n
   const up = diff > 0;
   const good = invertSign ? !up : up;
   return (
-    <sup style={{ fontSize: "0.65em", fontWeight: 600, color: good ? "#16a34a" : "#dc2626", marginLeft: "3px" }}>
+    <span style={{ fontSize: 11, fontWeight: 600, color: good ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
       {up ? "↑" : "↓"}{Math.abs(diff).toFixed(1)}%
-    </sup>
+    </span>
   );
 }
 
@@ -42,42 +42,70 @@ interface HighBouncePagesData {
   rows: HighBounceRow[];
 }
 
+const TH: React.CSSProperties = {
+  fontFamily: "var(--r-f-mono)",
+  fontSize: 11,
+  letterSpacing: "0.8px",
+  textTransform: "uppercase",
+  color: "var(--r-ink-mute)",
+  fontWeight: 500,
+  padding: "10px 14px",
+  borderBottom: "1px solid var(--r-hairline)",
+  whiteSpace: "nowrap",
+};
+
+const TD: React.CSSProperties = {
+  fontFamily: "var(--r-f-body)",
+  fontSize: 13,
+  color: "var(--r-ink-dim)",
+  padding: "11px 14px",
+  borderBottom: "1px solid var(--r-hairline)",
+};
+
 export function HighBouncePagesBlock({ data }: { data: HighBouncePagesData }) {
   const rows = data?.rows ?? [];
   const hasCompare = rows.some((r) => r.prevVisits != null);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-center py-2 px-3 text-gray-500 font-medium w-10">№</th>
-            <th className="text-left py-2 px-3 text-gray-500 font-medium">URL</th>
-            <th className="text-right py-2 px-3 text-gray-500 font-medium">Визиты</th>
-            <th className="text-right py-2 px-3 text-gray-500 font-medium">Отказы</th>
+          <tr>
+            <th style={{ ...TH, textAlign: "center", width: 44 }}>№</th>
+            <th style={{ ...TH, textAlign: "left" }}>URL</th>
+            <th style={{ ...TH, textAlign: "right" }}>Визиты</th>
+            <th style={{ ...TH, textAlign: "right" }}>Отказы</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="text-center py-2 px-3 text-gray-400 tabular-nums">{i + 1}</td>
-              <td className="py-2 px-3 font-mono text-xs max-w-xs break-all">
+            <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+              <td style={{ ...TD, textAlign: "center", fontFamily: "var(--r-f-mono)", fontSize: 12, color: "var(--r-ink-mute)" }}>
+                {i + 1}
+              </td>
+              <td style={{ ...TD, maxWidth: 480, wordBreak: "break-all" }}>
                 <a
                   href={row.name}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+                  style={{ color: "var(--r-cyan)", textDecoration: "none", fontFamily: "var(--r-f-mono)", fontSize: 12 }}
                 >
                   {truncate(row.name)}
                 </a>
               </td>
-              <td className="text-right py-2 px-3 font-medium tabular-nums">
+              <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)", color: "var(--r-ink)", fontWeight: 500 }}>
                 {row.visits.toLocaleString("ru-RU")}
-                <DiffSup cur={row.visits} prev={row.prevVisits} hasCompare={hasCompare} />
+                <DiffBadge cur={row.visits} prev={row.prevVisits} hasCompare={hasCompare} />
               </td>
-              <td className="text-right py-2 px-3 font-medium tabular-nums" style={{ color: row.bounceRate >= 50 ? "#dc2626" : "#374151" }}>
+              <td style={{
+                ...TD,
+                textAlign: "right",
+                fontFamily: "var(--r-f-mono)",
+                fontWeight: 500,
+                color: row.bounceRate >= 50 ? "var(--r-red)" : "var(--r-ink)",
+              }}>
                 {row.bounceRate.toFixed(1)}%
-                <DiffSup cur={row.bounceRate} prev={row.prevBounceRate} invertSign hasCompare={hasCompare} />
+                <DiffBadge cur={row.bounceRate} prev={row.prevBounceRate} invertSign hasCompare={hasCompare} />
               </td>
             </tr>
           ))}

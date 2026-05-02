@@ -118,13 +118,14 @@ export function ReportRenderer({ reportConfig, snapshotData }: ReportRendererPro
 
   return (
     <div>
-      {sorted.map((block) => {
+      {sorted.map((block, idx) => {
         const blockData = snapshotData?.[block.id] ?? null;
         return (
           <BlockWrapper
             key={block.id}
             id={`block-${block.id}`}
             title={block.label || (BLOCK_LABELS[block.type as BlockType] ?? block.type)}
+            sectionNum={idx + 1}
             commentAbove={block.commentAbove}
             commentBelow={block.commentBelow}
           >

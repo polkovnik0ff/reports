@@ -5,6 +5,28 @@
 
 ---
 
+## Сессия 2026-05-02 (продолжение — редизайн блоков отчёта)
+
+### Контекст начала сессии
+- Продолжение после компрессии контекста. Фаза 5 (настройки аккаунта + команда) завершена.
+- Заложен фундамент Фазы 6: новые шрифты, CSS-токены `.report-page`, переписаны nav/header/block-wrapper.
+
+### Запрос — «Продолжай»
+
+**Что сделано:** Переписаны все блоки публичной страницы отчёта в тёмной дизайн-системе с CSS-переменными `--r-*`.
+
+**Принципы:**
+- KPI-карточки: `--r-bg-card`, mono-лейбл 11px, Montserrat-значение, delta-бейдж с полупрозрачным фоном
+- Таблицы: only inline styles, no Tailwind; hairline borders через `--r-hairline`; mono-заголовки
+- Чарты: grid/оси/tooltip адаптированы под тёмную тему через CSS vars
+- Ссылки: `--r-cyan`; delta-индикаторы: `--r-green`/`--r-red`
+
+**Файлы:** traffic-summary, donut-table, ranked-table, area-chart-block, traffic-search-dynamics, search-engines-dynamics, positions-summary, positions-table, webmaster-ikh, webmaster-indexing, webmaster-backlinks, gsc-summary, webmaster-search-summary, high-bounce-pages, rich-text-block.
+
+**TypeScript:** чистый (ошибки только в .next/)
+
+---
+
 ## Сессия 2026-04-30
 
 ### Контекст начала сессии

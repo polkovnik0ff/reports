@@ -123,15 +123,65 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body, 'Inter', sans-serif);
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-body, 'Inter', sans-serif);
   }
+}
+
+/* ─── Report design tokens ──────────────────────────────────────────────── */
+/* Used only on /r/[slug] public report pages                                */
+
+.report-page {
+  /* Dark theme (default) */
+  --r-bg:        #101418;
+  --r-bg-panel:  #171B20;
+  --r-bg-card:   #1E2329;
+  --r-bg-card-2: #242A31;
+  --r-ink:       #FFFFFF;
+  --r-ink-dim:   #9AA3AD;
+  --r-ink-mute:  #5C6670;
+  --r-hairline:  rgba(255,255,255,0.08);
+  --r-hairline-2:rgba(255,255,255,0.14);
+  --r-accent:    #FF2574;
+  --r-accent-2:  #FF5894;
+  --r-accent-soft: rgba(255,37,116,0.14);
+  --r-cyan:      #22BDF1;
+  --r-yellow:    #FFD362;
+  --r-green:     #4ADE80;
+  --r-red:       #FF5963;
+  --r-pad:       56px;
+  --r-radius:    20px;
+  --r-radius-s:  12px;
+  --r-row-pad:   14px;
+  --r-f-display: var(--font-display, 'Montserrat', sans-serif);
+  --r-f-body:    var(--font-body, 'Inter', sans-serif);
+  --r-f-mono:    var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+
+  background: var(--r-bg);
+  color: var(--r-ink);
+  font-family: var(--r-f-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.report-page[data-theme="light"] {
+  --r-bg:        #F4F5F7;
+  --r-bg-panel:  #FFFFFF;
+  --r-bg-card:   #FFFFFF;
+  --r-bg-card-2: #F4F5F7;
+  --r-ink:       #101418;
+  --r-ink-dim:   #5C6670;
+  --r-ink-mute:  #9AA3AD;
+  --r-hairline:  rgba(16,20,24,0.08);
+  --r-hairline-2:rgba(16,20,24,0.14);
 }
 
 /* Rich-text block styles for report pages */
 .prose-report {
-  color: #374151;
+  color: inherit;
   line-height: 1.7;
   font-size: 0.9375rem;
 }
@@ -146,11 +196,11 @@
 .prose-report em { font-style: italic; }
 .prose-report u { text-decoration: underline; }
 .prose-report s { text-decoration: line-through; }
-.prose-report a { color: #2563eb; text-decoration: underline; }
+.prose-report a { color: var(--r-accent, #2563eb); text-decoration: underline; }
 .prose-report blockquote {
-  border-left: 3px solid #e5e7eb;
+  border-left: 3px solid var(--r-hairline-2, #e5e7eb);
   padding-left: 1rem;
-  color: #6b7280;
+  color: var(--r-ink-dim, #6b7280);
   margin: 0.75em 0;
 }
 

@@ -33,38 +33,51 @@ function pctDiff(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
-function DiffSup({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
+function DiffBadge({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
   if (prev == null) {
     if (!hasCompare) return null;
     return (
-      <sup style={{ fontSize: "0.65em", fontWeight: 600, color: "#16a34a", marginLeft: "3px" }}>
-        ↑100%
-      </sup>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--r-green)", marginLeft: 4 }}>↑100%</span>
     );
   }
-  const diff = pctDiff(cur, prev);
-  if (diff == null) return null;
-  const up = diff > 0;
-  const color = up ? "#16a34a" : "#dc2626";
-  const arrow = up ? "↑" : "↓";
+  const d = pctDiff(cur, prev);
+  if (d == null) return null;
+  const up = d > 0;
   return (
-    <sup style={{ fontSize: "0.65em", fontWeight: 600, color, marginLeft: "3px" }}>
-      {arrow}{Math.abs(diff).toFixed(1)}%
-    </sup>
+    <span style={{ fontSize: 11, fontWeight: 600, color: up ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
+      {up ? "↑" : "↓"}{Math.abs(d).toFixed(1)}%
+    </span>
   );
 }
 
-// Keep top 6 for donut, merge rest into "Другие"
 function toDonutSlices(rows: DonutRow[]): DonutRow[] {
   if (rows.length <= 6) return rows;
   const top = rows.slice(0, 6);
   const rest = rows.slice(6);
   const otherVisits = rest.reduce((s, r) => s + r.visits, 0);
-  return [
-    ...top,
-    { name: "Другие", visits: otherVisits, color: "#9ca3af" },
-  ];
+  return [...top, { name: "Другие", visits: otherVisits, color: "var(--r-ink-mute)" }];
 }
+
+const TH: React.CSSProperties = {
+  fontFamily: "var(--r-f-mono)",
+  fontSize: 11,
+  letterSpacing: "0.8px",
+  textTransform: "uppercase",
+  color: "var(--r-ink-mute)",
+  fontWeight: 500,
+  padding: "10px 14px",
+  textAlign: "left",
+  borderBottom: "1px solid var(--r-hairline)",
+  whiteSpace: "nowrap",
+};
+
+const TD: React.CSSProperties = {
+  fontFamily: "var(--r-f-body)",
+  fontSize: 13,
+  color: "var(--r-ink-dim)",
+  padding: "11px 14px",
+  borderBottom: "1px solid var(--r-hairline)",
+};
 
 export function DonutTable({ rows, firstColLabel = "Источник", metricLabel = "Визиты", hideTable = false }: DonutTableProps) {
   const slices = toDonutSlices(rows);
@@ -73,8 +86,9 @@ export function DonutTable({ rows, firstColLabel = "Источник", metricLab
 
   return (
     <div>
-      <div className="flex flex-col lg:flex-row gap-6 items-start mb-6">
-        <div className="w-full lg:w-64 h-56 shrink-0">
+      {/* Donut + Legend */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 40, alignItems: "center", marginBottom: 40 }}>
+        <div style={{ width: 220, height: 220, flexShrink: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -83,81 +97,102 @@ export function DonutTable({ rows, firstColLabel = "Источник", metricLab
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={55}
-                outerRadius={90}
+                innerRadius={66}
+                outerRadius={100}
                 labelLine={false}
+                strokeWidth={0}
               >
                 {slices.map((r, i) => (
                   <Cell key={i} fill={r.color} />
                 ))}
               </Pie>
               <Tooltip
+                contentStyle={{
+                  background: "var(--r-bg-card-2)",
+                  border: "1px solid var(--r-hairline-2)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: "var(--r-ink)",
+                }}
                 formatter={(value) => [Number(value).toLocaleString("ru-RU"), metricLabel]}
               />
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex flex-col gap-2 justify-center">
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {slices.map((r, i) => (
-            <div key={i} className="flex items-center gap-3 text-sm">
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
-              <span className="text-gray-700">{r.name}</span>
-              <span className="ml-auto font-medium text-gray-900 pl-4 tabular-nums">
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{
+                width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+                background: r.color,
+              }} />
+              <span style={{ fontSize: 13, color: "var(--r-ink-dim)", minWidth: 120 }}>{r.name}</span>
+              <span style={{
+                fontFamily: "var(--r-f-mono)",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--r-ink)",
+                marginLeft: "auto",
+                paddingLeft: 16,
+              }}>
                 {r.visits.toLocaleString("ru-RU")}
-                <DiffSup cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
+                <DiffBadge cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      {!hideTable && <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-2 px-3 text-gray-500 font-medium">{firstColLabel}</th>
-              <th className="text-right py-2 px-3 text-gray-500 font-medium">{metricLabel}</th>
-              {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Отказы</th>}
-              {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Глубина</th>}
-              {hasExtended && <th className="text-right py-2 px-3 text-gray-500 font-medium">Время</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="py-2 px-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
-                    {r.name}
-                  </div>
-                </td>
-                <td className="text-right py-2 px-3 font-medium tabular-nums">
-                  {r.visits.toLocaleString("ru-RU")}
-                  <DiffSup cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
-                </td>
-                {r.bounceRate != null && (
-                  <td className="text-right py-2 px-3 tabular-nums">
-                    {r.bounceRate.toFixed(1)}%
-                    <DiffSup cur={r.bounceRate} prev={r.prevBounceRate} hasCompare={hasCompare} />
-                  </td>
-                )}
-                {r.pageDepth != null && (
-                  <td className="text-right py-2 px-3 tabular-nums">
-                    {r.pageDepth.toFixed(2)}
-                    <DiffSup cur={r.pageDepth} prev={r.prevPageDepth} hasCompare={hasCompare} />
-                  </td>
-                )}
-                {r.avgDuration != null && (
-                  <td className="text-right py-2 px-3 tabular-nums">
-                    {fmtTime(r.avgDuration)}
-                    <DiffSup cur={r.avgDuration} prev={r.prevAvgDuration} hasCompare={hasCompare} />
-                  </td>
-                )}
+      {!hideTable && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={TH}>{firstColLabel}</th>
+                <th style={{ ...TH, textAlign: "right" }}>{metricLabel}</th>
+                {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Отказы</th>}
+                {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Глубина</th>}
+                {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Время</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>}
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                  <td style={TD}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: r.color }} />
+                      {r.name}
+                    </div>
+                  </td>
+                  <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)", color: "var(--r-ink)", fontWeight: 500 }}>
+                    {r.visits.toLocaleString("ru-RU")}
+                    <DiffBadge cur={r.visits} prev={r.prevVisits} hasCompare={hasCompare} />
+                  </td>
+                  {r.bounceRate != null && (
+                    <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)" }}>
+                      {r.bounceRate.toFixed(1)}%
+                      <DiffBadge cur={r.bounceRate} prev={r.prevBounceRate} hasCompare={hasCompare} />
+                    </td>
+                  )}
+                  {r.pageDepth != null && (
+                    <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)" }}>
+                      {r.pageDepth.toFixed(2)}
+                      <DiffBadge cur={r.pageDepth} prev={r.prevPageDepth} hasCompare={hasCompare} />
+                    </td>
+                  )}
+                  {r.avgDuration != null && (
+                    <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)" }}>
+                      {fmtTime(r.avgDuration)}
+                      <DiffBadge cur={r.avgDuration} prev={r.prevAvgDuration} hasCompare={hasCompare} />
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

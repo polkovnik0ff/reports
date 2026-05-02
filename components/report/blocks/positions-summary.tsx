@@ -21,17 +21,46 @@ interface KpiCardProps {
 }
 
 function KpiCard({ label, value, delta, higherIsBetter = true }: KpiCardProps) {
-  const sign = delta === null || delta === undefined ? null : delta > 0 ? "+" : delta < 0 ? "−" : null;
-  const abs  = delta !== null && delta !== undefined ? Math.abs(delta) : 0;
-  const good = delta !== null && delta !== undefined && (higherIsBetter ? delta > 0 : delta < 0);
-  const bad  = delta !== null && delta !== undefined && (higherIsBetter ? delta < 0 : delta > 0);
+  const sign = delta == null ? null : delta > 0 ? "+" : delta < 0 ? "−" : null;
+  const abs  = delta != null ? Math.abs(delta) : 0;
+  const good = delta != null && (higherIsBetter ? delta > 0 : delta < 0);
+  const bad  = delta != null && (higherIsBetter ? delta < 0 : delta > 0);
 
   return (
-    <div className="flex flex-col gap-1 rounded-xl border bg-card px-5 py-4">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-2xl font-bold tabular-nums">{value}</span>
+    <div style={{
+      background: "var(--r-bg-card)",
+      border: "1px solid var(--r-hairline)",
+      borderRadius: "var(--r-radius-s)",
+      padding: "20px 24px",
+    }}>
+      <p style={{
+        fontFamily: "var(--r-f-mono)",
+        fontSize: 11,
+        letterSpacing: "1px",
+        textTransform: "uppercase",
+        color: "var(--r-ink-mute)",
+        marginBottom: 10,
+      }}>{label}</p>
+      <p style={{
+        fontFamily: "var(--r-f-display)",
+        fontWeight: 700,
+        fontSize: 36,
+        letterSpacing: "-0.02em",
+        lineHeight: 1,
+        color: "var(--r-ink)",
+        marginBottom: sign !== null ? 8 : 0,
+      }}>{value}</p>
       {sign !== null && (
-        <span className={`text-xs font-medium ${good ? "text-green-600" : bad ? "text-red-500" : "text-muted-foreground"}`}>
+        <span style={{
+          fontFamily: "var(--r-f-mono)",
+          fontSize: 12,
+          fontWeight: 600,
+          color: good ? "var(--r-green)" : bad ? "var(--r-red)" : "var(--r-ink-mute)",
+          background: good ? "rgba(74,222,128,0.1)" : bad ? "rgba(255,89,99,0.1)" : "transparent",
+          borderRadius: 4,
+          padding: "2px 6px",
+          display: "inline-block",
+        }}>
           {sign}{abs}
         </span>
       )}
@@ -42,13 +71,26 @@ function KpiCard({ label, value, delta, higherIsBetter = true }: KpiCardProps) {
 function SearcherSection({ s }: { s: SearcherSummary }) {
   const hasCompare = s.prevTop1 !== null;
   return (
-    <div className="space-y-2">
-      <h4 className="text-sm font-semibold text-foreground">
-        {s.name}
-        {s.regionName && <span className="ml-1.5 text-xs font-normal text-muted-foreground">({s.regionName})</span>}
-        <span className="ml-2 text-xs font-normal text-muted-foreground">{s.totalKeywords} запросов</span>
-      </h4>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div>
+      <div style={{ marginBottom: 16, display: "flex", alignItems: "baseline", gap: 12 }}>
+        <h4 style={{
+          fontFamily: "var(--r-f-display)",
+          fontSize: 16,
+          fontWeight: 600,
+          color: "var(--r-ink)",
+        }}>
+          {s.name}
+        </h4>
+        {s.regionName && (
+          <span style={{ fontFamily: "var(--r-f-mono)", fontSize: 11, color: "var(--r-ink-mute)" }}>
+            {s.regionName}
+          </span>
+        )}
+        <span style={{ fontFamily: "var(--r-f-mono)", fontSize: 11, color: "var(--r-ink-mute)" }}>
+          {s.totalKeywords} запросов
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16 }}>
         <KpiCard label="ТОП-1"  value={String(s.top1)}  delta={hasCompare ? diff(s.top1,  s.prevTop1)  : null} />
         <KpiCard label="ТОП-3"  value={String(s.top3)}  delta={hasCompare ? diff(s.top3,  s.prevTop3)  : null} />
         <KpiCard label="ТОП-5"  value={String(s.top5)}  delta={hasCompare ? diff(s.top5,  s.prevTop5)  : null} />
@@ -67,25 +109,31 @@ export function PositionsSummaryBlock({ data }: Props) {
   const hasSearchers = data.bySearcher && data.bySearcher.length > 0;
 
   return (
-    <div className="space-y-4">
+    <div>
       {/* Date line */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span>Данные на <span className="font-medium text-foreground">{fmtDate(data.scanDate)}</span></span>
+      <div style={{
+        fontFamily: "var(--r-f-mono)",
+        fontSize: 11,
+        color: "var(--r-ink-mute)",
+        marginBottom: 28,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+      }}>
+        <span>Данные на <span style={{ color: "var(--r-ink-dim)", fontWeight: 600 }}>{fmtDate(data.scanDate)}</span></span>
         {hasCompare && data.compareScanDate && (
-          <span>· сравнение с <span className="font-medium text-foreground">{fmtDate(data.compareScanDate)}</span></span>
+          <span>· сравнение с <span style={{ color: "var(--r-ink-dim)", fontWeight: 600 }}>{fmtDate(data.compareScanDate)}</span></span>
         )}
       </div>
 
-      {/* Per-searcher breakdown (Яндекс / Google) */}
       {hasSearchers ? (
-        <div className="space-y-5">
+        <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
           {data.bySearcher.map((s) => (
             <SearcherSection key={`${s.name}-${s.regionName}`} s={s} />
           ))}
         </div>
       ) : (
-        /* Fallback: old flat layout */
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16 }}>
           <KpiCard label="Запросов" value={data.totalKeywords.toLocaleString("ru-RU")} />
           {data.visibility !== null && (
             <KpiCard label="Видимость" value={`${data.visibility.toFixed(1)} %`} />

@@ -18,22 +18,20 @@ function truncate(s: string, max = 70) {
   return s.length <= max ? s : s.slice(0, max) + "…";
 }
 
-function DiffSup({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
+function DiffBadge({ cur, prev, hasCompare }: { cur: number; prev?: number; hasCompare?: boolean }) {
   if (prev == null) {
     if (!hasCompare) return null;
     return (
-      <sup style={{ fontSize: "0.65em", fontWeight: 600, color: "#16a34a", marginLeft: "3px" }}>
-        ↑100%
-      </sup>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--r-green)", marginLeft: 4 }}>↑100%</span>
     );
   }
-  const diff = pctDiff(cur, prev);
-  if (diff == null) return null;
-  const up = diff > 0;
+  const d = pctDiff(cur, prev);
+  if (d == null) return null;
+  const up = d > 0;
   return (
-    <sup style={{ fontSize: "0.65em", fontWeight: 600, color: up ? "#16a34a" : "#dc2626", marginLeft: "3px" }}>
-      {up ? "↑" : "↓"}{Math.abs(diff).toFixed(1)}%
-    </sup>
+    <span style={{ fontSize: 11, fontWeight: 600, color: up ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
+      {up ? "↑" : "↓"}{Math.abs(d).toFixed(1)}%
+    </span>
   );
 }
 
@@ -42,41 +40,63 @@ function toHref(name: string, linkType: "full-url" | "domain"): string {
   return name.startsWith("http") ? name : `https://${name}`;
 }
 
+const TH: React.CSSProperties = {
+  fontFamily: "var(--r-f-mono)",
+  fontSize: 11,
+  letterSpacing: "0.8px",
+  textTransform: "uppercase",
+  color: "var(--r-ink-mute)",
+  fontWeight: 500,
+  padding: "10px 14px",
+  borderBottom: "1px solid var(--r-hairline)",
+  whiteSpace: "nowrap",
+};
+
+const TD: React.CSSProperties = {
+  fontFamily: "var(--r-f-body)",
+  fontSize: 13,
+  color: "var(--r-ink-dim)",
+  padding: "11px 14px",
+  borderBottom: "1px solid var(--r-hairline)",
+};
+
 export function RankedTable({ data, labelHeader, truncateUrl = false, linkType }: RankedTableProps) {
   const rows = data?.rows ?? [];
   const hasCompare = rows.some((r) => r.prevVisits != null);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-center py-2 px-3 text-gray-500 font-medium w-10">№</th>
-            <th className="text-left py-2 px-3 text-gray-500 font-medium">{labelHeader}</th>
-            <th className="text-right py-2 px-3 text-gray-500 font-medium">Визиты</th>
+          <tr>
+            <th style={{ ...TH, textAlign: "center", width: 44 }}>№</th>
+            <th style={{ ...TH, textAlign: "left" }}>{labelHeader}</th>
+            <th style={{ ...TH, textAlign: "right" }}>Визиты</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="text-center py-2 px-3 text-gray-400 tabular-nums">{i + 1}</td>
-              <td className="py-2 px-3 font-mono text-xs max-w-xs break-all">
+            <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+              <td style={{ ...TD, textAlign: "center", fontFamily: "var(--r-f-mono)", fontSize: 12, color: "var(--r-ink-mute)" }}>
+                {i + 1}
+              </td>
+              <td style={{ ...TD, maxWidth: 480, wordBreak: "break-all" }}>
                 {linkType ? (
                   <a
                     href={toHref(row.name, linkType)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    style={{ color: "var(--r-cyan)", textDecoration: "none", fontFamily: "var(--r-f-mono)", fontSize: 12 }}
                   >
                     {truncateUrl ? truncate(row.name) : row.name}
                   </a>
                 ) : (
-                  <span className="text-gray-800">{truncateUrl ? truncate(row.name) : row.name}</span>
+                  <span style={{ color: "var(--r-ink)" }}>{truncateUrl ? truncate(row.name) : row.name}</span>
                 )}
               </td>
-              <td className="text-right py-2 px-3 font-medium tabular-nums">
+              <td style={{ ...TD, textAlign: "right", fontFamily: "var(--r-f-mono)", color: "var(--r-ink)", fontWeight: 500 }}>
                 {row.visits.toLocaleString("ru-RU")}
-                <DiffSup cur={row.visits} prev={row.prevVisits} hasCompare={hasCompare} />
+                <DiffBadge cur={row.visits} prev={row.prevVisits} hasCompare={hasCompare} />
               </td>
             </tr>
           ))}
