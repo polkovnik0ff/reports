@@ -73,6 +73,83 @@ function monthYear(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
 }
 
+// Returns true if dateStr is the first day of its month
+function isFirstOfMonth(dateStr: string): boolean {
+  const [, , d] = dateStr.split("-").map(Number);
+  return d === 1;
+}
+
+// Returns true if dateStr is the last day of its month
+function isLastOfMonth(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return d === new Date(y, m, 0).getDate();
+}
+
+// Smart period label for report title
+function formatPeriod(from: string, to: string): string {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+
+  const fromIsFirst = isFirstOfMonth(from);
+  const toIsLast = isLastOfMonth(to);
+
+  // Full single month: "за апрель 2026"
+  if (fromIsFirst && toIsLast && fy === ty && fm === tm) {
+    return `за ${new Date(from).toLocaleDateString("ru-RU", { month: "long", year: "numeric" })}`;
+  }
+
+  // Full range of months within one year: "за период с января по декабрь 2025 года"
+  if (fromIsFirst && toIsLast && fy === ty) {
+    const fromMonth = new Date(from).toLocaleDateString("ru-RU", { month: "long" });
+    const toMonth = new Date(to).toLocaleDateString("ru-RU", { month: "long" });
+    return `за период с ${fromMonth} по ${toMonth} ${fy} года`;
+  }
+
+  // Full months spanning years: "за период с января 2025 по март 2026"
+  if (fromIsFirst && toIsLast) {
+    const fromLabel = new Date(from).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+    const toLabel = new Date(to).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+    return `за период с ${fromLabel} по ${toLabel}`;
+  }
+
+  // Arbitrary dates: "за период с 16 апреля 2026 по 18 апреля 2026"
+  const fromLabel = new Date(from).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  const toLabel = new Date(to).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  return `за период с ${fromLabel} по ${toLabel}`;
+}
+
+// Compare period label: mirrors formatPeriod but shorter (no "за")
+function formatComparePeriod(from: string, to: string): string {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  const fromIsFirst = isFirstOfMonth(from);
+  const toIsLast = isLastOfMonth(to);
+
+  // Single full month: "апрель 2026"
+  if (fromIsFirst && toIsLast && fy === ty && fm === tm) {
+    return new Date(from).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  }
+
+  // Full months within one year: "январь — апрель 2025"
+  if (fromIsFirst && toIsLast && fy === ty) {
+    const fromMonth = new Date(from).toLocaleDateString("ru-RU", { month: "long" });
+    const toMonth = new Date(to).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+    return `${fromMonth} — ${toMonth}`;
+  }
+
+  // Full months spanning years: "январь 2025 — апрель 2026"
+  if (fromIsFirst && toIsLast) {
+    const fromLabel = new Date(from).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+    const toLabel = new Date(to).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+    return `${fromLabel} — ${toLabel}`;
+  }
+
+  // Arbitrary dates
+  const fromLabel = new Date(from).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  const toLabel = new Date(to).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  return `${fromLabel} — ${toLabel}`;
+}
+
 // ── Step indicator ─────────────────────────────────────────────────────────
 
 const STEPS = ["Период", "Блоки отчёта", "Тексты"];
@@ -225,11 +302,15 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
 
   // Auto-update title when period changes
   useEffect(() => {
-    if (!dateFrom) return;
+    if (!dateFrom || !dateTo) return;
     const domain = domainFromUrl(projectUrl);
-    const period = monthYear(dateFrom);
-    setTitle(`Отчёт ${domain} за ${period}`);
-  }, [dateFrom, projectUrl]);
+    const period = formatPeriod(dateFrom, dateTo);
+    const comparePart =
+      compareEnabled && compareFrom && compareTo
+        ? ` в сравнении с ${formatComparePeriod(compareFrom, compareTo)}`
+        : "";
+    setTitle(`Отчёт ${domain} ${period}${comparePart}`);
+  }, [dateFrom, dateTo, compareEnabled, compareFrom, compareTo, projectUrl]);
 
   // Recalculate dates when preset changes
   useEffect(() => {
