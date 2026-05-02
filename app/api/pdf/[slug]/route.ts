@@ -17,10 +17,15 @@ export async function GET(
   }
 
   const buffer = await generatePdf(slug);
+  // Sanitize title for use in filename
+  const filename = report.title
+    .replace(/[^\w\sЀ-ӿ-]/g, "")
+    .trim()
+    .replace(/\s+/g, "_") || slug;
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${slug}.pdf"`,
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}.pdf`,
     },
   });
 }

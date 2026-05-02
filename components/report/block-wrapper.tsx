@@ -10,7 +10,7 @@ interface BlockWrapperProps {
 
 export function BlockWrapper({ id, title, commentAbove, commentBelow, children }: BlockWrapperProps) {
   return (
-    <div id={id} className="mb-10 scroll-mt-6">
+    <div id={id} className="report-block mb-10 scroll-mt-6">
       {commentAbove && (
         <div
           className="prose-report mb-4 text-sm text-muted-foreground"
