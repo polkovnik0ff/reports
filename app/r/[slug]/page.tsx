@@ -67,6 +67,7 @@ export default async function PublicReportPage({ params }: Props) {
         <Suspense>
           <ReportHeader
             title={report.title}
+            slug={slug}
             dateFrom={report.dateFrom}
             dateTo={report.dateTo}
             compareFrom={report.compareFrom}
