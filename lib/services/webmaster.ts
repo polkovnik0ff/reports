@@ -85,10 +85,16 @@ export class WebmasterClient {
     return res.json() as Promise<T>;
   }
 
-  private async get<T>(path: string, params?: Record<string, string>): Promise<T> {
+  private async get<T>(path: string, params?: Record<string, string | string[]>): Promise<T> {
     const url = new URL(`${BASE_URL}/${path}`);
     if (params) {
-      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+      for (const [k, v] of Object.entries(params)) {
+        if (Array.isArray(v)) {
+          for (const item of v) url.searchParams.append(k, item);
+        } else {
+          url.searchParams.set(k, v);
+        }
+      }
     }
     const res = await fetch(url.toString(), {
       headers: { Authorization: `OAuth ${this.accessToken}` },
@@ -221,7 +227,11 @@ export class WebmasterClient {
     const fetchPeriod = async (d1: string, d2: string) => {
       const data = await this.get<HistoryResponse>(
         `${uid}/hosts/${encoded}/search-queries/all/history`,
-        { date_from: d1, date_to: d2 },
+        {
+          date_from: d1,
+          date_to: d2,
+          query_indicator: ["TOTAL_CLICKS", "TOTAL_SHOWS", "AVG_CLICK_POSITION"],
+        },
       );
       const ind = data.indicators ?? {};
       const clicks      = (ind["TOTAL_CLICKS"]       ?? []).reduce((s, p) => s + p.value, 0);
