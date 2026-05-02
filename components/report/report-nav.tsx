@@ -9,14 +9,15 @@ interface NavItem {
 
 interface ReportNavProps {
   items: NavItem[];
+  slug: string;
 }
 
-export function ReportNav({ items }: ReportNavProps) {
+export function ReportNav({ items, slug }: ReportNavProps) {
   const [activeId, setActiveId] = useState<string>(items[0]?.id ?? "");
+  const [loading, setLoading] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
-    // Track which sections are visible; pick the topmost one
     const visible = new Map<string, number>();
 
     observerRef.current = new IntersectionObserver(
@@ -29,7 +30,6 @@ export function ReportNav({ items }: ReportNavProps) {
           }
         }
         if (visible.size > 0) {
-          // The section closest to the top of the viewport wins
           const topId = [...visible.entries()].sort((a, b) => a[1] - b[1])[0][0];
           setActiveId(topId);
         }
@@ -49,8 +49,32 @@ export function ReportNav({ items }: ReportNavProps) {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  async function handleDownload() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/pdf/${slug}`);
+      if (!res.ok) throw new Error("PDF generation failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <nav className="sticky top-6 w-52 shrink-0 hidden lg:block self-start">
+    <nav className="sticky top-6 w-52 shrink-0 hidden lg:flex flex-col gap-3 self-start">
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="w-full px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {loading ? "Генерация…" : "Скачать PDF"}
+      </button>
       <ul className="space-y-0.5">
         {items.map((item) => {
           const isActive = activeId === item.id;

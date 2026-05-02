@@ -76,7 +76,6 @@ export default async function PublicReportPage({ params }: Props) {
         <Suspense>
           <ReportHeader
             title={report.title}
-            slug={slug}
             dateFrom={report.dateFrom}
             dateTo={report.dateTo}
             compareFrom={report.compareFrom}
@@ -86,7 +85,7 @@ export default async function PublicReportPage({ params }: Props) {
         </Suspense>
         <div className="flex gap-8 items-start">
           <Suspense>
-            <ReportNav items={navItems} />
+            <ReportNav items={navItems} slug={slug} />
           </Suspense>
           <div className="min-w-0 flex-1">
             <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
