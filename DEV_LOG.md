@@ -1122,3 +1122,81 @@ existsDates: []
 
 ---
 
+### Запрос — Webmaster search summary 404 + другие задачи сессии
+
+**Контекст начала сессии:** Продолжение из предыдущего контекста. Накоплен ряд задач:
+1. Исправить `formatComparePeriod` — показывал «1 января 2025 г. — 30 апреля 2» вместо «январь — апрель 2025»
+2. Добавить блок `webmaster_search_summary` (поисковые запросы Вебмастера)
+3. Добавить блок `gsc_summary` — выполнено в предыдущем блоке
+4. Добавить новые блоки в существующие шаблоны в БД
+5. Добавить переименование блоков в конструкторе шаблонов
+6. Исправить 404 ошибку `webmaster_search_summary`
+
+#### Исправление formatComparePeriod (мультимесячный диапазон)
+
+**Проблема:** `formatComparePeriod` обрабатывал только один случай (целый месяц). При диапазоне «январь — апрель 2025» показывал «1 января 2025 г. — 30 апреля 2» — обрезанный результат `toLocaleDateString`.
+
+**Исправление в `components/reports/report-form-embedded.tsx`:** Добавлены 4 кейса:
+- Целый один месяц: «март 2026»
+- Полные месяцы одного года: «январь — апрель 2025»
+- Полные месяцы разных лет: «январь 2024 — март 2025»
+- Произвольные даты: «1 января 2025 — 30 апреля 2025»
+
+#### Новые блоки: webmaster_search_summary + gsc_summary
+
+**`lib/blocks/defaults.ts`:**
+- Добавлен тип `webmaster_search_summary` (order 17)
+- Добавлен тип `gsc_summary` (order 18)
+- `work_done`/`work_plan` сдвинуты на 19/20
+- `BlockConfig`: добавлено поле `label?: string` — кастомное название блока
+
+**Миграция шаблона в БД (SQL UPDATE):**
+- Добавлены 2 новых блока в `blocksConfig` шаблона «Стандартный отчёт» перед `work_done`/`work_plan`
+- `order` пересчитан для всех блоков
+
+**`lib/services/webmaster.ts`:**
+- Добавлен интерфейс `WebmasterSearchSummaryData`
+- Добавлен приватный метод `post<T>()`
+- Добавлен метод `getSearchSummary()`
+
+#### Исправление 404: webmaster_search_summary
+
+**Проблема:** Эндпоинт `/search-queries/all/summary` не существует в Yandex Webmaster API v4. Возвращал 404 `{"error_code":"RESOURCE_NOT_FOUND"}`.
+
+**Исследование:** Правильный эндпоинт: `GET /{uid}/hosts/{hostId}/search-queries/all/history` — возвращает историю метрик в виде массивов точек. Поддерживает `TOTAL_SHOWS`, `TOTAL_CLICKS`, `AVG_CLICK_POSITION`, `AVG_SHOW_POSITION`.
+
+**Исправление в `lib/services/webmaster.ts`:** Метод `getSearchSummary()` переписан:
+- Заменён GET на `/search-queries/all/history` с параметрами `date_from`, `date_to`
+- Клики/показы суммируются по всем точкам периода (`reduce`)
+- Средняя позиция — среднее по всем точкам `AVG_CLICK_POSITION`
+- CTR = клики / показы
+
+#### Переименование блоков в конструкторе шаблонов
+
+**`lib/blocks/defaults.ts`:** `label?: string` добавлен в `BlockConfig`.
+
+**`components/templates/template-builder.tsx`:**
+- `SortableBlock` получил prop `onLabelChange`
+- В expanded-секции: поле «Название блока» (input), кнопка сброса (RotateCcw) если label задан
+- `handleLabelChange`: `label: label || undefined` (пустая строка → undefined)
+
+**`components/report/report-renderer.tsx`:** `block.label || (BLOCK_LABELS[...] ?? block.type)` — кастомный label имеет приоритет.
+
+**`app/r/[slug]/page.tsx`:** Аналогичное изменение в `navItems`.
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/webmaster.ts` | getSearchSummary: `/search-queries/all/history` вместо несуществующего `/summary`; суммирование clicks/impressions, среднее position |
+| `lib/blocks/webmaster_search_summary.ts` | Создан: тонкая обёртка |
+| `lib/blocks/gsc_summary.ts` | Создан |
+| `lib/blocks/defaults.ts` | +webmaster_search_summary, +gsc_summary, +label? в BlockConfig |
+| `components/report/blocks/webmaster-search-summary.tsx` | Создан: 4 KPI-карточки |
+| `components/report/blocks/gsc-summary.tsx` | Создан |
+| `components/templates/template-builder.tsx` | +onLabelChange, +поле Название блока, +кнопка сброса |
+| `components/report/report-renderer.tsx` | +webmaster_search_summary/gsc_summary cases, +label поддержка |
+| `app/r/[slug]/page.tsx` | +label в navItems |
+| `components/reports/report-form-embedded.tsx` | formatComparePeriod — 4 кейса |
+
+---
+

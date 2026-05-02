@@ -214,65 +214,30 @@ export class WebmasterClient {
     const uid = await this.getUserId();
     const encoded = encodeURIComponent(hostId);
 
-    interface QueryAnalyticsResponse {
-      text_indicator_to_statistics?: {
-        indicator: string;
-        statistics: { field: string; value: number }[];
-      }[];
+    interface HistoryResponse {
+      indicators?: Record<string, { date: string; value: number }[]>;
     }
 
     const fetchPeriod = async (d1: string, d2: string) => {
-      const data = await this.post<QueryAnalyticsResponse>(
-        `${uid}/hosts/${encoded}/query-analytics/list`,
-        {
-          date_from: d1,
-          date_to: d2,
-          limit: 1,
-          offset: 0,
-          filters: { text_filters: [] },
-          order_by: [{ field: "TOTAL_CLICKS", order: "DESC" }],
-        },
-      );
-      // API returns per-query rows; we need totals — use indicators from first row or sum
-      // Better: request with group_by empty → totals endpoint
-      // Fallback: use /summary statistics
-      return data;
-    };
-
-    // Webmaster query-analytics возвращает строки по запросам, не суммарные.
-    // Для суммарных метрик используем другой endpoint: /search-queries/all/summary
-    interface SummaryResponse {
-      indicators?: {
-        TOTAL_SHOWS?: number;
-        TOTAL_CLICKS?: number;
-        AVG_CLICK_POSITION?: number;
-        AVG_SHOW_POSITION?: number;
-      };
-    }
-
-    const fetchSummary = async (d1: string, d2: string) => {
-      return this.get<SummaryResponse>(
-        `${uid}/hosts/${encoded}/search-queries/all/summary`,
+      const data = await this.get<HistoryResponse>(
+        `${uid}/hosts/${encoded}/search-queries/all/history`,
         { date_from: d1, date_to: d2 },
       );
+      const ind = data.indicators ?? {};
+      const clicks      = (ind["TOTAL_CLICKS"]       ?? []).reduce((s, p) => s + p.value, 0);
+      const impressions = (ind["TOTAL_SHOWS"]         ?? []).reduce((s, p) => s + p.value, 0);
+      const positions   = ind["AVG_CLICK_POSITION"]   ?? [];
+      const position    = positions.length > 0
+        ? positions.reduce((s, p) => s + p.value, 0) / positions.length
+        : 0;
+      const ctr = impressions > 0 ? clicks / impressions : 0;
+      return { clicks, impressions, ctr, position };
     };
 
-    const [main, compare] = await Promise.all([
-      fetchSummary(dateFrom, dateTo),
-      compareFrom && compareTo ? fetchSummary(compareFrom, compareTo) : Promise.resolve(null),
+    const [m, c] = await Promise.all([
+      fetchPeriod(dateFrom, dateTo),
+      compareFrom && compareTo ? fetchPeriod(compareFrom, compareTo) : Promise.resolve(null),
     ]);
-
-    const toMetrics = (r: SummaryResponse | null) => ({
-      clicks:      r?.indicators?.TOTAL_CLICKS      ?? 0,
-      impressions: r?.indicators?.TOTAL_SHOWS        ?? 0,
-      ctr:         r?.indicators?.TOTAL_CLICKS && r?.indicators?.TOTAL_SHOWS
-                     ? r.indicators.TOTAL_CLICKS / r.indicators.TOTAL_SHOWS
-                     : 0,
-      position:    r?.indicators?.AVG_CLICK_POSITION ?? 0,
-    });
-
-    const m = toMetrics(main);
-    const c = compare ? toMetrics(compare) : null;
 
     return {
       ...m,
