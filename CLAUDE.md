@@ -602,7 +602,7 @@ Remove-Item -Recurse -Force .next
 **Обновить эту строку при переходе между фазами.**
 
 ```
-Текущая фаза: 4 — В процессе (Topvisor завершён, далее Вебмастер / GSC / PDF)
+Текущая фаза: 5 — В процессе (настройки аккаунта → команда)
 ```
 
 ### Фазы:
@@ -703,8 +703,8 @@ Remove-Item -Recurse -Force .next
    - ✅ app/api/gsc/sites/route.ts — список сайтов для аккаунта (через getSites)
    - ✅ gscAccountId + gscSiteUrl в модели Report и Project (defaultGscAccountId/defaultGscSiteUrl)
    - ✅ Refresh token: авто-обновление при 401 в GscClient, новый токен сохраняется в БД
-   - [ ] lib/blocks/gsc_queries.ts — топ запросов GSC: клики/показы/CTR/позиция
-   - [ ] lib/blocks/gsc_pages.ts — топ страниц GSC: клики/показы/CTR/позиция
+   - ⏸ lib/blocks/gsc_queries.ts — топ запросов GSC (отложено)
+   - ⏸ lib/blocks/gsc_pages.ts — топ страниц GSC (отложено)
    - **GSC API особенности:**
      - siteUrl в GSC — строка вида `"https://example.com/"` или `"sc-domain:example.com"`
      - searchAnalytics/query без dimensions возвращает суммарные метрики за период (rowLimit: 1)
@@ -725,7 +725,9 @@ Remove-Item -Recurse -Force .next
    - ✅ Сохраняются при каждом POST/PATCH /api/reports (создание и регенерация)
    - ✅ Форма создания отчёта предзаполняется дефолтами проекта
    - **Важно:** после изменения schema.prisma обязательно запустить `npx prisma generate` И применить SQL ALTER TABLE вручную если `migrate dev` не работает из-за drift
-5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
+5. Настройки аккаунта + команда (шаблоны работ и белый лейбл — отложены)
+   - [ ] Настройки аккаунта: смена пароля, имя пользователя
+   - [ ] Команда: список пользователей, приглашение, роли (OWNER/ADMIN/MEMBER), удаление
 6. Docker + VDS + мониторинг + бэкапы
 
 ---
