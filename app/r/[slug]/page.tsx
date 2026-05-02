@@ -85,7 +85,7 @@ export default async function PublicReportPage({ params }: Props) {
         </Suspense>
         <div className="flex gap-8 items-start">
           <Suspense>
-            <ReportNav items={navItems} slug={slug} />
+            <ReportNav items={navItems} slug={slug} title={report.title} />
           </Suspense>
           <div className="min-w-0 flex-1">
             <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />

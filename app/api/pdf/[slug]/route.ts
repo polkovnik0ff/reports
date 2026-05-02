@@ -17,11 +17,13 @@ export async function GET(
   }
 
   const buffer = await generatePdf(slug);
-  const encoded = encodeURIComponent(report.title.trim() || slug);
+  const title = report.title.trim() || slug;
+  // RFC 5987: filename* with percent-encoded UTF-8, no quotes
+  const encoded = encodeURIComponent(title).replace(/'/g, "%27");
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${slug}.pdf"; filename*=UTF-8''${encoded}.pdf`,
+      "Content-Disposition": `attachment; filename*=UTF-8''${encoded}.pdf`,
     },
   });
 }

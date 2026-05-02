@@ -10,9 +10,10 @@ interface NavItem {
 interface ReportNavProps {
   items: NavItem[];
   slug: string;
+  title: string;
 }
 
-export function ReportNav({ items, slug }: ReportNavProps) {
+export function ReportNav({ items, slug, title }: ReportNavProps) {
   const [activeId, setActiveId] = useState<string>(items[0]?.id ?? "");
   const [loading, setLoading] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -58,7 +59,7 @@ export function ReportNav({ items, slug }: ReportNavProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${slug}.pdf`;
+      a.download = `${title || slug}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
