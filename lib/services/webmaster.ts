@@ -49,12 +49,41 @@ export interface WebmasterBacklinksData {
   hostUrl: string;
 }
 
+export interface WebmasterSearchSummaryData {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  compareClicks?: number;
+  compareImpressions?: number;
+  compareCtr?: number;
+  comparePosition?: number;
+  hostUrl: string;
+}
+
 // ── Client ───────────────────────────────────────────────────────────────────
 
 export class WebmasterClient {
   private userId: string | null = null;
 
   constructor(private accessToken: string) {}
+
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const url = `${BASE_URL}/${path}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `OAuth ${this.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Webmaster API ${res.status}: ${text.slice(0, 200)}`);
+    }
+    return res.json() as Promise<T>;
+  }
 
   private async get<T>(path: string, params?: Record<string, string>): Promise<T> {
     const url = new URL(`${BASE_URL}/${path}`);
@@ -172,5 +201,88 @@ export class WebmasterClient {
       value: p.value,
     }));
     return { points, hostUrl: hostId };
+  }
+
+  // Поисковые запросы — сводные метрики за период
+  async getSearchSummary(
+    hostId: string,
+    dateFrom: string,
+    dateTo: string,
+    compareFrom?: string,
+    compareTo?: string,
+  ): Promise<WebmasterSearchSummaryData> {
+    const uid = await this.getUserId();
+    const encoded = encodeURIComponent(hostId);
+
+    interface QueryAnalyticsResponse {
+      text_indicator_to_statistics?: {
+        indicator: string;
+        statistics: { field: string; value: number }[];
+      }[];
+    }
+
+    const fetchPeriod = async (d1: string, d2: string) => {
+      const data = await this.post<QueryAnalyticsResponse>(
+        `${uid}/hosts/${encoded}/query-analytics/list`,
+        {
+          date_from: d1,
+          date_to: d2,
+          limit: 1,
+          offset: 0,
+          filters: { text_filters: [] },
+          order_by: [{ field: "TOTAL_CLICKS", order: "DESC" }],
+        },
+      );
+      // API returns per-query rows; we need totals — use indicators from first row or sum
+      // Better: request with group_by empty → totals endpoint
+      // Fallback: use /summary statistics
+      return data;
+    };
+
+    // Webmaster query-analytics возвращает строки по запросам, не суммарные.
+    // Для суммарных метрик используем другой endpoint: /search-queries/all/summary
+    interface SummaryResponse {
+      indicators?: {
+        TOTAL_SHOWS?: number;
+        TOTAL_CLICKS?: number;
+        AVG_CLICK_POSITION?: number;
+        AVG_SHOW_POSITION?: number;
+      };
+    }
+
+    const fetchSummary = async (d1: string, d2: string) => {
+      return this.get<SummaryResponse>(
+        `${uid}/hosts/${encoded}/search-queries/all/summary`,
+        { date_from: d1, date_to: d2 },
+      );
+    };
+
+    const [main, compare] = await Promise.all([
+      fetchSummary(dateFrom, dateTo),
+      compareFrom && compareTo ? fetchSummary(compareFrom, compareTo) : Promise.resolve(null),
+    ]);
+
+    const toMetrics = (r: SummaryResponse | null) => ({
+      clicks:      r?.indicators?.TOTAL_CLICKS      ?? 0,
+      impressions: r?.indicators?.TOTAL_SHOWS        ?? 0,
+      ctr:         r?.indicators?.TOTAL_CLICKS && r?.indicators?.TOTAL_SHOWS
+                     ? r.indicators.TOTAL_CLICKS / r.indicators.TOTAL_SHOWS
+                     : 0,
+      position:    r?.indicators?.AVG_CLICK_POSITION ?? 0,
+    });
+
+    const m = toMetrics(main);
+    const c = compare ? toMetrics(compare) : null;
+
+    return {
+      ...m,
+      ...(c && {
+        compareClicks:      c.clicks,
+        compareImpressions: c.impressions,
+        compareCtr:         c.ctr,
+        comparePosition:    c.position,
+      }),
+      hostUrl: hostId,
+    };
   }
 }

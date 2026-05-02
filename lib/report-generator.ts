@@ -8,6 +8,7 @@ import { fetchPositionsTable } from "@/lib/blocks/positions_table";
 import { fetchWebmasterIkh } from "@/lib/blocks/webmaster_ikh";
 import { fetchWebmasterIndexing } from "@/lib/blocks/webmaster_indexing";
 import { fetchWebmasterBacklinks } from "@/lib/blocks/webmaster_backlinks";
+import { fetchWebmasterSearchSummary } from "@/lib/blocks/webmaster_search_summary";
 import { fetchGscSummary } from "@/lib/blocks/gsc_summary";
 import { GscClient } from "@/lib/services/gsc";
 import { encryptToken } from "@/lib/crypto";
@@ -109,7 +110,7 @@ export async function generateReport(reportId: string): Promise<void> {
       "referrals", "high_bounce_pages",
     ];
     const topvisorBlockTypes: BlockType[] = ["positions_summary", "positions_table"];
-    const webmasterBlockTypes: BlockType[] = ["webmaster_ikh", "webmaster_indexing", "webmaster_backlinks"];
+    const webmasterBlockTypes: BlockType[] = ["webmaster_ikh", "webmaster_indexing", "webmaster_backlinks", "webmaster_search_summary"];
     const gscBlockTypes: BlockType[] = ["gsc_summary"];
 
     const enabledBlocks = blocks.filter((b) => b.enabled);
@@ -229,6 +230,8 @@ export async function generateReport(reportId: string): Promise<void> {
             data = await fetchWebmasterIkh(wmClient, report.webmasterHostId, fmt(ikhFrom), fmt(ikhTo));
           } else if (block.type === "webmaster_indexing") {
             data = await fetchWebmasterIndexing(wmClient, report.webmasterHostId, date1, date2);
+          } else if (block.type === "webmaster_search_summary") {
+            data = await fetchWebmasterSearchSummary(wmClient, report.webmasterHostId, date1, date2, compareDate1, compareDate2);
           } else {
             data = await fetchWebmasterBacklinks(wmClient, report.webmasterHostId, date1, date2);
           }
