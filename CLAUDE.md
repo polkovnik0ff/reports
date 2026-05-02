@@ -183,6 +183,11 @@ model Project {
   connectedAccountId String
   createdAt          DateTime         @default(now())
   reports            Report[]
+
+  // Сохраняются автоматически после каждой генерации отчёта
+  defaultTopvisorProjectId  Int?
+  defaultWebmasterAccountId String?
+  defaultWebmasterHostId    String?
 }
 
 model Template {
@@ -232,6 +237,12 @@ model Report {
   status       ReportStatus @default(GENERATING)
   generatedAt  DateTime?
   createdAt    DateTime     @default(now())
+  attribution       String   @default("lastsign")
+  withRobots        Boolean  @default(false)
+  crossDevice       Boolean  @default(false)
+  topvisorProjectId   Int?
+  webmasterAccountId  String?
+  webmasterHostId     String?
 
   @@index([projectId, createdAt])
 }
@@ -300,7 +311,7 @@ app/
     layout.tsx
     projects/[id]/reports/[reportId]/
       edit/page.tsx          # Редактор отчёта: split-pane (панель слева + iframe справа)
-  r/[slug]/                  # Публичная страница отчёта (без авторизации)
+  r/[slug]/                  # Публичная страница отчёта (без авторизации) + sticky nav + кнопка PDF
   api/
     auth/                    # login, logout, me
     projects/                # CRUD + /counters (список счётчиков из Яндекса)
@@ -308,9 +319,9 @@ app/
     oauth/yandex/            # start, callback
     templates/               # CRUD
     work-templates/          # CRUD
-    reports/                 # GET (список, ?projectId=), POST (создать → генерация)
-    reports/[id]/            # GET (?full=1 возвращает reportConfig), PATCH (обновить → регенерация), DELETE
-    pdf/[slug]/              # Playwright → PDF
+    reports/                 # GET (список, ?projectId=), POST (создать → генерация + сохраняет дефолты в Project)
+    reports/[id]/            # GET (?full=1 возвращает reportConfig), PATCH (обновить → регенерация + сохраняет дефолты), DELETE
+    pdf/[slug]/              # Playwright → PDF (буфер в памяти, без сохранения на диск)
     settings/                # get/patch настроек + /topvisor/projects
     upload/                  # POST multipart/form-data → сохраняет в /public/uploads/, возвращает { url }
 
@@ -320,26 +331,32 @@ lib/
   crypto.ts                  # encryptToken, decryptToken (AES-256-GCM)
   prisma.ts                  # PrismaClient синглтон с PrismaPg adapter
   report-generator.ts        # оркестратор генерации снапшота
-  pdf.ts                     # Playwright headless → PDF
+  pdf.ts                     # Playwright headless → PDF (viewport 1280px, ждёт .recharts-wrapper)
   utils/
     engine-colors.ts         # getEngineColor(id, idx) — единые цвета поисковиков
   services/
     metrika.ts               # клиент Яндекс Метрика Reporting API
     topvisor.ts              # клиент Topvisor API v2
+    webmaster.ts             # клиент Яндекс Вебмастер API v4
   blocks/                    # по файлу на каждый тип блока
 
 components/
   report/                    # компоненты блоков (для публичной страницы)
+    report-nav.tsx           # sticky sidebar nav с IntersectionObserver + кнопка PDF
+    block-wrapper.tsx        # обёртка блока: id=block-{id}, класс report-block (page-break-inside:avoid)
     blocks/
       donut-table.tsx        # DonutTable — donut + таблица (channels, geo, devices, search engines)
       ranked-table.tsx       # RankedTable — пронумерованная таблица (top_pages, referrals, top_queries)
       high-bounce-pages.tsx  # таблица страниц с высоким отказом
       area-chart-block.tsx   # YoY area chart
       traffic-search-dynamics.tsx  # LineChart поисковиков по дням + сводная таблица
-      search-engines-dynamics.tsx  # LineChart + таблица с динамикой по движкам
+      search-engines-dynamics.tsx  # LineChart + таблица с динамикой по движкам (устарело)
+      webmaster-ikh.tsx      # LineChart ИКС
+      webmaster-indexing.tsx # KPI из /summary + AreaChart краулинга
+      webmaster-backlinks.tsx# LineChart внешних ссылок
   builder/                   # конструктор шаблона (drag-and-drop)
   reports/
-    report-form-embedded.tsx # форма создания отчёта (без выбора проекта)
+    report-form-embedded.tsx # форма создания отчёта (без выбора проекта; принимает defaultTopvisor/Webmaster props)
     report-editor.tsx        # редактор отчёта: split-pane с табами и iframe preview
   projects/
     projects-client.tsx      # список проектов (строки → /projects/[id])
@@ -676,9 +693,20 @@ Remove-Item -Recurse -Force .next
    - [ ] Refresh token: GSC токены живут 1 час — нужен refresh через oauth2.googleapis.com/token
          (хранить refreshToken в ConnectedAccount.refreshToken, шифровать AES-256)
    **PDF:**
-   - [ ] lib/pdf.ts — Playwright headless, сохранение в public/pdfs/${slug}.pdf
-   - [ ] GET /api/pdf/[slug] — генерация по запросу, возвращает файл
-   - [ ] Кнопка «Скачать PDF» на публичной странице /r/[slug]
+   - ✅ lib/pdf.ts — Playwright headless, буфер в памяти (без сохранения на диск)
+         viewport 1280px, waitForSelector('.recharts-wrapper') + 1.5s буфер для графиков
+   - ✅ GET /api/pdf/[slug] — генерация по запросу, filename из report.title (UTF-8)
+   - ✅ Кнопка «Скачать PDF» в sticky sidebar публичной страницы (красная, внизу)
+   - ✅ Кнопка скачивания PDF в списке отчётов проекта (иконка Download)
+   - ✅ CSS: page-break-inside:avoid на .report-block — блоки не разрываются посреди страницы
+   **Публичная страница /r/[slug]:**
+   - ✅ Sticky sidebar nav (ReportNav) — список разделов, активный пункт через IntersectionObserver
+   - ✅ Двухколоночный layout (nav 208px + контент), max-w-1440px, скрыт на мобильных
+   **Дефолты интеграций по проекту:**
+   - ✅ Project.defaultTopvisorProjectId / defaultWebmasterAccountId / defaultWebmasterHostId
+   - ✅ Сохраняются при каждом POST/PATCH /api/reports (создание и регенерация)
+   - ✅ Форма создания отчёта предзаполняется дефолтами проекта
+   - **Важно:** после изменения schema.prisma обязательно запустить `npx prisma generate` И применить SQL ALTER TABLE вручную если `migrate dev` не работает из-за drift
 5. Шаблоны работ + белый лейбл + команда + настройки аккаунта
 6. Docker + VDS + мониторинг + бэкапы
 

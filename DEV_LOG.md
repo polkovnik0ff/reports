@@ -922,3 +922,115 @@ existsDates: []
 
 ---
 
+### Запрос — Удалить блок «Динамика переходов из поисковых систем» из шаблона в БД
+
+**Пользователь:** удали этот блок из шаблона
+
+**Действие:** Прямой SQL-запрос к БД — отфильтровали `search_engines_dynamics` из `blocksConfig` шаблона «Стандартный отчёт», пересчитали `order`. Блоков стало 18.
+
+---
+
+### Запрос — PDF генерация
+
+**Пользователь:** давай быстро сделаем pdf
+
+**Шаги:**
+1. Установлен `playwright` + `npx playwright install chromium`
+2. Создан `lib/pdf.ts` — Playwright headless, сохранение в `public/pdfs/`
+3. Создан `GET /api/pdf/[slug]` — с кэшированием на диск
+4. Кнопка «Скачать PDF» в `ReportHeader`, `slug` передан из page.tsx
+
+**Затем:** пользователь решил не хранить PDF на диске → рефакторинг:
+- `lib/pdf.ts`: убрано сохранение, возвращает `Buffer` напрямую
+- `api/pdf/[slug]/route.ts`: убрано чтение файла и обновление `pdfPath`, стримим буфер
+- Папка `public/pdfs/` удалена по запросу пользователя
+
+**Затем:** перенос кнопки из шапки в сайдбар:
+- Кнопка убрана из `ReportHeader` (убраны `slug` prop, `useState`, `handleDownload`)
+- Добавлена в `ReportNav` внизу с отступом `mt-8`, красная (`bg-red-600`), с иконкой PDF
+
+**Затем:** фиксы названия файла и page-break:
+- **Название:** браузер для blob URL берёт имя из `a.download`, не из `Content-Disposition`. Исправлено: `a.download = title` в `ReportNav`, `title` передаётся как prop из page.tsx
+- **page-break-before:always** заменён на **page-break-inside:avoid** — блоки не переносятся принудительно, только если не влезают
+- **Графики в PDF:** Playwright теперь ждёт `.recharts-wrapper` + 1500ms буфер
+
+#### Файлы созданы/изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/pdf.ts` | Создан: Playwright, буфер без диска, viewport 1280px, waitForSelector |
+| `app/api/pdf/[slug]/route.ts` | Создан: стримит буфер, filename из title |
+| `components/report/report-header.tsx` | Убрана кнопка PDF и slug prop |
+| `components/report/report-nav.tsx` | Добавлена кнопка PDF внизу (красная), title prop |
+| `app/r/[slug]/page.tsx` | title передаётся в ReportNav |
+| `app/globals.css` | page-break-inside:avoid на .report-block |
+| `components/report/block-wrapper.tsx` | Добавлен класс report-block |
+
+---
+
+### Запрос — Sticky sidebar nav на публичной странице
+
+**Пользователь:** добавь слева сайдбар с быстрым переходом по пунктам, закреплённый при скролле, с подсветкой активного пункта
+
+**Реализация:**
+- `components/report/report-nav.tsx` — новый компонент. `IntersectionObserver` отслеживает видимые блоки, активным считается тот у которого `boundingClientRect.top` ближе к 0. `rootMargin: "0px 0px -60% 0px"` — секция активируется когда занимает верхние 40% экрана.
+- `block-wrapper.tsx` — добавлен `id="block-{id}"` и `scroll-mt-6`
+- `report-renderer.tsx` — передаёт `id` в BlockWrapper
+- `app/r/[slug]/page.tsx` — двухколоночный layout (`flex gap-8`), nav слева (`w-52 sticky top-6`), контент справа (`min-w-0 flex-1`), max-w расширен до 1440px
+- Сайдбар скрыт на мобильных (`hidden lg:flex`)
+
+---
+
+### Запрос — Скачивание PDF из списка отчётов проекта
+
+**Пользователь:** добавь возможность скачивания отчёта в блоке с отчётами по проекту
+
+**Реализация:** В `project-page-client.tsx`:
+- Добавлен `downloadingId` state
+- Добавлена функция `handleDownloadPdf` — fetch → blob → `a.download`
+- Кнопка с иконкой `Download` из lucide, только для `READY` отчётов, со спиннером во время генерации
+
+---
+
+### Запрос — Сохранять дефолтные настройки интеграций по проекту
+
+**Пользователь:** хочу чтобы Topvisor/Webmaster/GSC сохранялись и автоматически выбирались при следующей генерации
+
+**Реализация:**
+
+**Шаг 1: Миграция**
+Добавлены поля в модель `Project`:
+- `defaultTopvisorProjectId Int?`
+- `defaultWebmasterAccountId String?`
+- `defaultWebmasterHostId String?`
+
+Миграция создана вручную (`20260501000000_webmaster_and_project_defaults/migration.sql`) — SQL с `IF NOT EXISTS` для безопасности. Также зафиксирован drift: `webmasterAccountId/HostId` были добавлены в БД напрямую без миграции.
+
+**Шаг 2: Сохранение при генерации**
+- `POST /api/reports` — после `prisma.report.create` добавлен `prisma.project.update` с дефолтами
+- `PATCH /api/reports/[id]` — аналогично после `prisma.report.update`
+
+**Шаг 3: Предзаполнение формы**
+- `app/(dashboard)/projects/[id]/reports/new/page.tsx` — расширен `select` для проекта, дефолты передаются в `ReportFormEmbedded` как props
+- `ReportFormEmbedded` — добавлены `defaultTopvisorProjectId/AccountId/HostId` в Props, `useState` инициализируется из них
+
+**Проблемы при внедрении:**
+
+1. `PrismaClientValidationError` при открытии формы создания — Turbopack кэшировал старый Prisma Client. Решение: `npx prisma generate` + перезапуск dev-сервера.
+
+2. `PrismaClientKnownRequestError: ColumnNotFound` — `migrate resolve --applied` только помечает миграцию как выполненную в таблице `_prisma_migrations`, но **не запускает SQL**. Колонки в реальной БД не были созданы. Решение: выполнить `ALTER TABLE` вручную через node + pg.
+
+**Важный урок:** При ручных миграциях через `migrate resolve --applied` всегда нужно отдельно выполнять SQL в БД. Либо использовать `migrate dev` (который запускает SQL сам).
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `prisma/schema.prisma` | +3 поля в Project |
+| `prisma/migrations/20260501000000_.../migration.sql` | Создан: ALTER TABLE Report (drift fix) + ALTER TABLE Project |
+| `app/api/reports/route.ts` | +prisma.project.update после создания отчёта |
+| `app/api/reports/[id]/route.ts` | +prisma.project.update после регенерации |
+| `app/(dashboard)/projects/[id]/reports/new/page.tsx` | +select дефолтов, передача в форму |
+| `components/reports/report-form-embedded.tsx` | +Props дефолтов, инициализация state |
+| `components/projects/project-page-client.tsx` | +кнопка Download PDF |
+
+---
+
