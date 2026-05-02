@@ -117,6 +117,7 @@ export function ReportRenderer({ reportConfig, snapshotData }: ReportRendererPro
         return (
           <BlockWrapper
             key={block.id}
+            id={`block-${block.id}`}
             title={BLOCK_LABELS[block.type as BlockType] ?? block.type}
             commentAbove={block.commentAbove}
             commentBelow={block.commentBelow}

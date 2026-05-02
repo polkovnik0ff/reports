@@ -1,15 +1,16 @@
 "use client";
 
 interface BlockWrapperProps {
+  id: string;
   title: string;
   commentAbove?: string;
   commentBelow?: string;
   children: React.ReactNode;
 }
 
-export function BlockWrapper({ title, commentAbove, commentBelow, children }: BlockWrapperProps) {
+export function BlockWrapper({ id, title, commentAbove, commentBelow, children }: BlockWrapperProps) {
   return (
-    <div className="mb-10">
+    <div id={id} className="mb-10 scroll-mt-6">
       {commentAbove && (
         <div
           className="prose-report mb-4 text-sm text-muted-foreground"

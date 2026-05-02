@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import { BlockConfig } from "@/lib/blocks/defaults";
+import { BlockConfig, BLOCK_LABELS, BlockType } from "@/lib/blocks/defaults";
 import { ReportRenderer } from "@/components/report/report-renderer";
 import { ReportHeader } from "@/components/report/report-header";
+import { ReportNav } from "@/components/report/report-nav";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -61,9 +62,17 @@ export default async function PublicReportPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const snapshotData = (report.snapshotData ?? {}) as Record<string, any>;
 
+  const navItems = reportConfig
+    .filter((b) => b.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((b) => ({
+      id: `block-${b.id}`,
+      label: BLOCK_LABELS[b.type as BlockType] ?? b.type,
+    }));
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-[1200px] mx-auto px-6 py-10">
+      <div className="max-w-[1440px] mx-auto px-6 py-10">
         <Suspense>
           <ReportHeader
             title={report.title}
@@ -75,7 +84,14 @@ export default async function PublicReportPage({ params }: Props) {
             generatedAt={report.generatedAt}
           />
         </Suspense>
-        <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
+        <div className="flex gap-8 items-start">
+          <Suspense>
+            <ReportNav items={navItems} />
+          </Suspense>
+          <div className="min-w-0 flex-1">
+            <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
+          </div>
+        </div>
       </div>
     </div>
   );
