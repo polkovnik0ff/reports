@@ -263,8 +263,9 @@
   @page {
     margin: 1.5cm;
   }
-  /* Each report block starts on a new page */
-  .report-block + .report-block {
-    page-break-before: always;
+  /* Keep each block intact — break before it only if it doesn't fit on current page */
+  .report-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
