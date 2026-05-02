@@ -207,6 +207,7 @@ model Template {
 //   type: BlockType,
 //   enabled: boolean,
 //   order: number,
+//   label?: string,       // кастомное название (если не задано — берётся из BLOCK_LABELS)
 //   commentAbove: string, // HTML
 //   commentBelow: string, // HTML
 //   settings: {}          // специфично для каждого типа
@@ -279,7 +280,8 @@ type BlockType =
   // Яндекс Вебмастер
   | 'webmaster_ikh'         // Индекс качества сайта (ИКС) — LineChart за 3 мес до конца отчётного периода
   | 'webmaster_indexing'    // Страницы в поиске: KPI из /summary (searchable_pages_count) + график краулинга (/indexing/history)
-  | 'webmaster_backlinks'   // Внешние ссылки — динамика LINKS_TOTAL_COUNT
+  | 'webmaster_backlinks'      // Внешние ссылки — динамика LINKS_TOTAL_COUNT
+  | 'webmaster_search_summary' // Поисковые запросы: клики, показы, CTR, позиция (из /search-queries/all/history)
   // Google Search Console
   | 'gsc_summary'           // Сводка GSC: клики, показы, CTR, средняя позиция
   | 'gsc_queries'           // Топ запросов GSC: клики/показы/CTR/позиция
@@ -359,7 +361,9 @@ components/
       webmaster-ikh.tsx      # LineChart ИКС
       webmaster-indexing.tsx # KPI из /summary + AreaChart краулинга
       webmaster-backlinks.tsx# LineChart внешних ссылок
-  builder/                   # конструктор шаблона (drag-and-drop)
+      webmaster-search-summary.tsx # 4 KPI-карточки поисковых запросов
+      gsc-summary.tsx        # 4 KPI-карточки GSC
+  builder/                   # конструктор шаблона (drag-and-drop); поддерживает переименование блоков (label?)
   reports/
     report-form-embedded.tsx # форма создания отчёта (без выбора проекта; принимает defaultTopvisor/Webmaster props)
     report-editor.tsx        # редактор отчёта: split-pane с табами и iframe preview
@@ -671,9 +675,11 @@ Remove-Item -Recurse -Force .next
    - ✅ lib/blocks/webmaster_ikh.ts — ИКС, период dateTo-3мес..dateTo
    - ✅ lib/blocks/webmaster_indexing.ts — KPI из /summary + история краулинга из /indexing/history
    - ✅ lib/blocks/webmaster_backlinks.ts — внешние ссылки LINKS_TOTAL_COUNT
+   - ✅ lib/blocks/webmaster_search_summary.ts — поисковые запросы: клики, показы, CTR, позиция
    - ✅ components/report/blocks/webmaster-ikh.tsx — LineChart ИКС, цвет #2563eb
    - ✅ components/report/blocks/webmaster-indexing.tsx — KPI (searchable_pages_count из /summary) + AreaChart краулинга
    - ✅ components/report/blocks/webmaster-backlinks.tsx — LineChart внешних ссылок
+   - ✅ components/report/blocks/webmaster-search-summary.tsx — 4 KPI-карточки (клики/показы/CTR/позиция)
    - ✅ components/webmaster/webmaster-select.tsx — UI выбора аккаунта + сайта (каскадные дропдауны)
    - ✅ webmasterAccountId + webmasterHostId в модели Report; выбор в форме создания и в редакторе
    - **Webmaster API — важные особенности:**
@@ -681,6 +687,8 @@ Remove-Item -Recurse -Force .next
      - Индексация KPI: `/summary` → `searchable_pages_count` / `excluded_pages_count` (реальный индекс)
      - Индексация график: `/indexing/history` с HTTP_2XX (успешные краулы) — не то же самое что индекс
      - Ссылки: `/links/external/history?indicator=LINKS_TOTAL_COUNT`
+     - Поисковые запросы (сводка): `/search-queries/all/history` — **обязательно** передавать `query_indicator` как повторяющиеся query-параметры (`query_indicator=TOTAL_CLICKS&query_indicator=TOTAL_SHOWS&query_indicator=AVG_CLICK_POSITION`). Без них API возвращает `{"indicators":{}}`. Эндпоинт `/search-queries/all/summary` не существует (404).
+     - `get()` в WebmasterClient поддерживает `string[]` в params — превращает в повторяющиеся параметры через `url.searchParams.append`
    **Google Search Console:**
    - ✅ OAuth через Google — `/sources` кнопка «+ Google Search Console»
          Scopes: `openid email https://www.googleapis.com/auth/webmasters.readonly`

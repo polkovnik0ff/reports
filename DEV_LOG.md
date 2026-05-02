@@ -1200,3 +1200,60 @@ existsDates: []
 
 ---
 
+### Запрос — Исправить нулевые данные в блоке webmaster_search_summary
+
+**Пользователь:** «что то появилось, но данные по нулям»
+
+#### Диагностика
+
+**Шаг 1: проверка снапшота в БД**
+
+```json
+"webmaster_search_summary": {
+  "data": { "ctr": 0, "clicks": 0, "hostUrl": "...", "position": 0, ... }
+}
+```
+Данные есть, но все нули.
+
+**Шаг 2: прямой вызов API через скрипт**
+
+```
+GET /search-queries/all/history?date_from=...&date_to=...
+→ {"indicators":{}}
+```
+
+API возвращает 200 но `indicators: {}` — пустой объект, без каких-либо данных.
+
+**Шаг 3: перебор вариантов**
+
+- Без параметров `date_from/date_to` — тот же `{"indicators":{}}`
+- Проверен другой хост (caprice) — тоже `{"indicators":{}}`
+- `/search-queries/popular` — возвращает реальные запросы, но `indicators: {}` у каждого
+
+**Шаг 4: явный `query_indicator` в параметрах**
+
+```
+GET /search-queries/all/history?query_indicator=TOTAL_CLICKS&query_indicator=TOTAL_SHOWS&query_indicator=AVG_CLICK_POSITION
+→ {"indicators": {"TOTAL_SHOWS": [...], "TOTAL_CLICKS": [...], "AVG_CLICK_POSITION": [...]}}
+```
+
+**Причина:** Yandex Webmaster API v4 `/search-queries/all/history` **не возвращает данные если не указать `query_indicator` явно**. Без этого параметра возвращает `{"indicators":{}}` с кодом 200. Это не задокументировано явно.
+
+#### Исправление
+
+**`lib/services/webmaster.ts`:**
+
+1. Обновлён `get<T>()` — параметры теперь `Record<string, string | string[]>`. При `string[]` добавляет несколько `url.searchParams.append` с одним ключом.
+
+2. В `fetchPeriod()` внутри `getSearchSummary()` теперь передаётся:
+```typescript
+query_indicator: ["TOTAL_CLICKS", "TOTAL_SHOWS", "AVG_CLICK_POSITION"]
+```
+
+#### Файлы изменены:
+| Файл | Изменение |
+|------|-----------|
+| `lib/services/webmaster.ts` | `get()`: поддержка `string[]` в params; `getSearchSummary()`: добавлен `query_indicator` |
+
+---
+
