@@ -28,6 +28,7 @@ export interface BlockConfig {
   type: BlockType;
   enabled: boolean;
   order: number;
+  label?: string;           // кастомное название (если не задано — берётся из BLOCK_LABELS)
   commentAbove: string;
   commentBelow: string;
   settings: Record<string, unknown>;

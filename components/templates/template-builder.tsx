@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
-import { GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { GripVertical, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { BlockConfig, BLOCK_LABELS, BlockType } from "@/lib/blocks/defaults";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { cn } from "@/lib/utils";
@@ -59,10 +59,12 @@ function SortableBlock({
   block,
   onToggle,
   onCommentChange,
+  onLabelChange,
 }: {
   block: BlockConfig;
   onToggle: (id: string, enabled: boolean) => void;
   onCommentChange: (id: string, field: "commentAbove" | "commentBelow", value: string) => void;
+  onLabelChange: (id: string, label: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -80,7 +82,8 @@ function SortableBlock({
     transition,
   };
 
-  const label = BLOCK_LABELS[block.type as BlockType] ?? block.type;
+  const defaultLabel = BLOCK_LABELS[block.type as BlockType] ?? block.type;
+  const label = block.label || defaultLabel;
 
   return (
     <div
@@ -128,10 +131,33 @@ function SortableBlock({
         <Toggle enabled={block.enabled} onChange={(v) => onToggle(block.id, v)} />
       </div>
 
-      {/* Expanded comment fields */}
+      {/* Expanded fields */}
       {expanded && (
         <div className="px-3 pb-3 pt-0 flex flex-col gap-3 border-t bg-muted/20">
+          {/* Custom label */}
           <div className="flex flex-col gap-1 pt-3">
+            <label className="text-xs text-muted-foreground font-medium">Название блока</label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={block.label ?? ""}
+                onChange={(e) => onLabelChange(block.id, e.target.value)}
+                placeholder={defaultLabel}
+                className="flex-1 h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {block.label && (
+                <button
+                  type="button"
+                  onClick={() => onLabelChange(block.id, "")}
+                  className="text-muted-foreground hover:text-foreground p-1"
+                  title="Сбросить до стандартного"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground font-medium">
               Комментарий над блоком
             </label>
@@ -191,6 +217,10 @@ export default function TemplateBuilder({ blocks, onChange }: TemplateBuilderPro
     onChange(blocks.map((b) => (b.id === id ? { ...b, enabled } : b)));
   }
 
+  function handleLabelChange(id: string, label: string) {
+    onChange(blocks.map((b) => (b.id === id ? { ...b, label: label || undefined } : b)));
+  }
+
   function handleCommentChange(
     id: string,
     field: "commentAbove" | "commentBelow",
@@ -213,6 +243,7 @@ export default function TemplateBuilder({ blocks, onChange }: TemplateBuilderPro
               block={block}
               onToggle={handleToggle}
               onCommentChange={handleCommentChange}
+              onLabelChange={handleLabelChange}
             />
           ))}
         </div>

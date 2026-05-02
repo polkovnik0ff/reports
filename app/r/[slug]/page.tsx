@@ -67,7 +67,7 @@ export default async function PublicReportPage({ params }: Props) {
     .sort((a, b) => a.order - b.order)
     .map((b) => ({
       id: `block-${b.id}`,
-      label: BLOCK_LABELS[b.type as BlockType] ?? b.type,
+      label: b.label || (BLOCK_LABELS[b.type as BlockType] ?? b.type),
     }));
 
   return (
