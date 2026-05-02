@@ -59,11 +59,6 @@ export function ReportHeader({ title, dateFrom, dateTo, compareFrom, compareTo, 
       }}>
         <span style={{ width: 28, height: 1, background: "var(--r-accent)", display: "block", flexShrink: 0 }} />
         SEO отчёт
-        {generatedAt && (
-          <span style={{ color: "var(--r-ink-mute)" }}>
-            · сформирован {new Date(generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
-          </span>
-        )}
       </div>
 
       {/* Hero title */}
@@ -78,8 +73,7 @@ export function ReportHeader({ title, dateFrom, dateTo, compareFrom, compareTo, 
         <span style={{ color: "var(--r-accent)" }}>SEO</span>
         {" "}отчёт
         {domain && (
-          <>
-            {" "}
+          <div style={{ marginTop: "0.15em" }}>
             <span style={{
               display: "inline-block",
               fontStyle: "italic",
@@ -99,7 +93,7 @@ export function ReportHeader({ title, dateFrom, dateTo, compareFrom, compareTo, 
                 display: "block",
               }} />
             </span>
-          </>
+          </div>
         )}
       </h1>
 

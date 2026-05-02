@@ -13,7 +13,16 @@ import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-se
 import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
 import { WebmasterSelect, WebmasterSettings } from "@/components/webmaster/webmaster-select";
 import { GscSelect, GscSettings } from "@/components/gsc/gsc-select";
-import { BlockConfig } from "@/lib/blocks/defaults";
+import { BlockConfig, DEFAULT_BLOCKS } from "@/lib/blocks/defaults";
+
+function mergeWithDefaults(saved: BlockConfig[]): BlockConfig[] {
+  const existingIds = new Set(saved.map((b) => b.id));
+  const maxOrder = saved.reduce((m, b) => Math.max(m, b.order), 0);
+  const missing = DEFAULT_BLOCKS
+    .filter((b) => !existingIds.has(b.id))
+    .map((b, i) => ({ ...b, enabled: false, order: maxOrder + i + 1 }));
+  return [...saved, ...missing];
+}
 
 // ── Date helpers ───────────────────────────────────────────────────────────
 
@@ -155,7 +164,7 @@ export default function ReportEditor({
   });
 
   // Blocks tab state
-  const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks);
+  const [blocks, setBlocks] = useState<BlockConfig[]>(() => mergeWithDefaults(initialBlocks));
 
   // Texts tab state — extract from blocks
   const [workDone, setWorkDone] = useState(

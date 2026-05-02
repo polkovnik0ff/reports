@@ -23,10 +23,12 @@ function DiffBadge({ delta }: { delta: number | null }) {
   const up = delta > 0;
   return (
     <span style={{
-      fontSize: 11,
-      fontWeight: 600,
+      fontSize: 9,
+      fontWeight: 700,
       color: up ? "var(--r-green)" : "var(--r-red)",
-      marginLeft: 6,
+      marginLeft: 3,
+      verticalAlign: "super",
+      lineHeight: 1,
     }}>
       {up ? "▲" : "▼"}{Math.abs(delta)}
     </span>

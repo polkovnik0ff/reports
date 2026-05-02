@@ -21,7 +21,8 @@ export type BlockType =
   | "work_done"
   | "work_plan"
   | "custom_text"
-  | "custom_kpi";
+  | "custom_kpi"
+  | "test_block";
 
 export interface BlockConfig {
   id: string;
@@ -58,6 +59,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   work_plan: "План работ",
   custom_text: "Произвольный текст",
   custom_kpi: "Таблица план/факт",
+  test_block: "Тестовый блок",
 };
 
 export const DEFAULT_BLOCKS: BlockConfig[] = [
@@ -81,4 +83,5 @@ export const DEFAULT_BLOCKS: BlockConfig[] = [
   { id: "gsc_summary",                 type: "gsc_summary",                 enabled: false, order: 18, commentAbove: "", commentBelow: "", settings: {} },
   { id: "work_done",                   type: "work_done",                   enabled: true,  order: 19, commentAbove: "", commentBelow: "", settings: {} },
   { id: "work_plan",                   type: "work_plan",                   enabled: true,  order: 20, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "test_block",                  type: "test_block",                  enabled: false, order: 21, commentAbove: "", commentBelow: "", settings: {} },
 ];

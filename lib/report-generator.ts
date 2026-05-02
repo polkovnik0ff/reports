@@ -39,6 +39,7 @@ async function fetchBlockData(
     case "traffic_summary":
       return client.getTrafficSummary(counterId, date1, date2, compareDate1, compareDate2);
     case "traffic_channels":
+    case "test_block":
       return client.getTrafficByChannels(counterId, date1, date2, compareDate1, compareDate2);
     case "traffic_search_engines":
       return client.getTrafficBySearchEngines(counterId, date1, date2, compareDate1, compareDate2);
@@ -107,7 +108,7 @@ export async function generateReport(reportId: string): Promise<void> {
       "traffic_summary", "traffic_channels", "traffic_search_engines",
       "search_engines_dynamics", "traffic_search_dynamics", "traffic_yoy",
       "traffic_geography", "traffic_devices", "top_pages", "top_queries",
-      "referrals", "high_bounce_pages",
+      "referrals", "high_bounce_pages", "test_block",
     ];
     const topvisorBlockTypes: BlockType[] = ["positions_summary", "positions_table"];
     const webmasterBlockTypes: BlockType[] = ["webmaster_ikh", "webmaster_indexing", "webmaster_backlinks", "webmaster_search_summary"];

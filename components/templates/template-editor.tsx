@@ -8,9 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import TemplateBuilder from "./template-builder";
-import { BlockConfig } from "@/lib/blocks/defaults";
+import { BlockConfig, DEFAULT_BLOCKS } from "@/lib/blocks/defaults";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+function mergeWithDefaults(saved: BlockConfig[]): BlockConfig[] {
+  const existingIds = new Set(saved.map((b) => b.id));
+  const maxOrder = saved.reduce((m, b) => Math.max(m, b.order), 0);
+  const missing = DEFAULT_BLOCKS
+    .filter((b) => !existingIds.has(b.id))
+    .map((b, i) => ({ ...b, enabled: false, order: maxOrder + i + 1 }));
+  return [...saved, ...missing];
+}
 
 interface TemplateEditorProps {
   templateId?: string;
@@ -25,7 +34,7 @@ export default function TemplateEditor({
 }: TemplateEditorProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
-  const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks);
+  const [blocks, setBlocks] = useState<BlockConfig[]>(() => mergeWithDefaults(initialBlocks));
   const [saving, setSaving] = useState(false);
 
   const isNew = !templateId;

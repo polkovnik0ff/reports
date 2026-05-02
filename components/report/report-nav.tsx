@@ -68,8 +68,8 @@ export function ReportNav({ items, slug, title }: ReportNavProps) {
     <nav
       className="report-nav sticky top-0 h-screen shrink-0 hidden lg:flex flex-col overflow-y-auto"
       style={{
-        width: 240,
-        padding: "32px 24px 32px 36px",
+        width: 300,
+        padding: "32px 24px 32px 24px",
         borderRight: "1px solid var(--r-hairline)",
         gap: 24,
         scrollbarWidth: "thin",
@@ -78,27 +78,7 @@ export function ReportNav({ items, slug, title }: ReportNavProps) {
     >
       {/* Brand */}
       <div style={{ paddingBottom: 20, borderBottom: "1px solid var(--r-hairline)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{
-            fontFamily: "var(--r-f-display)",
-            fontWeight: 700,
-            fontSize: 16,
-            letterSpacing: "-0.02em",
-            color: "var(--r-ink)",
-          }}>
-            SEO<span style={{ color: "var(--r-accent)" }}>.</span>
-          </span>
-          <span style={{
-            fontFamily: "var(--r-f-display)",
-            fontWeight: 700,
-            fontSize: 9,
-            letterSpacing: "1.5px",
-            color: "var(--r-ink-mute)",
-            textTransform: "uppercase",
-          }}>
-            Report
-          </span>
-        </div>
+        <img src="/logo-white.svg" alt="Logo" style={{ height: 32, width: "auto", display: "block" }} />
       </div>
 
       {/* Nav section label */}
@@ -141,7 +121,7 @@ export function ReportNav({ items, slug, title }: ReportNavProps) {
               {isActive && (
                 <span style={{
                   position: "absolute",
-                  left: -36,
+                  left: -24,
                   top: "50%",
                   transform: "translateY(-50%)",
                   width: 3,

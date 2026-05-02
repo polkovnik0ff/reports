@@ -40,14 +40,14 @@ function DiffBadge({ cur, prev, hasCompare }: { cur: number; prev?: number; hasC
   if (prev == null) {
     if (!hasCompare) return null;
     return (
-      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--r-green)", marginLeft: 4 }}>↑100%</span>
+      <span style={{ fontSize: 9, fontWeight: 700, color: "var(--r-green)", marginLeft: 3, verticalAlign: "super", lineHeight: 1 }}>↑100%</span>
     );
   }
   const d = pctDiff(cur, prev);
   if (d == null) return null;
   const up = d > 0;
   return (
-    <span style={{ fontSize: 11, fontWeight: 600, color: up ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
+    <span style={{ fontSize: 9, fontWeight: 700, color: up ? "var(--r-green)" : "var(--r-red)", marginLeft: 3, verticalAlign: "super", lineHeight: 1 }}>
       {up ? "↑" : "↓"}{Math.abs(d).toFixed(1)}%
     </span>
   );

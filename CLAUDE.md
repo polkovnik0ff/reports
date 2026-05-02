@@ -602,7 +602,7 @@ Remove-Item -Recurse -Force .next
 **Обновить эту строку при переходе между фазами.**
 
 ```
-Текущая фаза: 5 — В процессе (настройки аккаунта → команда)
+Текущая фаза: 6 — В процессе (дизайн публичного отчёта)
 ```
 
 ### Фазы:
@@ -724,7 +724,7 @@ Remove-Item -Recurse -Force .next
    - ✅ Project.defaultTopvisorProjectId / defaultWebmasterAccountId / defaultWebmasterHostId
    - ✅ Сохраняются при каждом POST/PATCH /api/reports (создание и регенерация)
    - ✅ Форма создания отчёта предзаполняется дефолтами проекта
-   - **Важно:** после изменения schema.prisma обязательно запустить `npx prisma generate` И применить SQL ALTER TABLE вручную если `migrate dev` не работает из-за drift
+   - **Важно:** после изменения schema.prisma обязательно запустить `npx prisma generate` И применить SQL ALTER TABLE вручную если `migrate dev` не работает из-за drift 
 5. ✅ Настройки аккаунта + команда (шаблоны работ и белый лейбл — отложены)
    - ✅ Настройки аккаунта: смена имени, смена пароля (bcrypt), email только read-only
    - ✅ GET/PATCH /api/account
@@ -732,7 +732,19 @@ Remove-Item -Recurse -Force .next
    - ✅ GET/POST /api/team, PATCH/DELETE /api/team/[id]
    - ✅ Сайдбар показывает /team только OWNER
    - **Примечание:** данные (проекты, отчёты, источники) общие для всей команды — изоляция по пользователю не реализована. При монетизации потребуется переработка под воркспейсы.
-6. Docker + VDS + мониторинг + бэкапы
+6. ⏳ Дизайн публичного отчёта
+   - ✅ Тёмная дизайн-система: CSS-токены `--r-*` в `.report-page`, шрифты Montserrat/Inter/JetBrains Mono
+   - ✅ Все 15 блоков переписаны в inline-стилях без Tailwind (только `--r-*` переменные)
+   - ✅ ReportHeader: hero-заголовок, домен на новой строке, убрана дата генерации
+   - ✅ ReportNav: sticky sidebar, IntersectionObserver, активный индикатор, PDF-кнопка
+   - ✅ BlockWrapper: section number, hairline-divider, prose-report комментарии
+   - ✅ DiffBadge: superscript-стиль (`verticalAlign: super`, fontSize 9, fontWeight 700)
+   - ✅ Логотип агентства в сайдбаре (`/logo-white.svg`)
+   - ✅ `mergeWithDefaults()` — новые блоки из DEFAULT_BLOCKS автоматически появляются в старых шаблонах/отчётах (выключенными)
+   - ✅ test_block — экспериментальный блок: два разделённых блока (donut+легенда слева, таблица поведения справа)
+   - ⏳ Светлая тема (`data-theme="light"`)
+   - ⏳ Мобильная адаптация
+7. Docker + VDS + мониторинг + бэкапы
 
 ---
 

@@ -22,6 +22,7 @@ import { WebmasterIndexingBlock } from "./blocks/webmaster-indexing";
 import { WebmasterBacklinksBlock } from "./blocks/webmaster-backlinks";
 import { WebmasterSearchSummaryBlock } from "./blocks/webmaster-search-summary";
 import { GscSummaryBlock } from "./blocks/gsc-summary";
+import { TestBlock } from "./blocks/test-block";
 
 interface ReportRendererProps {
   reportConfig: BlockConfig[];
@@ -106,6 +107,8 @@ function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string
       return data ? <WebmasterSearchSummaryBlock data={data} /> : <ErrorBlock message="Нет данных поисковых запросов" />;
     case "gsc_summary":
       return data ? <GscSummaryBlock data={data} /> : <ErrorBlock message="Нет данных GSC" />;
+    case "test_block":
+      return data ? <TestBlock data={data} /> : <ErrorBlock />;
     default:
       return <ErrorBlock />;
   }

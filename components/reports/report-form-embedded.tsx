@@ -14,7 +14,16 @@ import { TopvisorProjectSelect } from "@/components/topvisor/topvisor-project-se
 import { TopvisorScanSettings } from "@/components/topvisor/topvisor-scan-settings";
 import { WebmasterSelect, WebmasterSettings } from "@/components/webmaster/webmaster-select";
 import { GscSelect, GscSettings } from "@/components/gsc/gsc-select";
-import { BlockConfig } from "@/lib/blocks/defaults";
+import { BlockConfig, DEFAULT_BLOCKS } from "@/lib/blocks/defaults";
+
+function mergeWithDefaults(saved: BlockConfig[]): BlockConfig[] {
+  const existingIds = new Set(saved.map((b) => b.id));
+  const maxOrder = saved.reduce((m, b) => Math.max(m, b.order), 0);
+  const missing = DEFAULT_BLOCKS
+    .filter((b) => !existingIds.has(b.id))
+    .map((b, i) => ({ ...b, enabled: false, order: maxOrder + i + 1 }));
+  return [...saved, ...missing];
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -347,7 +356,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
       const res = await fetch(`/api/templates/${id}`);
       if (res.ok) {
         const tpl: FullTemplate = await res.json();
-        setBlocks(tpl.blocksConfig);
+        setBlocks(mergeWithDefaults(tpl.blocksConfig));
       }
     } finally {
       setLoadingTemplate(false);

@@ -72,7 +72,7 @@ export default async function PublicReportPage({ params }: Props) {
 
   return (
     <div className="report-page">
-      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", maxWidth: 1680, margin: "0 auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr" }}>
         <Suspense>
           <ReportNav items={navItems} slug={slug} title={report.title} />
         </Suspense>

@@ -5,6 +5,80 @@
 
 ---
 
+## Сессия 2026-05-03 — правки дизайна, тестовый блок, мержинг DEFAULT_BLOCKS
+
+### Запрос 1 — правки сайдбара и логотипа
+- Сайдбар: ширина менялась несколько раз по запросу (280 → 320 → 400 → 300px), padding подстраивался
+- Логотип: убран текстовый "SEO. Report", добавлен `<img src="/logo-white.svg">` (файлы добавил пользователь в `public/`)
+- `app/r/[slug]/page.tsx`: gridTemplateColumns обновлялся синхронно с шириной nav, убран `maxWidth`/`margin: auto`
+
+### Запрос 2 — тестовый блок (копия traffic_channels, новый дизайн)
+- Добавлен тип `test_block` в `lib/blocks/defaults.ts` (BlockType, BLOCK_LABELS, DEFAULT_BLOCKS с `enabled: false`)
+- Создан `components/report/blocks/test-block.tsx` — сначала копия TrafficChannelsBlock
+- Переработан в layout «две карточки рядом»: левая — donut + легенда + % доли, правая — таблица поведения (Визиты / Δ / Отказы / Глубина / Время)
+- Карточки `background: var(--r-bg-card)`, `border`, `borderRadius`, `alignItems: start` → разная высота
+- `report-renderer.tsx`: импорт TestBlock + case "test_block"
+- `report-generator.ts`: `test_block` тянет те же данные что `traffic_channels` (getTrafficByChannels), добавлен в metrikaBlockTypes
+
+### Запрос 3 — mergeWithDefaults (новые блоки в старых шаблонах)
+- Проблема: шаблоны хранят blocksConfig как JSON-снапшот, новые блоки в них не появлялись
+- Решение: функция `mergeWithDefaults(saved)` — берёт сохранённые блоки, добавляет отсутствующие из DEFAULT_BLOCKS в конец с `enabled: false`
+- Добавлена в трёх местах:
+  - `components/templates/template-editor.tsx` — при инициализации useState
+  - `components/reports/report-form-embedded.tsx` — при загрузке шаблона (setBlocks)
+  - `components/reports/report-editor.tsx` — при инициализации useState
+
+### Запрос 4 — обновить документацию, коммит, пуш
+- CLAUDE.md: фаза обновлена на 6, добавлен список выполненного
+- DEV_LOG.md: добавлена эта запись
+
+**Файлы изменены:**
+- `lib/blocks/defaults.ts`
+- `components/report/blocks/test-block.tsx` (новый)
+- `components/report/report-renderer.tsx`
+- `lib/report-generator.ts`
+- `components/templates/template-editor.tsx`
+- `components/reports/report-form-embedded.tsx`
+- `components/reports/report-editor.tsx`
+- `components/report/report-nav.tsx`
+- `app/r/[slug]/page.tsx`
+- `CLAUDE.md`
+- `DEV_LOG.md`
+
+---
+
+## Сессия 2026-05-02 (продолжение 2 — правки дизайна публичного отчёта)
+
+### Запрос — правки после просмотра отчёта
+
+**Пользователь:** 4 правки:
+1. Убрать "сформирован 2 мая 2026 г."
+2. Адрес сайта перенести на следующую строку в заголовке
+3. Сравнение в таблицах/графиках — сделать как степени, а не текст рядом
+4. Уменьшить отступ слева у сайдбара, сделать его шире
+
+**Шаги:**
+
+**Правка 1 — убрать дату генерации**
+- `components/report/report-header.tsx`: убран блок `{generatedAt && (<span>· сформирован ...</span>)}` из eyebrow-строки
+- `generatedAt` prop остался в компоненте (используется в print-версии) — prop удалять не стали
+
+**Правка 2 — домен на новую строку**
+- `components/report/report-header.tsx`: вместо `{" "}` + inline `<span>` добавлен `<div style={{ marginTop: "0.15em" }}>` — домен теперь всегда на новой строке под "SEO отчёт"
+
+**Правка 3 — delta как степень**
+- Во всех 6 файлах с `DiffBadge` обновлены стили: `fontSize: 11 → 9`, `fontWeight: 600 → 700`, `marginLeft: 4 → 3`, добавлены `verticalAlign: "super"` + `lineHeight: 1`
+- Файлы: donut-table.tsx, search-engines-dynamics.tsx, high-bounce-pages.tsx, traffic-search-dynamics.tsx, ranked-table.tsx, positions-table.tsx
+
+**Правка 4 — шире сайдбар, меньше отступ**
+- `app/r/[slug]/page.tsx`: gridTemplateColumns `240px → 280px`
+- `components/report/report-nav.tsx`: width `240 → 280`, padding `32px 24px 32px 36px → 32px 20px 32px 20px`
+- Offset активного индикатора: `left: -36 → left: -20` (соответствует новому левому padding)
+
+**Итог:** 4 правки применены, всё в 4 файлах.
+
+---
+
 ## Сессия 2026-05-02 (продолжение — редизайн блоков отчёта)
 
 ### Контекст начала сессии

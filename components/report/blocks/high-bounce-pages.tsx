@@ -14,7 +14,7 @@ function DiffBadge({ cur, prev, invertSign = false, hasCompare = false }: { cur:
     if (!hasCompare) return null;
     const good = !invertSign;
     return (
-      <span style={{ fontSize: 11, fontWeight: 600, color: good ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
+      <span style={{ fontSize: 9, fontWeight: 700, color: good ? "var(--r-green)" : "var(--r-red)", marginLeft: 3, verticalAlign: "super", lineHeight: 1 }}>
         ↑100%
       </span>
     );
@@ -24,7 +24,7 @@ function DiffBadge({ cur, prev, invertSign = false, hasCompare = false }: { cur:
   const up = diff > 0;
   const good = invertSign ? !up : up;
   return (
-    <span style={{ fontSize: 11, fontWeight: 600, color: good ? "var(--r-green)" : "var(--r-red)", marginLeft: 4 }}>
+    <span style={{ fontSize: 9, fontWeight: 700, color: good ? "var(--r-green)" : "var(--r-red)", marginLeft: 3, verticalAlign: "super", lineHeight: 1 }}>
       {up ? "↑" : "↓"}{Math.abs(diff).toFixed(1)}%
     </span>
   );
