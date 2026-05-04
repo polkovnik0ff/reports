@@ -168,15 +168,16 @@
 }
 
 .report-page[data-theme="light"] {
-  --r-bg:        #F4F5F7;
-  --r-bg-panel:  #FFFFFF;
-  --r-bg-card:   #FFFFFF;
-  --r-bg-card-2: #F4F5F7;
-  --r-ink:       #101418;
-  --r-ink-dim:   #5C6670;
-  --r-ink-mute:  #9AA3AD;
-  --r-hairline:  rgba(16,20,24,0.08);
-  --r-hairline-2:rgba(16,20,24,0.14);
+  --r-bg:          #F4F5F7;
+  --r-bg-panel:    #FFFFFF;
+  --r-bg-card:     #FFFFFF;
+  --r-bg-card-2:   #F4F5F7;
+  --r-ink:         #101418;
+  --r-ink-dim:     #5C6670;
+  --r-ink-mute:    #9AA3AD;
+  --r-hairline:    rgba(16,20,24,0.08);
+  --r-hairline-2:  rgba(16,20,24,0.14);
+  --r-logo-filter: invert(1) brightness(0);
 }
 
 /* Rich-text block styles for report pages */

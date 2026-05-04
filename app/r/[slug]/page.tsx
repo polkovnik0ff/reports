@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { BlockConfig, BLOCK_LABELS, BlockType } from "@/lib/blocks/defaults";
 import { ReportRenderer } from "@/components/report/report-renderer";
 import { ReportHeader } from "@/components/report/report-header";
-import { ReportNav } from "@/components/report/report-nav";
+import { ReportThemeShell } from "@/components/report/report-theme-shell";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -75,7 +75,7 @@ export default async function PublicReportPage({ params, searchParams }: Props) 
 
   if (isPrint) {
     return (
-      <div className="report-page">
+      <div className="report-page" data-theme="light">
         <main style={{ padding: "24px 40px 60px", maxWidth: 900, margin: "0 auto" }}>
           <Suspense>
             <ReportHeader
@@ -94,25 +94,20 @@ export default async function PublicReportPage({ params, searchParams }: Props) 
   }
 
   return (
-    <div className="report-page">
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr" }}>
+    <ReportThemeShell navItems={navItems} slug={slug} title={report.title}>
+      <main style={{ padding: "32px 56px 120px", minWidth: 0 }}>
         <Suspense>
-          <ReportNav items={navItems} slug={slug} title={report.title} />
+          <ReportHeader
+            title={report.title}
+            dateFrom={report.dateFrom}
+            dateTo={report.dateTo}
+            compareFrom={report.compareFrom}
+            compareTo={report.compareTo}
+            generatedAt={report.generatedAt}
+          />
         </Suspense>
-        <main style={{ padding: "32px 56px 120px", minWidth: 0 }}>
-          <Suspense>
-            <ReportHeader
-              title={report.title}
-              dateFrom={report.dateFrom}
-              dateTo={report.dateTo}
-              compareFrom={report.compareFrom}
-              compareTo={report.compareTo}
-              generatedAt={report.generatedAt}
-            />
-          </Suspense>
-          <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
-        </main>
-      </div>
-    </div>
+        <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
+      </main>
+    </ReportThemeShell>
   );
 }

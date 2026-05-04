@@ -5,6 +5,57 @@
 
 ---
 
+## Сессия 2026-05-04 — PDF всегда в светлой теме
+
+### Запрос — PDF всегда выгружать в светлой теме, переключатель там не нужен
+
+Playwright открывает `/r/[slug]?print=1`. В `page.tsx` print-ветка рендерила `<div className="report-page">` без `data-theme` → тёмная тема по умолчанию.
+
+Правка: добавили `data-theme="light"` на этот div — одна строка в `app/r/[slug]/page.tsx`.
+
+**Файлы:** `app/r/[slug]/page.tsx`
+
+---
+
+## Сессия 2026-05-04 — переключатель тёмной/светлой темы в публичном отчёте
+
+### Запрос — добавить переключатель темы в сайдбар, реализовать светлую тему; по умолчанию тёмная
+
+**Контекст:** Пользователь открыл дизайн-прототип в reports-2/project/Atwinta Report.html и попросил изучить его, затем реализовать переключатель тем.
+
+**Шаги:**
+
+1. Изучили прототип — светлая тема переключается через `data-theme="light"` на `<html>`, всего 10 CSS-переменных меняются.
+
+2. Проверили текущую реализацию:
+   - `.report-page` в globals.css уже имеет `.report-page[data-theme="light"]` блок
+   - `ReportNav` — клиентский компонент, управляет PDF и навигацией
+   - `page.tsx` — серверный компонент, рендерит `.report-page` div напрямую
+
+3. **Проблема:** `data-theme` нужно ставить на `.report-page`, а управляет им клиент. `page.tsx` — сервер, там нет useState.
+
+4. **Решение:** Создали `ReportThemeShell` — клиентский компонент-обёртка, который:
+   - Управляет `useState<"dark"|"light">("dark")`
+   - Оборачивает `.report-page` с `data-theme={theme}`
+   - Рендерит `ReportNav` с пропами `theme` и `onThemeChange`
+   - Принимает `children` (контент страницы)
+
+5. **Добавили `--r-logo-filter`** в globals.css: в светлой теме `invert(1) brightness(0)` — логотип (белый SVG) становится чёрным.
+
+6. **Обновили `ReportNav`:** добавили пропы `theme` и `onThemeChange`, добавили кнопку-тоггл (pill 52×26px с анимированным thumb) рядом с логотипом в шапке сайдбара. Moon-иконка в тёмной теме, Sun-иконка в светлой. Логотип получил `filter: var(--r-logo-filter, none)` с `transition`.
+
+7. **Обновили `page.tsx`:** заменили `<div className="report-page">` + `<ReportNav>` на `<ReportThemeShell>`. `isPrint` layout остался без изменений (тема там не нужна).
+
+**Файлы изменены:**
+- `app/globals.css` — добавлен `--r-logo-filter` в `.report-page[data-theme="light"]`
+- `components/report/report-theme-shell.tsx` — новый файл
+- `components/report/report-nav.tsx` — добавлены props theme/onThemeChange, кнопка-тоггл
+- `app/r/[slug]/page.tsx` — заменён импорт и структура на ReportThemeShell
+
+**Итог:** По умолчанию тёмная тема. Кнопка-тоггл в шапке сайдбара справа от логотипа. Клик переключает тему мгновенно через CSS-переменные.
+
+---
+
 ## Сессия 2026-05-04 — новый ПК, миграции БД, баг positions_summary, PDF правки
 
 ### Запрос 5 — Playwright не установлен на новом ПК

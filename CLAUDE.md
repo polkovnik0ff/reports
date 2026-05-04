@@ -399,7 +399,8 @@ lib/
 
 components/
   report/                    # компоненты блоков (для публичной страницы)
-    report-nav.tsx           # sticky sidebar nav с IntersectionObserver + кнопка PDF
+    report-nav.tsx           # sticky sidebar nav с IntersectionObserver + кнопка PDF + переключатель темы (props: theme, onThemeChange)
+    report-theme-shell.tsx   # клиентская обёртка: управляет useState темы, рендерит .report-page[data-theme] + ReportNav
     block-wrapper.tsx        # обёртка блока: id=block-{id}, класс report-block (page-break-inside:avoid)
     blocks/
       donut-table.tsx        # DonutTable — donut + таблица (channels, geo, devices, search engines)
@@ -786,7 +787,7 @@ Remove-Item -Recurse -Force .next
    - ✅ Тёмная дизайн-система: CSS-токены `--r-*` в `.report-page`, шрифты Montserrat/Inter/JetBrains Mono
    - ✅ Все 15 блоков переписаны в inline-стилях без Tailwind (только `--r-*` переменные)
    - ✅ ReportHeader: hero-заголовок, домен на новой строке, убрана дата генерации
-   - ✅ ReportNav: sticky sidebar, IntersectionObserver, активный индикатор, PDF-кнопка
+   - ✅ ReportNav: sticky sidebar, IntersectionObserver, активный индикатор, PDF-кнопка, переключатель темы (pill-toggle рядом с логотипом)
    - ✅ BlockWrapper: section number, hairline-divider, prose-report комментарии
    - ✅ DiffBadge: superscript-стиль (`verticalAlign: super`, fontSize 9, fontWeight 700)
    - ✅ Логотип агентства в сайдбаре (`/logo-white.svg`)
@@ -795,7 +796,10 @@ Remove-Item -Recurse -Force .next
    - ✅ PDF: отдельный print-layout без сайдбара (`?print=1` → ветка без ReportNav, maxWidth 900px)
    - ✅ PDF: viewport 900px, буфер 2.5с, `tr { break-inside: avoid }`, тёмный фон на html/body в @media print
    - ✅ positions_summary: баг с нулевыми топами при съёмках по регионам (Россия) — детект региона per-searcher через getExistsDates
-   - ⏳ Светлая тема (`data-theme="light"`)
+   - ✅ Тема: переключатель тёмная/светлая в сайдбаре (pill-toggle рядом с логотипом); по умолчанию тёмная
+         Архитектура: `ReportThemeShell` (client) управляет `useState("dark")`, рендерит `.report-page[data-theme]` и пробрасывает `theme`/`onThemeChange` в `ReportNav`
+         Логотип в светлой теме: `--r-logo-filter: invert(1) brightness(0)` (белый SVG → чёрный)
+   - ✅ PDF всегда в светлой теме: print-ветка `/r/[slug]?print=1` жёстко имеет `data-theme="light"`
    - ⏳ Мобильная адаптация
 7. Docker + VDS + мониторинг + бэкапы
 

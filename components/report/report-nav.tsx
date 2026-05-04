@@ -11,9 +11,11 @@ interface ReportNavProps {
   items: NavItem[];
   slug: string;
   title: string;
+  theme: "dark" | "light";
+  onThemeChange: (theme: "dark" | "light") => void;
 }
 
-export function ReportNav({ items, slug, title }: ReportNavProps) {
+export function ReportNav({ items, slug, title, theme, onThemeChange }: ReportNavProps) {
   const [activeId, setActiveId] = useState<string>(items[0]?.id ?? "");
   const [loading, setLoading] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -64,6 +66,8 @@ export function ReportNav({ items, slug, title }: ReportNavProps) {
     }
   }
 
+  const isLight = theme === "light";
+
   return (
     <nav
       className="report-nav sticky top-0 h-screen shrink-0 hidden lg:flex flex-col overflow-y-auto"
@@ -76,9 +80,78 @@ export function ReportNav({ items, slug, title }: ReportNavProps) {
         scrollbarColor: "var(--r-hairline-2) transparent",
       }}
     >
-      {/* Brand */}
-      <div style={{ paddingBottom: 20, borderBottom: "1px solid var(--r-hairline)" }}>
-        <img src="/logo-white.svg" alt="Logo" style={{ height: 32, width: "auto", display: "block" }} />
+      {/* Brand + theme toggle */}
+      <div style={{
+        paddingBottom: 20,
+        borderBottom: "1px solid var(--r-hairline)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}>
+        <img
+          src="/logo-white.svg"
+          alt="Logo"
+          style={{
+            height: 32,
+            width: "auto",
+            display: "block",
+            filter: "var(--r-logo-filter, none)",
+            transition: "filter .2s",
+          }}
+        />
+
+        {/* Theme toggle pill */}
+        <button
+          onClick={() => onThemeChange(isLight ? "dark" : "light")}
+          aria-label="Сменить тему"
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+            flexShrink: 0,
+          }}
+        >
+          <span style={{
+            display: "inline-flex",
+            width: 52,
+            height: 26,
+            background: "var(--r-bg-card)",
+            border: "1px solid var(--r-hairline-2)",
+            borderRadius: 999,
+            padding: 2,
+            position: "relative",
+            transition: "border-color .2s",
+          }}>
+            <span style={{
+              width: 20,
+              height: 20,
+              background: "var(--r-accent)",
+              color: "#fff",
+              borderRadius: "50%",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transform: isLight ? "translateX(26px)" : "translateX(0)",
+              transition: "transform .25s cubic-bezier(.4,0,.2,1)",
+              flexShrink: 0,
+            }}>
+              {isLight ? (
+                /* Sun */
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="4"/>
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+                </svg>
+              ) : (
+                /* Moon */
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              )}
+            </span>
+          </span>
+        </button>
       </div>
 
       {/* Nav section label */}
