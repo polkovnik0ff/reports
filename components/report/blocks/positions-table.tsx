@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { PositionsTableData, PositionsKeyword } from "@/lib/services/topvisor";
+
+const PREVIEW_ROWS = 5;
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "";
@@ -32,6 +35,20 @@ function DiffBadge({ delta }: { delta: number | null }) {
     }}>
       {up ? "▲" : "▼"}{Math.abs(delta)}
     </span>
+  );
+}
+
+function CollapseIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      style={{ flexShrink: 0, transition: "transform 0.2s", transform: expanded ? "rotate(0deg)" : "rotate(-90deg)" }}
+    >
+      <path d="M3 5L7 9L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -71,6 +88,144 @@ function KeywordRow({ kw, hasCompare, idx }: { kw: PositionsKeyword; hasCompare:
         </td>
       )}
     </tr>
+  );
+}
+
+function GroupTable({
+  group,
+  hasCompare,
+  scanDate,
+  compareScanDate,
+}: {
+  group: { id: number; name: string; keywords: PositionsKeyword[] };
+  hasCompare: boolean;
+  scanDate: string | null;
+  compareScanDate: string | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const total = group.keywords.length;
+  const canCollapse = total > PREVIEW_ROWS;
+  const visibleKeywords = canCollapse && !expanded ? group.keywords.slice(0, PREVIEW_ROWS) : group.keywords;
+
+  return (
+    <div style={{
+      border: "1px solid var(--r-hairline)",
+      borderRadius: "var(--r-radius-s)",
+      overflow: "hidden",
+    }}>
+      {/* Group header */}
+      <div
+        style={{
+          background: "var(--r-bg-card-2)",
+          padding: "12px 16px",
+          borderBottom: "1px solid var(--r-hairline)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <span style={{
+          fontFamily: "var(--r-f-display)",
+          fontSize: 14,
+          fontWeight: 600,
+          color: "var(--r-ink)",
+        }}>{group.name}</span>
+        <span style={{
+          fontFamily: "var(--r-f-mono)",
+          fontSize: 11,
+          color: "var(--r-ink-mute)",
+          background: "var(--r-hairline-2)",
+          borderRadius: 4,
+          padding: "2px 6px",
+        }}>{total}</span>
+        {canCollapse && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              fontFamily: "var(--r-f-mono)",
+              fontSize: 11,
+              fontWeight: 500,
+              color: "var(--r-ink-mute)",
+              background: "var(--r-hairline-2)",
+              border: "1px solid var(--r-hairline)",
+              borderRadius: 5,
+              padding: "4px 10px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              transition: "color 0.15s, border-color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--r-ink)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--r-ink-mute)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--r-ink-mute)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--r-hairline)";
+            }}
+          >
+            <CollapseIcon expanded={expanded} />
+            {expanded ? "Свернуть" : `Показать все ${total}`}
+          </button>
+        )}
+      </div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th style={{ ...TH, textAlign: "left" }}>Запрос</th>
+            <th style={{ ...TH, textAlign: "right" }}>
+              {scanDate ? fmtDate(scanDate) : "Позиция"}
+            </th>
+            {hasCompare && (
+              <th style={{ ...TH, textAlign: "right" }}>
+                {compareScanDate ? fmtDate(compareScanDate) : "Пред."}
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {visibleKeywords.map((kw, i) => (
+            <KeywordRow key={kw.id ?? i} kw={kw} hasCompare={hasCompare} idx={i} />
+          ))}
+        </tbody>
+      </table>
+
+      {/* Show more / show less footer */}
+      {canCollapse && (
+        <div
+          onClick={() => setExpanded((v) => !v)}
+          style={{
+            padding: "10px 16px",
+            background: "var(--r-bg-card-2)",
+            borderTop: "1px solid var(--r-hairline)",
+            fontFamily: "var(--r-f-mono)",
+            fontSize: 11,
+            color: "var(--r-ink-mute)",
+            cursor: "pointer",
+            userSelect: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          {expanded ? (
+            <>
+              <CollapseIcon expanded={true} />
+              Свернуть
+            </>
+          ) : (
+            <>
+              <CollapseIcon expanded={false} />
+              Показать ещё {total - PREVIEW_ROWS}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -117,56 +272,13 @@ export function PositionsTableBlock({ data }: Props) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {allGroups.map((group) => (
-          <div key={group.id} style={{
-            border: "1px solid var(--r-hairline)",
-            borderRadius: "var(--r-radius-s)",
-            overflow: "hidden",
-          }}>
-            {/* Group header */}
-            <div style={{
-              background: "var(--r-bg-card-2)",
-              padding: "12px 16px",
-              borderBottom: "1px solid var(--r-hairline)",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}>
-              <span style={{
-                fontFamily: "var(--r-f-display)",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "var(--r-ink)",
-              }}>{group.name}</span>
-              <span style={{
-                fontFamily: "var(--r-f-mono)",
-                fontSize: 11,
-                color: "var(--r-ink-mute)",
-                background: "var(--r-hairline-2)",
-                borderRadius: 4,
-                padding: "2px 6px",
-              }}>{group.keywords.length}</span>
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...TH, textAlign: "left" }}>Запрос</th>
-                  <th style={{ ...TH, textAlign: "right" }}>
-                    {data.scanDate ? fmtDate(data.scanDate) : "Позиция"}
-                  </th>
-                  {hasCompare && (
-                    <th style={{ ...TH, textAlign: "right" }}>
-                      {data.compareScanDate ? fmtDate(data.compareScanDate) : "Пред."}
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {group.keywords.map((kw, i) => (
-                  <KeywordRow key={kw.id ?? i} kw={kw} hasCompare={hasCompare} idx={i} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <GroupTable
+            key={group.id}
+            group={group}
+            hasCompare={hasCompare}
+            scanDate={data.scanDate}
+            compareScanDate={data.compareScanDate}
+          />
         ))}
       </div>
     </div>
