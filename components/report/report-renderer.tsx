@@ -41,7 +41,7 @@ function ErrorBlock({ message }: { message?: string }) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string } | null, snapshotData: Record<string, any>) {
   if (blockData?.error) return <ErrorBlock message={blockData.error} />;
-  if (blockData?.data == null && !["work_done", "work_plan", "custom_text", "custom_kpi", "search_engines_dynamics", "webmaster_ikh", "webmaster_indexing", "webmaster_backlinks", "webmaster_search_summary", "gsc_summary"].includes(block.type)) {
+  if (blockData?.data == null && !["work_done", "conclusions", "work_plan", "custom_text", "custom_kpi", "search_engines_dynamics", "webmaster_ikh", "webmaster_indexing", "webmaster_backlinks", "webmaster_search_summary", "gsc_summary"].includes(block.type)) {
     return <ErrorBlock />;
   }
 
@@ -84,6 +84,7 @@ function renderBlock(block: BlockConfig, blockData: { data?: any; error?: string
     case "high_bounce_pages":
       return <HighBouncePagesBlock data={data} />;
     case "work_done":
+    case "conclusions":
     case "work_plan":
     case "custom_text":
       return <RichTextBlock content={block.settings?.content as string ?? ""} />;

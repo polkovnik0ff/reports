@@ -302,6 +302,7 @@ export async function generateReport(reportId: string): Promise<void> {
     for (const block of enabledBlocks) {
       if (
         block.type === "work_done" ||
+        block.type === "conclusions" ||
         block.type === "work_plan" ||
         block.type === "custom_text" ||
         block.type === "custom_kpi"

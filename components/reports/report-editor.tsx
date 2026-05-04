@@ -170,6 +170,9 @@ export default function ReportEditor({
   const [workDone, setWorkDone] = useState(
     () => (initialBlocks.find((b) => b.type === "work_done")?.settings?.content as string) ?? ""
   );
+  const [conclusions, setConclusions] = useState(
+    () => (initialBlocks.find((b) => b.type === "conclusions")?.settings?.content as string) ?? ""
+  );
   const [workPlan, setWorkPlan] = useState(
     () => (initialBlocks.find((b) => b.type === "work_plan")?.settings?.content as string) ?? ""
   );
@@ -227,6 +230,7 @@ export default function ReportEditor({
     // Merge workDone/workPlan and topvisor scan settings into blocks
     const finalBlocks = blocks.map((block) => {
       if (block.type === "work_done" && workDone) return { ...block, settings: { ...block.settings, content: workDone } };
+      if (block.type === "conclusions") return { ...block, settings: { ...block.settings, content: conclusions } };
       if (block.type === "work_plan" && workPlan) return { ...block, settings: { ...block.settings, content: workPlan } };
       if (block.type === "positions_summary" || block.type === "positions_table") {
         return { ...block, settings: { ...block.settings, ...topvisorScanSettings } };
@@ -535,6 +539,14 @@ export default function ReportEditor({
                     content={workDone}
                     onChange={setWorkDone}
                     placeholder="Опишите что было сделано за отчётный период..."
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Выводы</Label>
+                  <RichTextEditor
+                    content={conclusions}
+                    onChange={setConclusions}
+                    placeholder="Напишите выводы по итогам отчётного периода..."
                   />
                 </div>
                 <div className="grid gap-1.5">

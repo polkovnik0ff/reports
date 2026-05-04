@@ -215,7 +215,7 @@ export function TrafficSearchDynamicsBlock({ data, tableData }: Props) {
             <thead>
               <tr>
                 <th style={TH}>Поисковая система</th>
-                <th style={{ ...TH, textAlign: "right" }}>Посетители</th>
+                <th style={{ ...TH, textAlign: "right" }}>Визиты</th>
                 {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Отказы</th>}
                 {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Глубина</th>}
                 {hasExtended && <th style={{ ...TH, textAlign: "right" }}>Время</th>}

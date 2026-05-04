@@ -290,8 +290,8 @@
 }
 .rich-text-content .tiptap table th,
 .prose-report table th {
-  background-color: #f9fafb;
-  font-weight: 600;
+  background-color: transparent;
+  font-weight: normal;
 }
 .rich-text-content .tiptap table tr:nth-child(even) td {
   background-color: #fafafa;
@@ -299,6 +299,16 @@
 /* Selected cell highlight in editor */
 .rich-text-content .tiptap .selectedCell {
   background-color: #eff6ff;
+}
+.rich-text-content .tiptap hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 1em 0;
+}
+.prose-report hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 1em 0;
 }
 
 /* Print styles */

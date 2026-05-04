@@ -338,6 +338,7 @@ type BlockType =
   | 'gsc_pages'             // Топ страниц GSC: клики/показы/CTR/позиция
   // Ручные
   | 'work_done'             // Проделанная работа (rich-text)
+  | 'conclusions'          // Выводы (rich-text) — между work_done и work_plan
   | 'work_plan'             // Планируемая работа (rich-text)
   | 'custom_text'           // Произвольный текстовый блок
   | 'custom_kpi'            // Таблица план/факт
@@ -626,14 +627,17 @@ const prisma = new PrismaClient({ adapter } as any);
 
 - Компонент: `components/ui/rich-text-editor.tsx`, экспорт `RichTextEditor`.
 - **Props:** `content: string` (HTML), `onChange: (html) => void`, `placeholder?`, `className?`, `minHeight?` (default `"200px"`).
-- **Расширения:** StarterKit, Underline, TextStyle, TextAlign, Link, Placeholder, Image, Highlight, TaskList/TaskItem, Table/TableRow/TableCell/TableHeader.
-- **Тулбар:** B/I/U/S/Highlight, H1/H2/H3, выравнивание, списки (маркер/нумер/задачи), ссылка (инлайн-инпут), загрузка изображения, таблица, очистка форматирования.
-- **Контекстная панель таблицы:** появляется когда курсор внутри таблицы — добавить/удалить строки и столбцы, удалить таблицу.
+- **Расширения:** StarterKit, Underline, TextStyle, Color, FontFamily, FontSize (кастомное), Superscript, Subscript, TextAlign, Link, Placeholder, Image, Highlight, TaskList/TaskItem, Table/TableRow/TableCell/TableHeader.
+- **Тулбар (слева направо):** Undo/Redo | Шрифт (select) / Размер (select) | B/I/U/S/Highlight/Цвет текста | Надстрочный/Подстрочный | H1/H2/H3 | Выравнивание | Списки (маркер/нумер/задачи) | Ссылка / Изображение / Таблица / Горизонтальная линия | Очистить форматирование.
+- **Контекстная панель таблицы:** появляется когда курсор внутри таблицы — добавить/удалить строки и столбцы, **объединить/разделить ячейки** (disabled когда недоступно), удалить таблицу.
+- **Таблицы без заголовка:** `insertTable` использует `withHeaderRow: false`. CSS для `th` нейтрализован (`background: transparent; font-weight: normal`).
+- **FontSize:** `@tiptap/extension-font-size` не совместим с Tiptap v3.22.x (только `3.0.0-next.3`) — реализован как кастомное расширение через `Extension.create` + `addGlobalAttributes` на `TextStyle`. Применяется через `setMark("textStyle", { fontSize })`.
+- **Цвет текста:** `@tiptap/extension-color` (уже был установлен). Кнопка «A» с цветной полоской открывает hidden `<input type="color">`.
 - **Изображения:** загрузка через `POST /api/upload` (multipart), файл сохраняется в `public/uploads/`. Ограничения: JPEG/PNG/WebP, макс. 3 МБ. Папка в `.gitignore`.
 - **SSR:** обязательно `immediatelyRender: false` в `useEditor` — иначе hydration mismatch в Next.js.
 - **Защита от цикла:** `suppressNextUpdate` ref — при внешнем обновлении `content` блокирует один вызов `onUpdate`, чтобы не было петли parent→editor→onChange→parent.
-- **Стили:** `.rich-text-content .tiptap` в `globals.css` — контент редактора. `.prose-report` — рендер HTML в публичном отчёте и комментариях блоков.
-- **Где используется:** шаг 3 формы создания (work_done/work_plan), таб «Тексты» редактора отчёта, поля комментариев в конструкторе шаблона (`template-builder.tsx`).
+- **Стили:** `.rich-text-content .tiptap` в `globals.css` — контент редактора. `.prose-report` — рендер HTML в публичном отчёте и комментариях блоков. HR стилизован в обоих контекстах.
+- **Где используется:** форма создания (work_done/conclusions/work_plan), таб «Тексты» редактора отчёта, поля комментариев в конструкторе шаблона (`template-builder.tsx`).
 
 ### Остановка dev-сервера на Windows
 
@@ -800,6 +804,10 @@ Remove-Item -Recurse -Force .next
          Архитектура: `ReportThemeShell` (client) управляет `useState("dark")`, рендерит `.report-page[data-theme]` и пробрасывает `theme`/`onThemeChange` в `ReportNav`
          Логотип в светлой теме: `--r-logo-filter: invert(1) brightness(0)` (белый SVG → чёрный)
    - ✅ PDF всегда в светлой теме: print-ветка `/r/[slug]?print=1` жёстко имеет `data-theme="light"`
+   - ✅ Базовая метрика блоков Метрики: `traffic_channels`, `traffic_search_engines`, `search_engines_dynamics`, `traffic_search_dynamics`, `traffic_geography`, `traffic_devices` — переведены с `ym:s:users` на `ym:s:visits`; заголовки компонентов обновлены
+   - ✅ Блок «Выводы» (`conclusions`) — rich-text, между work_done и work_plan (order 20); в форме создания и редакторе, pass-through генерация
+   - ✅ Rich-text редактор расширен: Undo/Redo, шрифт, размер шрифта (кастомный), цвет текста, надстрочный/подстрочный, горизонтальная линия, объединение/разделение ячеек таблицы
+   - ✅ Таблицы в редакторе без заголовка по умолчанию (`withHeaderRow: false`, CSS `th` нейтрализован)
    - ⏳ Мобильная адаптация
 7. Docker + VDS + мониторинг + бэкапы
 

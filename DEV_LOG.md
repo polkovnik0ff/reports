@@ -5,6 +5,109 @@
 
 ---
 
+## Сессия 2026-05-04 — Расширение rich-text редактора
+
+### Запрос
+Добавить: Undo/Redo, размер шрифта, цвет текста, надстрочный/подстрочный, горизонтальная линия, шрифт, расширенные операции с таблицами (объединить/разделить ячейки).
+
+### Шаги
+
+1. `npm install @tiptap/extension-superscript@3.22.4 @tiptap/extension-subscript@3.22.4 @tiptap/extension-font-family@3.22.4` — `@tiptap/extension-color` уже стоял 3.22.4. `@tiptap/extension-font-size` существует только в версии `3.0.0-next.3` (prerelease, несовместима) — реализован как кастомное расширение через `Extension.create` + `addGlobalAttributes` на базе уже установленного `TextStyle`. Размер шрифта применяется через `setMark("textStyle", { fontSize })`.
+
+2. TypeScript ошибки: попытка написать `addCommands` в кастомном расширении дала `TS2577 circular reference` и `TS2339 addCommands doesn't exist` — убрал `addCommands`, команды вызываются напрямую через `setMark`.
+
+3. Полная перепись `components/ui/rich-text-editor.tsx`:
+   - Undo/Redo кнопки (disabled когда нельзя)
+   - `<select>` для шрифта (7 вариантов) и размера (10–48px)
+   - Цвет текста: кнопка «A» с цветной полоской внизу, hidden `<input type="color">`
+   - Superscript / Subscript
+   - Горизонтальная линия (`setHorizontalRule` из StarterKit)
+   - Таблица: добавлены «Объединить ячейки» и «Разделить ячейку» (disabled через `editor.can()`)
+
+4. `app/globals.css` — добавлены стили для `hr` в редакторе и `prose-report`.
+
+### Файлы изменены
+- `components/ui/rich-text-editor.tsx`
+- `app/globals.css`
+
+### Итог
+Редактор расширен. TS чист. `@tiptap/extension-font-size` недоступен в совместимой версии — font-size реализован через кастомное расширение + `setMark`.
+
+---
+
+## Сессия 2026-05-04 — Новый блок «Выводы»
+
+### Запрос
+Добавить текстовый блок «Выводы» (conclusions) между «Проделанная работа» и «План работ».
+
+### Шаги
+
+1. `lib/blocks/defaults.ts` — добавил тип `"conclusions"` в `BlockType`, метку в `BLOCK_LABELS`, запись в `DEFAULT_BLOCKS` (order 20, enabled: true; work_plan сдвинут на 21, test_block на 22). Через `mergeWithDefaults()` блок автоматически появится в существующих шаблонах/отчётах (выключенным).
+
+2. `lib/report-generator.ts` — добавил `"conclusions"` в список pass-through блоков (не вызывает API, просто сохраняет `{ data: null }`).
+
+3. `components/report/report-renderer.tsx` — добавил `"conclusions"` в список исключений проверки `data == null` и в switch-case рядом с `work_done`/`work_plan` (рендерит `RichTextBlock`).
+
+4. `app/api/reports/route.ts` (POST) — добавил `conclusions` в Zod-схему, деструктуризацию и маппинг блоков.
+
+5. `components/reports/report-editor.tsx` — добавил `useState` для `conclusions`, маппинг в `handleGenerate`, поле `RichTextEditor` в табе «Тексты» между «Проделанная работа» и «План работ».
+
+6. `components/reports/report-form-embedded.tsx` — то же самое: стейт, отправка, UI в шаге 2.
+
+### Файлы изменены
+- `lib/blocks/defaults.ts`
+- `lib/report-generator.ts`
+- `components/report/report-renderer.tsx`
+- `app/api/reports/route.ts`
+- `components/reports/report-editor.tsx`
+- `components/reports/report-form-embedded.tsx`
+
+### Итог
+Блок «Выводы» полностью работает: виден в конструкторе шаблонов, редактируется в табе «Тексты» редактора и в форме создания, рендерится в публичном отчёте между «Проделанной работой» и «Планом работ».
+
+---
+
+## Сессия 2026-05-04 — Базовая метрика: визиты вместо посетителей в 6 блоках
+
+### Запрос
+Сменить базовую метрику с `ym:s:users` (посетители) на `ym:s:visits` (визиты) в блоках:
+`traffic_channels`, `traffic_search_engines`, `search_engines_dynamics`, `traffic_search_dynamics`, `traffic_geography`, `traffic_devices`
+
+### Шаги
+
+1. Изучил `lib/services/metrika.ts` — нашёл все затронутые методы:
+   - `getTrafficByChannels` — метрика `ym:s:users`, sort `-ym:s:users`
+   - `getTrafficBySearchEngines` — то же
+   - `getGeography` — то же
+   - `getDevices` — то же
+   - `getSearchEnginesDynamics` — метрика `ym:s:users` (используется обоими блоками динамики)
+
+2. В каждом методе заменил:
+   - `"ym:s:users,..."` → `"ym:s:visits,..."`
+   - `sort: "-ym:s:users"` → `sort: "-ym:s:visits"`
+   - В локальных `interface PrevMetrics`: поле `users` → `visits`
+   - В маппинге: `prev.users` → `prev.visits`
+
+3. В компонентах заменил подписи «Посетители» → «Визиты»:
+   - `traffic-channels.tsx` — убрал `metricLabel="Посетители"` (DonutTable дефолт уже «Визиты»)
+   - `traffic-devices.tsx` — то же
+   - `traffic-geography.tsx` — то же
+   - `traffic-search-dynamics.tsx` — заголовок таблицы
+   - `search-engines-dynamics.tsx` — заголовок таблицы
+
+### Файлы изменены
+- `lib/services/metrika.ts`
+- `components/report/blocks/traffic-channels.tsx`
+- `components/report/blocks/traffic-devices.tsx`
+- `components/report/blocks/traffic-geography.tsx`
+- `components/report/blocks/traffic-search-dynamics.tsx`
+- `components/report/blocks/search-engines-dynamics.tsx`
+
+### Итог
+Все 6 блоков теперь запрашивают `ym:s:visits`, сортируют по визитам, отображают «Визиты» в заголовках. Блоки `traffic_summary`, `top_pages`, `top_queries`, `referrals`, `high_bounce_pages`, `traffic_yoy` не тронуты — там логика иная или метрика уже была visits.
+
+---
+
 ## Сессия 2026-05-04 — PDF всегда в светлой теме
 
 ### Запрос — PDF всегда выгружать в светлой теме, переключатель там не нужен

@@ -48,5 +48,5 @@ export function TrafficGeographyBlock({ data }: { data: DimensionResult }) {
     color:           item.isOther ? "#9ca3af" : GEO_COLORS[i % GEO_COLORS.length],
   }));
 
-  return <DonutTable rows={rows} firstColLabel="Регион" metricLabel="Посетители" />;
+  return <DonutTable rows={rows} firstColLabel="Регион" />;
 }

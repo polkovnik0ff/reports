@@ -30,5 +30,5 @@ export function TrafficDevicesBlock({ data }: { data: DimensionResult }) {
     color:           getDeviceColor(item.id, i),
   }));
 
-  return <DonutTable rows={rows} firstColLabel="Устройство" metricLabel="Посетители" />;
+  return <DonutTable rows={rows} firstColLabel="Устройство" />;
 }

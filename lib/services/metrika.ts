@@ -364,22 +364,22 @@ export class MetrikaClient {
     const dim = this.channelsDimension();
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: dim,
       date1,
       date2,
-      sort: "-ym:s:users",
+      sort: "-ym:s:visits",
     };
     const raw = await this.getReport(params);
 
-    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    interface PrevMetrics { visits: number; bounceRate: number; pageDepth: number; avgDuration: number; }
     const prevMap = new Map<string, PrevMetrics>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
         const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
         prevMap.set(id, {
-          users:       item.metrics[0] ?? 0,
+          visits:      item.metrics[0] ?? 0,
           bounceRate:  item.metrics[1] ?? 0,
           pageDepth:   item.metrics[2] ?? 0,
           avgDuration: item.metrics[3] ?? 0,
@@ -398,7 +398,7 @@ export class MetrikaClient {
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,
         ...(prev != null ? {
-          prevVisits:      prev.users,
+          prevVisits:      prev.visits,
           prevBounceRate:  prev.bounceRate,
           prevPageDepth:   prev.pageDepth,
           prevAvgDuration: prev.avgDuration,
@@ -418,22 +418,22 @@ export class MetrikaClient {
   ): Promise<TrafficChannelsResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: this.searchEngineDimension(),
       date1,
       date2,
-      sort: "-ym:s:users",
+      sort: "-ym:s:visits",
     };
     const raw = await this.getReport(params);
 
-    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    interface PrevMetrics { visits: number; bounceRate: number; pageDepth: number; avgDuration: number; }
     const prevMap = new Map<string, PrevMetrics>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
         const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
         prevMap.set(id, {
-          users:       item.metrics[0] ?? 0,
+          visits:      item.metrics[0] ?? 0,
           bounceRate:  item.metrics[1] ?? 0,
           pageDepth:   item.metrics[2] ?? 0,
           avgDuration: item.metrics[3] ?? 0,
@@ -461,7 +461,7 @@ export class MetrikaClient {
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,
         ...(prev != null ? {
-          prevVisits:      prev.users,
+          prevVisits:      prev.visits,
           prevBounceRate:  prev.bounceRate,
           prevPageDepth:   prev.pageDepth,
           prevAvgDuration: prev.avgDuration,
@@ -550,23 +550,23 @@ export class MetrikaClient {
   ): Promise<DimensionResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:regionArea",
       date1,
       date2,
-      sort: "-ym:s:users",
+      sort: "-ym:s:visits",
       limit: 20,
     };
     const raw = await this.getReport(params);
 
-    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    interface PrevMetrics { visits: number; bounceRate: number; pageDepth: number; avgDuration: number; }
     const prevMap = new Map<string, PrevMetrics>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
         const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
         prevMap.set(id, {
-          users:       item.metrics[0] ?? 0,
+          visits:      item.metrics[0] ?? 0,
           bounceRate:  item.metrics[1] ?? 0,
           pageDepth:   item.metrics[2] ?? 0,
           avgDuration: item.metrics[3] ?? 0,
@@ -592,7 +592,7 @@ export class MetrikaClient {
           pageDepth:   item.metrics[2] ?? 0,
           avgDuration: item.metrics[3] ?? 0,
           ...(prev != null ? {
-            prevVisits:      prev.users,
+            prevVisits:      prev.visits,
             prevBounceRate:  prev.bounceRate,
             prevPageDepth:   prev.pageDepth,
             prevAvgDuration: prev.avgDuration,
@@ -611,22 +611,22 @@ export class MetrikaClient {
   ): Promise<DimensionResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
       dimensions: "ym:s:deviceCategory",
       date1,
       date2,
-      sort: "-ym:s:users",
+      sort: "-ym:s:visits",
     };
     const raw = await this.getReport(params);
 
-    interface PrevMetrics { users: number; bounceRate: number; pageDepth: number; avgDuration: number; }
+    interface PrevMetrics { visits: number; bounceRate: number; pageDepth: number; avgDuration: number; }
     const prevMap = new Map<string, PrevMetrics>();
     if (compareDate1 && compareDate2) {
       const rawPrev = await this.getReport({ ...params, date1: compareDate1, date2: compareDate2 });
       for (const item of rawPrev.data ?? []) {
         const id = item.dimensions[0]?.id ?? item.dimensions[0]?.name ?? "";
         prevMap.set(id, {
-          users:       item.metrics[0] ?? 0,
+          visits:      item.metrics[0] ?? 0,
           bounceRate:  item.metrics[1] ?? 0,
           pageDepth:   item.metrics[2] ?? 0,
           avgDuration: item.metrics[3] ?? 0,
@@ -645,7 +645,7 @@ export class MetrikaClient {
         pageDepth:   item.metrics[2] ?? 0,
         avgDuration: item.metrics[3] ?? 0,
         ...(prev != null ? {
-          prevVisits:      prev.users,
+          prevVisits:      prev.visits,
           prevBounceRate:  prev.bounceRate,
           prevPageDepth:   prev.pageDepth,
           prevAvgDuration: prev.avgDuration,
@@ -835,7 +835,7 @@ export class MetrikaClient {
   ): Promise<SearchEnginesDynamicsResult> {
     const params: FetchReportParams = {
       counterId,
-      metrics: "ym:s:users",
+      metrics: "ym:s:visits",
       dimensions: `ym:s:date,${this.searchEngineDimension()}`,
       date1,
       date2,

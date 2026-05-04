@@ -294,6 +294,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
 
   // Step 2 state
   const [workDone, setWorkDone] = useState("");
+  const [conclusions, setConclusions] = useState("");
   const [workPlan, setWorkPlan] = useState("");
 
   // Submitting
@@ -393,6 +394,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
           compareTo: compareEnabled ? compareTo : undefined,
           reportConfig: finalBlocks,
           workDone: workDone || undefined,
+          conclusions: conclusions || undefined,
           workPlan: workPlan || undefined,
           attribution,
           withRobots,
@@ -675,6 +677,14 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
               content={workDone}
               onChange={setWorkDone}
               placeholder="Опишите что было сделано за отчётный период..."
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Выводы</Label>
+            <RichTextEditor
+              content={conclusions}
+              onChange={setConclusions}
+              placeholder="Напишите выводы по итогам отчётного периода..."
             />
           </div>
           <div className="grid gap-1.5">

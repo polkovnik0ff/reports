@@ -19,6 +19,7 @@ export type BlockType =
   | "webmaster_search_summary"
   | "gsc_summary"
   | "work_done"
+  | "conclusions"
   | "work_plan"
   | "custom_text"
   | "custom_kpi"
@@ -56,6 +57,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   webmaster_search_summary: "Яндекс Вебмастер — поисковые запросы",
   gsc_summary: "Google Search Console — сводка",
   work_done: "Проделанная работа",
+  conclusions: "Выводы",
   work_plan: "План работ",
   custom_text: "Произвольный текст",
   custom_kpi: "Таблица план/факт",
@@ -82,6 +84,7 @@ export const DEFAULT_BLOCKS: BlockConfig[] = [
   { id: "webmaster_search_summary",    type: "webmaster_search_summary",    enabled: false, order: 17, commentAbove: "", commentBelow: "", settings: {} },
   { id: "gsc_summary",                 type: "gsc_summary",                 enabled: false, order: 18, commentAbove: "", commentBelow: "", settings: {} },
   { id: "work_done",                   type: "work_done",                   enabled: true,  order: 19, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "work_plan",                   type: "work_plan",                   enabled: true,  order: 20, commentAbove: "", commentBelow: "", settings: {} },
-  { id: "test_block",                  type: "test_block",                  enabled: false, order: 21, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "conclusions",                 type: "conclusions",                 enabled: true,  order: 20, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "work_plan",                   type: "work_plan",                   enabled: true,  order: 21, commentAbove: "", commentBelow: "", settings: {} },
+  { id: "test_block",                  type: "test_block",                  enabled: false, order: 22, commentAbove: "", commentBelow: "", settings: {} },
 ];

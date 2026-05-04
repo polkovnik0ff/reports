@@ -178,7 +178,7 @@ export function SearchEnginesDynamicsBlock({ dynamicsData, tableData }: Props) {
               <tr>
                 <th style={{ ...TH, textAlign: "center", width: 44 }}>№</th>
                 <th style={TH}>Поисковая система</th>
-                <th style={{ ...TH, textAlign: "right" }}>Посетители</th>
+                <th style={{ ...TH, textAlign: "right" }}>Визиты</th>
                 <th style={{ ...TH, textAlign: "right" }}>Отказы</th>
                 <th style={{ ...TH, textAlign: "right" }}>Глубина</th>
                 <th style={{ ...TH, textAlign: "right" }}>Время</th>
