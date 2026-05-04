@@ -11,7 +11,7 @@ interface BlockWrapperProps {
 
 export function BlockWrapper({ id, title, sectionNum, commentAbove, commentBelow, children }: BlockWrapperProps) {
   return (
-    <div id={id} className="report-block" style={{ marginTop: 96, scrollMarginTop: 24 }}>
+    <div id={id} className="report-block" style={{ marginTop: 32, scrollMarginTop: 24 }}>
       {/* Section header */}
       <div style={{
         display: "flex",

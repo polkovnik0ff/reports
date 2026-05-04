@@ -7,17 +7,16 @@ export async function generatePdf(slug: string): Promise<Buffer> {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    // Large viewport so charts render at full width
-    await page.setViewportSize({ width: 1280, height: 900 });
+    // A4 at 96dpi = 794px wide; use 900 to give slight breathing room
+    await page.setViewportSize({ width: 900, height: 1200 });
     await page.goto(url, { waitUntil: "networkidle" });
-    // Wait for Recharts SVG elements to appear
+    // Wait for Recharts SVG elements to appear and animations to settle
     await page.waitForSelector(".recharts-wrapper", { timeout: 15000 }).catch(() => {});
-    // Extra buffer for animations/rendering to finish
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2500);
     return await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "16mm", bottom: "16mm", left: "12mm", right: "12mm" },
+      margin: { top: "16mm", bottom: "12mm", left: "10mm", right: "10mm" },
     });
   } finally {
     await browser.close();

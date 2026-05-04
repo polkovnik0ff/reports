@@ -5,6 +5,72 @@
 
 ---
 
+## Сессия 2026-05-04 — новый ПК, миграции БД, баг positions_summary, PDF правки
+
+### Запрос 5 — Playwright не установлен на новом ПК
+- Ошибка: `Module not found: Can't resolve 'playwright'`
+- `npm install playwright` + `npx playwright install chromium`
+
+### Запрос 6 — PDF: сайдбар, верстка, таблицы, фон
+- Проблема 1: сайдбар попадал в PDF (grid 300px+1fr → контент сдавлен)
+  - Решение: `app/r/[slug]/page.tsx` — добавлен `searchParams`, при `?print=1` рендерится отдельная ветка без `<ReportNav>` и без grid, только `<main>` с `maxWidth: 900px`
+- Проблема 2: viewport Playwright 1280px → слишком широкий для A4
+  - Решение: `lib/pdf.ts` — viewport уменьшен до `900×1200`, буфер увеличен с 1.5с до 2.5с
+- Проблема 3: отступ между блоками слишком большой (96px)
+  - Решение: `components/report/block-wrapper.tsx` — `marginTop: 96 → 32`
+- Проблема 4: таблицы разрывались посередине между страницами PDF
+  - Решение: `app/globals.css` — добавлен `tr { page-break-inside: avoid; break-inside: avoid }` в @media print
+- Проблема 5: белый фон в конце последней страницы PDF
+  - Причина: `body { background: white !important }` в @media print перекрывал тёмный фон `.report-page`
+  - Решение: заменено на `html, body { background: #101418 !important }`
+- Проблема 6: отступ сверху каждой страницы PDF
+  - Решение: `lib/pdf.ts` — `top: "12mm" → "16mm"`
+- Файлы изменены: `app/r/[slug]/page.tsx`, `lib/pdf.ts`, `components/report/block-wrapper.tsx`, `app/globals.css`
+
+### Запрос 7 — Инструкция для нового ПК
+- Создан `SETUP.md` — полная инструкция по развёртыванию (ручные шаги + описание автоматики)
+- В `CLAUDE.md` добавлена секция «Команда актуализируй проект» — пошаговый чеклист для Клода (git pull, npm install, migrate deploy, generate, playwright install)
+
+## Сессия 2026-05-04 — новый ПК, миграции БД, баг positions_summary
+
+### Запрос 1 — Google OAuth ключи
+- Пользователь переехал на новый ПК и потерял GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
+- Объяснено: ключи находятся в Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs
+
+### Запрос 2 — PrismaClientValidationError при создании отчёта
+- Ошибка: `Unknown field 'defaultTopvisorProjectId' for select statement on model 'Project'`
+- Причина: на новом ПК не применены 3 миграции (они были применены вручную на старом ПК)
+- Шаги:
+  1. `npx prisma migrate status` → 3 pending миграции: 20260430125550, 20260501000000, 20260502000000
+  2. `npx prisma migrate deploy` → ошибка 42701: столбец `topvisorProjectId` уже существует в `Report`
+  3. Пометили все 3 как applied: `npx prisma migrate resolve --applied <name>` × 3
+  4. `npx prisma generate` → OK
+- Файлы: не изменялись, только состояние БД
+
+### Запрос 3 — пропали проекты в интерфейсе после перезапуска
+- Ошибка: `P2022 ColumnNotFound` — API `/api/projects` возвращал 500
+- Причина: миграции 20260501 и 20260502 были помечены как applied, но SQL из них реально не выполнялся на новой БД. Колонки в таблицах `Project` и `Report` отсутствовали.
+- Шаг: применили SQL вручную через psql (9 ALTER TABLE IF NOT EXISTS)
+  - `Report`: webmasterAccountId, webmasterHostId, gscAccountId, gscSiteUrl
+  - `Project`: defaultTopvisorProjectId, defaultWebmasterAccountId, defaultWebmasterHostId, defaultGscAccountId, defaultGscSiteUrl
+
+### Запрос 4 — positions_summary показывает нули при наличии данных
+- Симптом: блок `positions_summary` (Общая статистика Topvisor) показывает top1/3/5/10 = 0, при этом `positions_table` работает (373/1272 ключей с позициями)
+- Диагностика:
+  - Снапшот: `bySearcher: [{name:"Yandex", regionName:"Москва", top1:0, totalKeywords:1272}, ...]`
+  - `positions_table` использует `getExistsDates()` → находит первый регион с ДАННЫМИ (Россия) и использует его
+  - `positions_summary` использует `getProjectSearchers()` → берёт ПЕРВЫЙ регион по порядку (Москва) → Москва не имеет данных на дату съёмки → все нули
+- Корень бага: `uniqueSearchers` фильтр брал первый регион по `searcherKey`, а не тот, у которого есть данные
+- Исправление в `lib/blocks/positions_summary.ts`:
+  1. Параллельный вызов `getProjectSearchers` + `getExistsDates` (один запрос вместо двух)
+  2. `detectedRegion` из `getExistsDates` = регион с реальными данными
+  3. Для каждого поисковика (Яндекс/Google): ищем его регион совпадающий с `detectedRegion`, fallback — первый
+  4. Убрана дублирующая `if/else` структура (оба бранча делали одно и то же для `getExistsDates`)
+- Файлы изменены: `lib/blocks/positions_summary.ts`
+- Требуется: перегенерировать отчёт `SHe1WgdA7Y` чтобы обновился снапшот
+
+---
+
 ## Сессия 2026-05-03 — правки дизайна, тестовый блок, мержинг DEFAULT_BLOCKS
 
 ### Запрос 1 — правки сайдбара и логотипа

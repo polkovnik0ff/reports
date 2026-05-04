@@ -9,6 +9,7 @@ import { ReportNav } from "@/components/report/report-nav";
 
 interface Props {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ print?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -25,8 +26,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function PublicReportPage({ params }: Props) {
+export default async function PublicReportPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const { print } = await searchParams;
+  const isPrint = print === "1";
 
   const report = await prisma.report.findUnique({
     where: { slug },
@@ -69,6 +72,26 @@ export default async function PublicReportPage({ params }: Props) {
       id: `block-${b.id}`,
       label: b.label || (BLOCK_LABELS[b.type as BlockType] ?? b.type),
     }));
+
+  if (isPrint) {
+    return (
+      <div className="report-page">
+        <main style={{ padding: "24px 40px 60px", maxWidth: 900, margin: "0 auto" }}>
+          <Suspense>
+            <ReportHeader
+              title={report.title}
+              dateFrom={report.dateFrom}
+              dateTo={report.dateTo}
+              compareFrom={report.compareFrom}
+              compareTo={report.compareTo}
+              generatedAt={report.generatedAt}
+            />
+          </Suspense>
+          <ReportRenderer reportConfig={reportConfig} snapshotData={snapshotData} />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="report-page">
