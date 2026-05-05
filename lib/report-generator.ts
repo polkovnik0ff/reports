@@ -14,6 +14,7 @@ import { GscClient } from "@/lib/services/gsc";
 import { encryptToken } from "@/lib/crypto";
 import { getTopvisorCredentials } from "@/lib/topvisor-settings";
 import { BlockConfig, BlockType } from "@/lib/blocks/defaults";
+import OpenAI from "openai";
 
 function fmt(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -311,6 +312,38 @@ export async function generateReport(reportId: string): Promise<void> {
       }
     }
 
+    // ── AI conclusions ───────────────────────────────────────────────────────
+    const conclusionsBlock = enabledBlocks.find((b) => b.type === "conclusions");
+    const openAiKey = process.env.OPENAI_SECRET_KEY || process.env.OPENAI_API_KEY;
+    if (conclusionsBlock?.settings?.aiConclusions && openAiKey) {
+      try {
+        const aiContent = await generateAiConclusions({
+          projectName: report.project.name,
+          projectUrl: report.project.url,
+          dateFrom: date1,
+          dateTo: date2,
+          compareFrom: compareDate1,
+          compareTo: compareDate2,
+          snapshotData,
+          blocks: enabledBlocks,
+        });
+        // Inject into reportConfig so renderer picks it up from block.settings.content
+        const updatedConfig = (report.reportConfig as unknown as BlockConfig[]).map((b) => {
+          if (b.type === "conclusions") {
+            return { ...b, settings: { ...b.settings, content: aiContent } };
+          }
+          return b;
+        });
+        await prisma.report.update({
+          where: { id: reportId },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data: { reportConfig: updatedConfig as any },
+        });
+      } catch (err) {
+        console.error("[generateReport] AI conclusions failed:", err instanceof Error ? err.message : err);
+      }
+    }
+
     await prisma.report.update({
       where: { id: reportId },
       data: {
@@ -328,4 +361,198 @@ export async function generateReport(reportId: string): Promise<void> {
       data: { status: "ERROR" },
     }).catch(() => {});
   }
+}
+
+// ── AI conclusions helper ────────────────────────────────────────────────────
+
+interface AiConclusionsInput {
+  projectName: string;
+  projectUrl: string;
+  dateFrom: string;
+  dateTo: string;
+  compareFrom?: string;
+  compareTo?: string;
+  snapshotData: Record<string, unknown>;
+  blocks: BlockConfig[];
+}
+
+function pct(val?: number | null): string {
+  return val != null ? `${val.toFixed(1)}%` : "—";
+}
+
+function num(val?: number | null): string {
+  return val != null ? String(Math.round(val)) : "—";
+}
+
+function diff(cur?: number | null, prev?: number | null): string {
+  if (cur == null || prev == null || prev === 0) return "";
+  const d = Math.round(((cur - prev) / prev) * 100);
+  return d > 0 ? ` (+${d}% к периоду сравнения)` : d < 0 ? ` (${d}% к периоду сравнения)` : " (без изменений)";
+}
+
+async function generateAiConclusions(input: AiConclusionsInput): Promise<string> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_SECRET_KEY || process.env.OPENAI_API_KEY });
+
+  const sections: string[] = [];
+
+  for (const block of input.blocks) {
+    const snap = input.snapshotData[block.id] as { data?: unknown } | undefined;
+    if (!snap?.data) continue;
+    const d = snap.data as Record<string, unknown>;
+
+    // ── Трафик: сводка ────────────────────────────────────────────────────────
+    if (block.type === "traffic_summary") {
+      const cur = d.current as Record<string, unknown> | undefined;
+      const prev = d.previous as Record<string, unknown> | undefined;
+      if (cur) {
+        let line = `## Общая посещаемость\nВизиты: ${num(cur.visits as number)}${diff(cur.visits as number, prev?.visits as number)}, пользователи: ${num(cur.users as number)}${diff(cur.users as number, prev?.users as number)}, отказы: ${pct(cur.bounceRate as number)}${diff(cur.bounceRate as number, prev?.bounceRate as number)}, глубина: ${(cur.pageDepth as number)?.toFixed(1) ?? "—"} стр., время: ${Math.round((cur.avgDuration as number ?? 0) / 60)} мин.`;
+        if (prev) line += `\nПериод сравнения: визиты ${num(prev.visits as number)}, пользователи ${num(prev.users as number)}, отказы ${pct(prev.bounceRate as number)}.`;
+        sections.push(line);
+      }
+    }
+
+    // ── Каналы трафика ────────────────────────────────────────────────────────
+    if (block.type === "traffic_channels" && Array.isArray(d.rows)) {
+      const rows = d.rows as Array<Record<string, unknown>>;
+      const lines = rows.slice(0, 6).map((r) => {
+        const hasPrev = r.prevVisits != null;
+        return `  - ${r.name ?? r.id}: ${num(r.visits as number)} визитов${hasPrev ? diff(r.visits as number, r.prevVisits as number) : ""}`;
+      });
+      sections.push(`## Каналы трафика\n${lines.join("\n")}`);
+    }
+
+    // ── Поисковые системы (распределение) ────────────────────────────────────
+    if (block.type === "traffic_search_engines" && Array.isArray(d.rows)) {
+      const rows = d.rows as Array<Record<string, unknown>>;
+      const lines = rows.map((r) => {
+        const hasPrev = r.prevVisits != null;
+        return `  - ${r.name}: ${num(r.visits as number)} визитов${hasPrev ? diff(r.visits as number, r.prevVisits as number) : ""}`;
+      });
+      sections.push(`## Поисковые системы (распределение)\n${lines.join("\n")}`);
+    }
+
+    // ── Динамика поискового трафика по дням ───────────────────────────────────
+    if (block.type === "traffic_search_dynamics") {
+      const dates = d.dates as string[] | undefined;
+      const series = d.series as Array<Record<string, unknown>> | undefined;
+      if (series && dates) {
+        const lines = series.map((s) => {
+          const data = s.data as number[];
+          const total = data.reduce((a, b) => a + b, 0);
+          const first = data[0] ?? 0;
+          const last = data[data.length - 1] ?? 0;
+          const trend = last > first ? "рост" : last < first ? "снижение" : "стабильно";
+          return `  - ${s.name}: итого ${num(total)}, тренд: ${trend}`;
+        });
+        sections.push(`## Динамика поискового трафика\n${lines.join("\n")}`);
+      }
+    }
+
+    // ── Позиции ───────────────────────────────────────────────────────────────
+    if (block.type === "positions_summary") {
+      const bySearcher = d.bySearcher as Array<Record<string, unknown>> | undefined;
+      const scanDate = d.scanDate as string | undefined;
+      const compareScanDate = d.compareScanDate as string | undefined;
+      if (bySearcher) {
+        const dateInfo = scanDate ? ` (съёмка ${scanDate}${compareScanDate ? `, сравнение ${compareScanDate}` : ""})` : "";
+        const lines = bySearcher.map((s) => {
+          const name = `${s.searcherName ?? s.name} (${s.regionName ?? ""})`;
+          let line = `  - ${name}: всего ${num(s.total as number ?? s.totalKeywords as number)}, ТОП-1: ${num(s.top1 as number)}${diff(s.top1 as number, s.prevTop1 as number)}, ТОП-3: ${num(s.top3 as number)}${diff(s.top3 as number, s.prevTop3 as number)}, ТОП-5: ${num(s.top5 as number)}${diff(s.top5 as number, s.prevTop5 as number)}, ТОП-10: ${num(s.top10 as number)}${diff(s.top10 as number, s.prevTop10 as number)}`;
+          return line;
+        });
+        sections.push(`## Позиции в поисковых системах${dateInfo}\n${lines.join("\n")}`);
+      }
+    }
+
+    // ── Яндекс Вебмастер: поисковые запросы ──────────────────────────────────
+    if (block.type === "webmaster_search_summary") {
+      const cur = d.clicks != null ? d : (d.current as Record<string, unknown> | undefined);
+      const prev = d.compareClicks != null ? d : (d.compare as Record<string, unknown> | undefined);
+      if (cur) {
+        const clicks = (cur.clicks ?? cur.totalClicks) as number;
+        const impressions = (cur.impressions ?? cur.totalShows) as number;
+        const ctr = (cur.ctr ?? cur.avgCtr) as number;
+        const pos = (cur.position ?? cur.avgClickPosition) as number;
+        const prevClicks = (prev?.clicks ?? prev?.totalClicks ?? cur.compareClicks) as number | undefined;
+        const prevImpressions = (prev?.impressions ?? prev?.totalShows ?? cur.compareImpressions) as number | undefined;
+        sections.push(`## Яндекс Вебмастер — поисковые запросы\nКлики: ${num(clicks)}${diff(clicks, prevClicks)}, показы: ${num(impressions)}${diff(impressions, prevImpressions)}, CTR: ${pct(ctr ? ctr * 100 : null)}, ср. позиция: ${pos?.toFixed(1) ?? "—"}`);
+      }
+    }
+
+    // ── Яндекс Вебмастер: ИКС ────────────────────────────────────────────────
+    if (block.type === "webmaster_ikh") {
+      const points = (d.points ?? d.history) as Array<Record<string, unknown>> | undefined;
+      if (points && points.length > 0) {
+        const last = points[points.length - 1];
+        const first = points[0];
+        sections.push(`## Индекс качества сайта (ИКС)\nТекущий: ${num(last.value as number)} (${last.date}), начало периода: ${num(first.value as number)} (${first.date})${diff(last.value as number, first.value as number)}`);
+      }
+    }
+
+    // ── Яндекс Вебмастер: индексация ─────────────────────────────────────────
+    if (block.type === "webmaster_indexing") {
+      if (d.currentIndexed != null) {
+        sections.push(`## Страницы в поиске (Яндекс)\nИндексируется: ${num(d.currentIndexed as number)}, исключено: ${num(d.currentExcluded as number)}`);
+      }
+    }
+
+    // ── Яндекс Вебмастер: ссылки ─────────────────────────────────────────────
+    if (block.type === "webmaster_backlinks") {
+      const points = (d.points ?? d.history) as Array<Record<string, unknown>> | undefined;
+      if (points && points.length > 0) {
+        const last = points[points.length - 1];
+        const first = points[0];
+        sections.push(`## Внешние ссылки (Яндекс)\nТекущее кол-во: ${num(last.value as number)}${diff(last.value as number, first.value as number)}`);
+      }
+    }
+
+    // ── Google Search Console ─────────────────────────────────────────────────
+    if (block.type === "gsc_summary") {
+      const clicks = d.clicks as number;
+      const impressions = d.impressions as number;
+      const ctr = d.ctr as number;
+      const position = d.position as number;
+      const prevClicks = d.compareClicks as number | undefined;
+      const prevImpressions = d.compareImpressions as number | undefined;
+      const prevPosition = d.comparePosition as number | undefined;
+      sections.push(`## Google Search Console\nКлики: ${num(clicks)}${diff(clicks, prevClicks)}, показы: ${num(impressions)}${diff(impressions, prevImpressions)}, CTR: ${pct(ctr ? ctr * 100 : null)}, ср. позиция: ${position?.toFixed(1) ?? "—"}${diff(position, prevPosition) ? ` (позиция: ${diff(position, prevPosition)})` : ""}`);
+    }
+  }
+
+  const metricsText = sections.length > 0 ? sections.join("\n\n") : "Данные метрик недоступны.";
+
+  const hasCompare = input.compareFrom && input.compareTo;
+  const compareInfo = hasCompare
+    ? `Период сравнения: ${input.compareFrom} — ${input.compareTo}\n`
+    : "";
+
+  const prompt = `Ты — опытный SEO-аналитик. Напиши профессиональные выводы для SEO-отчёта на русском языке.
+
+Сайт: ${input.projectName} (${input.projectUrl})
+Отчётный период: ${input.dateFrom} — ${input.dateTo}
+${compareInfo}
+---
+ДАННЫЕ ОТЧЁТА:
+
+${metricsText}
+---
+
+Требования к тексту:
+- Объём: 4–6 абзацев
+- Стиль: деловой, конкретный, без воды и общих фраз
+- Используй данные сравнения (если есть) — отмечай рост или снижение
+- Интерпретируй цифры, а не просто перечисляй их
+- Выдели ключевые достижения и зоны роста
+- Если есть данные по позициям — прокомментируй ТОП-1/3/10 отдельно по Яндексу и Google
+- Если есть данные GSC и Вебмастера — свяжи их с трафиком
+- Верни чистый HTML (только теги <p>, <ul>, <li>, <strong>) без обёртки \`\`\`html`;
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 1500,
+    temperature: 0.7,
+  });
+
+  return response.choices[0]?.message?.content?.trim() ?? "";
 }

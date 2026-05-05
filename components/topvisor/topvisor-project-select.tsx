@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface TopvisorProject {
   id: number;
@@ -39,6 +40,12 @@ export function TopvisorProjectSelect({ value, onChange, label = "Проект T
       .finally(() => setLoading(false));
   }, []);
 
+  const options = projects.map((p) => ({
+    value: String(p.id),
+    label: p.name,
+    sublabel: p.site,
+  }));
+
   return (
     <div className="grid gap-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -51,18 +58,14 @@ export function TopvisorProjectSelect({ value, onChange, label = "Проект T
       ) : projects.length === 0 ? (
         <p className="text-xs text-muted-foreground">Проекты не найдены</p>
       ) : (
-        <select
-          value={value ?? ""}
-          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-          className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">— не выбран —</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} ({p.site})
-            </option>
-          ))}
-        </select>
+        <SearchableSelect
+          options={options}
+          value={value != null ? String(value) : ""}
+          onChange={(v) => onChange(v ? Number(v) : null)}
+          placeholder="— не выбран —"
+          searchPlaceholder="Поиск по названию или сайту..."
+          emptyText="Проекты не найдены"
+        />
       )}
     </div>
   );

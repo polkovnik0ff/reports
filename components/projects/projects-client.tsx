@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Loader2,
   Pencil,
+  Search,
   Trash2,
   ExternalLink,
 } from "lucide-react";
@@ -56,6 +57,7 @@ function AddProjectDialog({ onAdded }: { onAdded: (p: Project) => void }) {
   const [open, setOpen] = useState(false);
   const [counters, setCounters] = useState<Counter[]>([]);
   const [loadingCounters, setLoadingCounters] = useState(false);
+  const [counterQuery, setCounterQuery] = useState("");
   const [selected, setSelected] = useState<Counter | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -78,6 +80,7 @@ function AddProjectDialog({ onAdded }: { onAdded: (p: Project) => void }) {
       setSelected(null);
       setName("");
       setUrl("");
+      setCounterQuery("");
       loadCounters();
     }
   }
@@ -139,6 +142,17 @@ function AddProjectDialog({ onAdded }: { onAdded: (p: Project) => void }) {
             <p className="text-xs text-muted-foreground mb-2">
               Выберите счётчик Яндекс.Метрики:
             </p>
+            {!loadingCounters && counters.length > 0 && (
+              <div className="relative mb-1.5">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={counterQuery}
+                  onChange={(e) => setCounterQuery(e.target.value)}
+                  placeholder="Поиск по названию, сайту или аккаунту..."
+                  className="h-8 pl-8 text-sm"
+                />
+              </div>
+            )}
             <div className="border rounded-md overflow-hidden max-h-56 overflow-y-auto">
               {loadingCounters ? (
                 <div className="p-3 space-y-2">
@@ -159,53 +173,69 @@ function AddProjectDialog({ onAdded }: { onAdded: (p: Project) => void }) {
                     Подключите Яндекс.Метрику
                   </a>
                 </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 sticky top-0">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">
-                        Счётчик
-                      </th>
-                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">
-                        Сайт
-                      </th>
-                      <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden sm:table-cell">
-                        Аккаунт
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {counters.map((c) => {
-                      const isSelected = selected?.counterId === c.counterId;
-                      return (
-                        <tr
-                          key={`${c.connectedAccountId}-${c.counterId}`}
-                          onClick={() => selectCounter(c)}
-                          className={cn(
-                            "cursor-pointer transition-colors",
-                            isSelected
-                              ? "bg-primary/10"
-                              : "hover:bg-muted/40"
-                          )}
-                        >
-                          <td className="px-3 py-2">
-                            <div className="font-medium">{c.counterName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              #{c.counterId}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {c.counterSite}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
-                            {c.accountEmail}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
+              ) : (() => {
+                const q = counterQuery.toLowerCase();
+                const filtered = q
+                  ? counters.filter(
+                      (c) =>
+                        c.counterName.toLowerCase().includes(q) ||
+                        c.counterSite.toLowerCase().includes(q) ||
+                        c.accountEmail.toLowerCase().includes(q) ||
+                        String(c.counterId).includes(q)
+                    )
+                  : counters;
+                return filtered.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    Ничего не найдено
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">
+                          Счётчик
+                        </th>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">
+                          Сайт
+                        </th>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden sm:table-cell">
+                          Аккаунт
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {filtered.map((c) => {
+                        const isSelected = selected?.counterId === c.counterId;
+                        return (
+                          <tr
+                            key={`${c.connectedAccountId}-${c.counterId}`}
+                            onClick={() => selectCounter(c)}
+                            className={cn(
+                              "cursor-pointer transition-colors",
+                              isSelected
+                                ? "bg-primary/10"
+                                : "hover:bg-muted/40"
+                            )}
+                          >
+                            <td className="px-3 py-2">
+                              <div className="font-medium">{c.counterName}</div>
+                              <div className="text-xs text-muted-foreground">
+                                #{c.counterId}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground">
+                              {c.counterSite}
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                              {c.accountEmail}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </div>
           </div>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Account {
   id: string;
@@ -32,7 +33,6 @@ export function WebmasterSelect({ value, onChange }: Props) {
   const [loadingHosts, setLoadingHosts] = useState(false);
   const [hostsError, setHostsError] = useState<string | null>(null);
 
-  // Load accounts once
   useEffect(() => {
     fetch("/api/webmaster/accounts")
       .then((r) => r.json())
@@ -41,7 +41,6 @@ export function WebmasterSelect({ value, onChange }: Props) {
       .finally(() => setLoadingAccounts(false));
   }, []);
 
-  // Load hosts when account changes
   useEffect(() => {
     if (!value.accountId) {
       setHosts([]);
@@ -85,26 +84,31 @@ export function WebmasterSelect({ value, onChange }: Props) {
     );
   }
 
+  const accountOptions = accounts.map((a) => ({
+    value: a.id,
+    label: a.name ?? a.email,
+    sublabel: a.name ? a.email : undefined,
+  }));
+
+  const hostOptions = hosts.map((h) => ({
+    value: h.id,
+    label: h.url,
+  }));
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Account select */}
       <div className="grid gap-1.5">
         <Label className="text-xs text-muted-foreground">Аккаунт Вебмастера</Label>
-        <select
+        <SearchableSelect
+          options={accountOptions}
           value={value.accountId ?? ""}
-          onChange={(e) => handleAccountChange(e.target.value)}
-          className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">— не выбран —</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name ? `${a.name} (${a.email})` : a.email}
-            </option>
-          ))}
-        </select>
+          onChange={handleAccountChange}
+          placeholder="— не выбран —"
+          searchPlaceholder="Поиск по email..."
+          emptyText="Аккаунты не найдены"
+        />
       </div>
 
-      {/* Host select */}
       {value.accountId && (
         <div className="grid gap-1.5">
           <Label className="text-xs text-muted-foreground">Сайт</Label>
@@ -118,16 +122,14 @@ export function WebmasterSelect({ value, onChange }: Props) {
           ) : hosts.length === 0 ? (
             <p className="text-xs text-muted-foreground">Нет верифицированных сайтов</p>
           ) : (
-            <select
+            <SearchableSelect
+              options={hostOptions}
               value={value.hostId ?? ""}
-              onChange={(e) => handleHostChange(e.target.value)}
-              className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">— не выбран —</option>
-              {hosts.map((h) => (
-                <option key={h.id} value={h.id}>{h.url}</option>
-              ))}
-            </select>
+              onChange={handleHostChange}
+              placeholder="— не выбран —"
+              searchPlaceholder="Поиск по URL..."
+              emptyText="Сайты не найдены"
+            />
           )}
         </div>
       )}

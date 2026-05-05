@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Account {
   id: string;
@@ -82,22 +83,29 @@ export function GscSelect({ value, onChange }: Props) {
     );
   }
 
+  const accountOptions = accounts.map((a) => ({
+    value: a.id,
+    label: a.name ?? a.email,
+    sublabel: a.name ? a.email : undefined,
+  }));
+
+  const siteOptions = sites.map((s) => ({
+    value: s.url,
+    label: s.url,
+  }));
+
   return (
     <div className="flex flex-col gap-3">
       <div className="grid gap-1.5">
         <Label className="text-xs text-muted-foreground">Аккаунт Google</Label>
-        <select
+        <SearchableSelect
+          options={accountOptions}
           value={value.accountId ?? ""}
-          onChange={(e) => handleAccountChange(e.target.value)}
-          className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">— не выбран —</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name ? `${a.name} (${a.email})` : a.email}
-            </option>
-          ))}
-        </select>
+          onChange={handleAccountChange}
+          placeholder="— не выбран —"
+          searchPlaceholder="Поиск по email..."
+          emptyText="Аккаунты не найдены"
+        />
       </div>
 
       {value.accountId && (
@@ -113,16 +121,14 @@ export function GscSelect({ value, onChange }: Props) {
           ) : sites.length === 0 ? (
             <p className="text-xs text-muted-foreground">Нет верифицированных сайтов</p>
           ) : (
-            <select
+            <SearchableSelect
+              options={siteOptions}
               value={value.siteUrl ?? ""}
-              onChange={(e) => handleSiteChange(e.target.value)}
-              className="w-full h-8 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">— не выбран —</option>
-              {sites.map((s) => (
-                <option key={s.url} value={s.url}>{s.url}</option>
-              ))}
-            </select>
+              onChange={handleSiteChange}
+              placeholder="— не выбран —"
+              searchPlaceholder="Поиск по URL..."
+              emptyText="Сайты не найдены"
+            />
           )}
         </div>
       )}

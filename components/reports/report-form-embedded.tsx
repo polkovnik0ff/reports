@@ -295,6 +295,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
   // Step 2 state
   const [workDone, setWorkDone] = useState("");
   const [conclusions, setConclusions] = useState("");
+  const [aiConclusions, setAiConclusions] = useState(false);
   const [workPlan, setWorkPlan] = useState("");
 
   // Submitting
@@ -395,6 +396,7 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
           reportConfig: finalBlocks,
           workDone: workDone || undefined,
           conclusions: conclusions || undefined,
+          aiConclusions,
           workPlan: workPlan || undefined,
           attribution,
           withRobots,
@@ -680,12 +682,34 @@ export default function ReportFormEmbedded({ projectId, projectName, projectUrl,
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>Выводы</Label>
-            <RichTextEditor
-              content={conclusions}
-              onChange={setConclusions}
-              placeholder="Напишите выводы по итогам отчётного периода..."
-            />
+            <div className="flex items-center justify-between">
+              <Label>Выводы</Label>
+              {blocks.find((b) => b.type === "conclusions")?.enabled && (
+                <label className="flex items-center gap-1.5 cursor-pointer text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={aiConclusions}
+                    onChange={(e) => {
+                      setAiConclusions(e.target.checked);
+                      if (e.target.checked) setConclusions("");
+                    }}
+                    className="rounded"
+                  />
+                  Сгенерировать с ИИ
+                </label>
+              )}
+            </div>
+            {aiConclusions && blocks.find((b) => b.type === "conclusions")?.enabled ? (
+              <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                ИИ сгенерирует выводы автоматически на основе данных отчёта
+              </div>
+            ) : (
+              <RichTextEditor
+                content={conclusions}
+                onChange={setConclusions}
+                placeholder="Напишите выводы по итогам отчётного периода..."
+              />
+            )}
           </div>
           <div className="grid gap-1.5">
             <Label>План работ</Label>

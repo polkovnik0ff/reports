@@ -43,6 +43,7 @@ const createSchema = z.object({
   reportConfig:      z.array(z.any()),
   workDone:          z.string().optional(),
   conclusions:       z.string().optional(),
+  aiConclusions:     z.boolean().default(false),
   workPlan:          z.string().optional(),
   attribution:       z.enum(ATTRIBUTION_VALUES).default("lastsign"),
   withRobots:        z.boolean().default(false),
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   const {
     projectId, templateId, title, dateFrom, dateTo,
-    compareFrom, compareTo, reportConfig, workDone, conclusions, workPlan,
+    compareFrom, compareTo, reportConfig, workDone, conclusions, aiConclusions, workPlan,
     attribution, withRobots, crossDevice, topvisorProjectId,
     webmasterAccountId, webmasterHostId, gscAccountId, gscSiteUrl,
   } = parsed.data;
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const finalConfig: any[] = reportConfig.map((block: any) => {
     if (block.type === "work_done" && workDone) return { ...block, settings: { ...block.settings, content: workDone } };
-    if (block.type === "conclusions") return { ...block, settings: { ...block.settings, content: conclusions ?? "" } };
+    if (block.type === "conclusions") return { ...block, settings: { ...block.settings, content: conclusions ?? "", aiConclusions: block.enabled ? aiConclusions : false } };
     if (block.type === "work_plan" && workPlan) return { ...block, settings: { ...block.settings, content: workPlan } };
     return block;
   });

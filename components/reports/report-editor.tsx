@@ -173,6 +173,9 @@ export default function ReportEditor({
   const [conclusions, setConclusions] = useState(
     () => (initialBlocks.find((b) => b.type === "conclusions")?.settings?.content as string) ?? ""
   );
+  const [aiConclusions, setAiConclusions] = useState(
+    () => !!(initialBlocks.find((b) => b.type === "conclusions")?.settings?.aiConclusions)
+  );
   const [workPlan, setWorkPlan] = useState(
     () => (initialBlocks.find((b) => b.type === "work_plan")?.settings?.content as string) ?? ""
   );
@@ -230,7 +233,7 @@ export default function ReportEditor({
     // Merge workDone/workPlan and topvisor scan settings into blocks
     const finalBlocks = blocks.map((block) => {
       if (block.type === "work_done" && workDone) return { ...block, settings: { ...block.settings, content: workDone } };
-      if (block.type === "conclusions") return { ...block, settings: { ...block.settings, content: conclusions } };
+      if (block.type === "conclusions") return { ...block, settings: { ...block.settings, content: conclusions, aiConclusions: block.enabled ? aiConclusions : false } };
       if (block.type === "work_plan" && workPlan) return { ...block, settings: { ...block.settings, content: workPlan } };
       if (block.type === "positions_summary" || block.type === "positions_table") {
         return { ...block, settings: { ...block.settings, ...topvisorScanSettings } };
@@ -542,12 +545,34 @@ export default function ReportEditor({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Выводы</Label>
-                  <RichTextEditor
-                    content={conclusions}
-                    onChange={setConclusions}
-                    placeholder="Напишите выводы по итогам отчётного периода..."
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label>Выводы</Label>
+                    {blocks.find((b) => b.type === "conclusions")?.enabled && (
+                      <label className="flex items-center gap-1.5 cursor-pointer text-sm text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={aiConclusions}
+                          onChange={(e) => {
+                            setAiConclusions(e.target.checked);
+                            if (e.target.checked) setConclusions("");
+                          }}
+                          className="rounded"
+                        />
+                        Сгенерировать с ИИ
+                      </label>
+                    )}
+                  </div>
+                  {aiConclusions && blocks.find((b) => b.type === "conclusions")?.enabled ? (
+                    <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                      ИИ сгенерирует выводы автоматически на основе данных отчёта
+                    </div>
+                  ) : (
+                    <RichTextEditor
+                      content={conclusions}
+                      onChange={setConclusions}
+                      placeholder="Напишите выводы по итогам отчётного периода..."
+                    />
+                  )}
                 </div>
                 <div className="grid gap-1.5">
                   <Label>План работ</Label>

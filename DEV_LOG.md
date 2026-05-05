@@ -5,6 +5,105 @@
 
 ---
 
+## Сессия 2026-05-05 — Поиск в селекторах (счётчики, Topvisor, Webmaster, GSC)
+
+### Запрос
+«В таблицах добавь поиск: 1 — Добавить проект (Метрика счётчики), 2 — Проект Topvisor, 3 — Сайт Вебмастер, 4 — Сайт GSC. У меня сотни счётчиков, неудобно искать.»
+
+### Шаги
+
+1. **Создал переиспользуемый компонент `SearchableSelect`** (`components/ui/searchable-select.tsx`):
+   - Кастомный дропдаун вместо `<select>`, открывается по клику на триггер-кнопку.
+   - Внутри — инпут поиска с иконкой Search (фокус получает автоматически при открытии).
+   - Фильтрует по `label`, `sublabel` и `value`.
+   - Клик вне компонента закрывает дропдаун (mousedown listener).
+   - Показывает `label` + `sublabel` (в скобках) в выбранной опции и в списке.
+   - Кнопка X для очистки запроса.
+   - Props: `options`, `value`, `onChange`, `placeholder`, `searchPlaceholder`, `emptyText`, `className`, `disabled`.
+
+2. **`components/topvisor/topvisor-project-select.tsx`**:
+   - Заменил `<select>` на `SearchableSelect`.
+   - `options`: `{ value: String(p.id), label: p.name, sublabel: p.site }`.
+   - Поиск: «Поиск по названию или сайту...».
+
+3. **`components/webmaster/webmaster-select.tsx`**:
+   - Заменил оба `<select>` (аккаунт + сайт) на `SearchableSelect`.
+   - Аккаунт: `label = name ?? email`, `sublabel = email` (если есть name).
+   - Сайт: `label = url`.
+   - Поиск по email и URL.
+
+4. **`components/gsc/gsc-select.tsx`**:
+   - Аналогично Webmaster — оба селектора заменены на `SearchableSelect`.
+
+5. **`components/projects/projects-client.tsx`** (`AddProjectDialog`):
+   - Добавил state `counterQuery`.
+   - Добавил `setCounterQuery("")` в `handleOpenChange`.
+   - Перед таблицей счётчиков — инпут с иконкой Search (появляется только когда данные загружены).
+   - Фильтрация по `counterName`, `counterSite`, `accountEmail`, `counterId`.
+   - При пустом результате показывает «Ничего не найдено».
+   - Добавил импорт иконки `Search` из lucide-react.
+
+6. **Проверка TypeScript** — `npx tsc --noEmit` прошёл без ошибок.
+
+### Файлы
+- `components/ui/searchable-select.tsx` — создан
+- `components/topvisor/topvisor-project-select.tsx` — обновлён
+- `components/webmaster/webmaster-select.tsx` — обновлён
+- `components/gsc/gsc-select.tsx` — обновлён
+- `components/projects/projects-client.tsx` — обновлён
+
+### Итог
+Все 4 места получили поиск. Счётчики Метрики — инпут над таблицей (фильтр inline). Topvisor / Webmaster / GSC — кастомный комбобокс с поиском вместо нативного `<select>`.
+
+---
+
+## Сессия 2026-05-05 — ИИ-генерация выводов (OpenAI)
+
+### Запрос
+Интегрировать OpenAI API: при генерации отчёта в блоке «Выводы» добавить чекбокс «Сгенерировать с ИИ». Если блок `conclusions` включён в настройках отчёта И чекбокс отмечен — отправляем данные в OpenAI, получаем текст и вставляем его в поле «Выводы». Если блок выключен — не отправляем.
+
+### Шаги
+
+1. **Установил пакет `openai`** через `npm install openai`.
+
+2. **`lib/report-generator.ts`**:
+   - Добавил `import OpenAI from "openai"`.
+   - После секции manual blocks — новый блок AI conclusions: проверяет `conclusionsBlock?.settings?.aiConclusions && openAiKey`.
+   - Если условие выполнено — вызывает `generateAiConclusions()`, затем обновляет `reportConfig` в БД (чтобы content сохранился в `block.settings.content` откуда renderer его и читает).
+   - Добавил функцию `generateAiConclusions()` в конце файла: собирает краткое текстовое резюме метрик из `snapshotData` по блокам (traffic_summary, traffic_channels, positions_summary, gsc_summary, webmaster_search_summary, webmaster_ikh), формирует промпт на русском, вызывает `gpt-4o-mini`, возвращает HTML.
+   - Ключ читается из `OPENAI_SECRET_KEY || OPENAI_API_KEY` (оба варианта имени).
+
+3. **`app/api/reports/route.ts`** (POST):
+   - Добавил поле `aiConclusions: z.boolean().default(false)` в схему.
+   - При маппинге `finalConfig` блок `conclusions` получает `settings.aiConclusions = block.enabled ? aiConclusions : false` — защита: если блок выключен, флаг всегда false.
+
+4. **`components/reports/report-form-embedded.tsx`** (форма создания, шаг 2):
+   - Добавил `useState(false)` для `aiConclusions`.
+   - Передаёт `aiConclusions` в тело POST-запроса.
+   - В UI: заголовок «Выводы» + справа чекбокс «Сгенерировать с ИИ» (показывается только если блок conclusions включён в `blocks`).
+   - Если чекбокс отмечен — редактор скрывается, показывается плейсхолдер-заглушка с текстом.
+   - При включении чекбокса очищает ручной текст.
+
+5. **`components/reports/report-editor.tsx`** (редактор, таб Тексты):
+   - Аналогичный чекбокс с тем же поведением.
+   - `aiConclusions` инициализируется из `initialBlocks.find(conclusions)?.settings?.aiConclusions`.
+   - При генерации инжектит флаг в `block.settings.aiConclusions` внутри `finalBlocks` → уходит в PATCH-запрос как часть `reportConfig`.
+
+6. **PATCH `/api/reports/[id]`**: изменений не потребовалось — флаг едет внутри `reportConfig`.
+
+7. **TypeScript**: `npx tsc --noEmit` — ошибок нет.
+
+### Файлы изменены
+- `lib/report-generator.ts` — OpenAI вызов + функция generateAiConclusions
+- `app/api/reports/route.ts` — поле aiConclusions в схеме
+- `components/reports/report-form-embedded.tsx` — чекбокс в шаге 2
+- `components/reports/report-editor.tsx` — чекбокс в табе Тексты
+
+### Итог
+Чекбокс «Сгенерировать с ИИ» появляется рядом с заголовком «Выводы» только когда блок conclusions включён. При включении — редактор заменяется заглушкой. При генерации отчёта вызывается gpt-4o-mini, ответ (HTML) сохраняется в `reportConfig[conclusions].settings.content` и сразу отображается в отчёте.
+
+---
+
 ## Сессия 2026-05-04 — Сворачиваемые таблицы позиций
 
 ### Запрос
