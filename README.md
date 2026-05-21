@@ -20,40 +20,40 @@ Next.js приложение для генерации SEO-отчётов с и�
 
 - **Node.js** 20+
 - **PostgreSQL** 14+
-- **pnpm** 9+ (рекомендуется) или npm
+- **npm** 10+ (в комплекте с Node.js)
 - **Docker** (опционально, для контейнеризации)
 
 ## 🚀 Быстрый старт (локально)
 
 ```bash
 # Установка зависимостей
-pnpm install
+npm install
 
 # Настройка окружения
 cp .env.example .env.local
 # Отредактируйте .env.local с вашими данными
 
 # Применить миграции БД
-pnpm prisma migrate dev
+npx prisma migrate dev
 
 # Сгенерировать Prisma Client
-pnpm prisma generate
+npx prisma generate
 
 # Установить Playwright браузеры (для PDF)
-pnpm playwright install chromium
+npx playwright install chromium
 
 # Запуск dev-сервера
-pnpm dev
+npm run dev
 ```
 
 ## 🏗 Сборка для production
 
 ```bash
 # Build
-pnpm build
+npm run build
 
 # Запуск production-сервера
-pnpm start
+npm start
 ```
 
 ## 🐳 Docker
@@ -206,21 +206,21 @@ PLAYWRIGHT_HEADLESS=true
 
 ```bash
 # Миграции БД
-pnpm prisma migrate dev      # dev окружение
-pnpm prisma migrate deploy   # production
-pnpm prisma migrate status   # статус миграций
+npx prisma migrate dev      # dev окружение
+npx prisma migrate deploy   # production
+npx prisma migrate status   # статус миграций
 
 # Prisma Studio (GUI для БД)
-pnpm prisma studio
+npx prisma studio
 
 # Генерация типов
-pnpm prisma generate
+npx prisma generate
 
 # Проверка кода
-pnpm lint
+npm run lint
 
 # Сброс БД (осторожно!)
-pnpm prisma migrate reset
+npx prisma migrate reset
 ```
 
 ## 🤝 Вклад
