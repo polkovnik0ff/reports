@@ -1,0 +1,41 @@
+include:
+  - project: "atwinta/devops/ci-templates"
+    file:
+      - "examples/GENERIC_DOCKER_PIPELINE.yml"
+      - "dependencies/NPM.yml"
+
+NPM:
+  stage: dependencies
+  image: "$BUILD_NODE_IMAGE"
+  interruptible: true
+  environment:
+    name: "$DEPLOY_ENVIRONMENT"
+    action: prepare
+  artifacts:
+    paths:
+      - "$BUILD_NPM_ARTIFACT_PATH"
+    expire_in: 30 minutes
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules
+      - ".npm"
+  script:
+    - apk update && apk add --no-cache make git $BUILD_NPM_INSTALL_PACKAGES
+    - npm install --cache .npm --prefer-offline --no-audit $BUILD_NPM_INSTALL_ARGS
+    - mkdir -p app/generated/prisma
+    - npx prisma generate
+    - npm run $BUILD_NPM_COMMAND
+  before_script:
+    - |-
+      echo 'Проверка на Alpine'
+      . /etc/os-release || true
+      if [[ $ID == 'alpine' ]] ; then
+        echo 'Подменяем репозитории на зеркала Яндекса'
+        echo "https://mirror.yandex.ru/mirrors/alpine/v3.$(grep '^VERSION' /etc/os-release | cut -d'.' -f 2)/main" > /etc/apk/repositories
+        echo "https://mirror.yandex.ru/mirrors/alpine/v3.$(grep '^VERSION' /etc/os-release | cut -d'.' -f 2)/community" >> /etc/apk/repositories
+      fi
+  tags:
+    - Frontend-builder

@@ -1,36 +1,236 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SEO Reports Application
 
-## Getting Started
+Next.js приложение для генерации SEO-отчётов с интеграцией Google Search Console, Yandex Metrika, Topvisor и других сервисов.
 
-First, run the development server:
+## 🛠 Стек технологий
+
+| Категория | Технологии |
+|-----------|------------|
+| **Фреймворк** | Next.js 16.2.4 (App Router) |
+| **Язык** | TypeScript 5 |
+| **UI** | React 19, Tailwind CSS 4, shadcn/ui, Radix UI, Base UI |
+| **Редактор** | Tiptap 3 (rich-text editor) |
+| **Графики** | Recharts 3 |
+| **БД** | PostgreSQL + Prisma ORM 7.7.0 |
+| **Аутентификация** | JWT (jose), bcryptjs |
+| **PDF генерация** | Playwright |
+| **API интеграции** | Google Search Console, Yandex Metrika/Direct/Webmaster, Topvisor, OpenAI |
+
+## 📋 Требования
+
+- **Node.js** 20+
+- **PostgreSQL** 14+
+- **npm** 10+ (в комплекте с Node.js)
+- **Docker** (опционально, для контейнеризации)
+
+## 🚀 Быстрый старт (локально)
 
 ```bash
+# Установка зависимостей
+npm install
+
+# Настройка окружения
+cp .env.example .env.local
+# Отредактируйте .env.local с вашими данными
+
+# Применить миграции БД
+npx prisma migrate dev
+
+# Сгенерировать Prisma Client
+npx prisma generate
+
+# Установить Playwright браузеры (для PDF)
+npx playwright install chromium
+
+# Запуск dev-сервера
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🏗 Сборка для production
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Build
+npm run build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Запуск production-сервера
+npm start
+```
 
-## Learn More
+## 🐳 Docker
 
-To learn more about Next.js, take a look at the following resources:
+### Сборка образа
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+docker build -t seo-reports:latest .
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Запуск контейнера
 
-## Deploy on Vercel
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/db \
+  -e NEXT_PUBLIC_APP_URL=http://localhost:3000 \
+  --name seo-reports \
+  seo-reports:latest
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Docker Compose (опционально)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Создайте `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/seo_reports
+      - NODE_ENV=production
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: seo_reports
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+```
+
+Запуск:
+```bash
+docker-compose up -d
+```
+
+## 🔄 CI/CD (GitLab)
+
+Проект настроен для автоматической сборки и деплоя через GitLab CI/CD.
+
+### Переменные CI/CD (настройте в GitLab > Settings > CI/CD)
+
+| Переменная | Описание |
+|------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `NEXT_PUBLIC_APP_URL` | URL приложения в production |
+| `DEPLOY_USER` | Пользователь SSH для деплоя |
+| `DEPLOY_HOST` | Хост сервера |
+| `DEPLOY_PATH` | Путь на сервере для деплоя |
+| `APP_NAME` | Название приложения в PM2 |
+| `SSH_PRIVATE_KEY` | Приватный SSH ключ для деплоя |
+
+### Пайплайн
+
+```
+┌─────────┐    ┌────────┐    ┌────────┐    ┌─────────┐    ┌────────┐
+│  lint   │───▶│  test  │───▶│  build │───▶│ migrate │───▶│ deploy │
+└─────────┘    └────────┘    └────────┘    └─────────┘    └────────┘
+   (auto)       (auto)        (auto)       (manual)      (manual)
+```
+
+### Ручной деплой
+
+1. Создайте MR в `main` ветку
+2. После мержа пайплайн выполнит `lint`, `test`, `build`
+3. Запустите `migrate` вручную (GitLab CI > Pipelines)
+4. Запустите `deploy` вручную
+
+## 📁 Структура проекта
+
+```
+├── app/                    # Next.js App Router
+│   ├── (auth)/            # Маршруты аутентификации
+│   ├── (dashboard)/       # Основной дашборд
+│   ├── (editor)/          # Редакторы
+│   ├── api/               # API Routes
+│   └── r/                 # Public report links
+├── components/            # React компоненты
+│   ├── report/blocks/     # Блоки отчётов
+│   ├── ui/                # UI компоненты (shadcn)
+│   └── ...
+├── lib/                   # Утилиты и сервисы
+│   ├── services/          # Интеграции (GSC, Metrika, etc.)
+│   └── blocks/            # Логика блоков отчётов
+├── prisma/                # Prisma schema и миграции
+└── scripts/               # Утилиты (seed, admin creation)
+```
+
+## 🔐 Окружение (.env)
+
+Пример `.env.local`:
+
+```bash
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/seo_reports"
+
+# Next.js
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# Auth
+JWT_SECRET="your-secret-key"
+JWT_EXPIRES_IN="7d"
+
+# OAuth (Google)
+GOOGLE_CLIENT_ID="your-client-id"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+
+# OAuth (Yandex)
+YANDEX_CLIENT_ID="your-client-id"
+YANDEX_CLIENT_SECRET="your-client-secret"
+
+# Topvisor
+TOPVISOR_USER_ID="your-user-id"
+TOPVISOR_API_KEY="your-api-key"
+
+# OpenAI (если используется)
+OPENAI_API_KEY="your-api-key"
+
+# Playwright (PDF генерация)
+PLAYWRIGHT_HEADLESS=true
+```
+
+## 📚 Полезные команды
+
+```bash
+# Миграции БД
+npx prisma migrate dev      # dev окружение
+npx prisma migrate deploy   # production
+npx prisma migrate status   # статус миграций
+
+# Prisma Studio (GUI для БД)
+npx prisma studio
+
+# Генерация типов
+npx prisma generate
+
+# Проверка кода
+npm run lint
+
+# Сброс БД (осторожно!)
+npx prisma migrate reset
+```
+
+## 🤝 Вклад
+
+1. Fork проекта
+2. Создайте ветку (`git checkout -b feature/amazing-feature`)
+3. Commit изменений (`git commit -m 'Add amazing feature'`)
+4. Push в ветку (`git push origin feature/amazing-feature`)
+5. Откройте Pull Request
+
+## 📄 Лицензия
+
+Proprietary. Все права защищены.

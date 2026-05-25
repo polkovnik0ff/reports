@@ -1,0 +1,18 @@
+services:
+  web:
+    image: registry.gitlab.atwinta.ru/atwinta/internal/atwinta-promotion/aiprojects/reports:${TAG:-stage}
+    restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.r${APP_NAME}.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.r${APP_NAME}.tls=true
+      - traefik.http.routers.r${APP_NAME}.tls.certresolver=resolver
+      - traefik.http.routers.r${APP_NAME}.tls.domains[0].main=${DOMAIN}
+      - traefik.http.routers.r${APP_NAME}.entrypoints=websecure
+      - traefik.http.services.s${APP_NAME}.loadbalancer.server.port=${EXPOSED_PORT:-3000}
+      - traefik.docker.network=${DEF_NETWORK:-traefik_main}
+
+networks:
+  default:
+    external: true
+    name: ${DEF_NETWORK:-traefik_main}
