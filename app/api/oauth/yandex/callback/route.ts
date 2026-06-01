@@ -17,29 +17,30 @@ export async function GET(req: NextRequest) {
 
   const stateCookieRaw = req.cookies.get("oauth_state")?.value;
 
+  const appUrl = process.env.APP_URL ?? origin;
+
   if (!stateCookieRaw || !stateParam || !code) {
-    return redirectError(origin, "invalid_state");
+    return redirectError(appUrl, "invalid_state");
   }
 
   let stateCookie: { state: string; service: YandexService };
   try {
     stateCookie = JSON.parse(stateCookieRaw);
   } catch {
-    return redirectError(origin, "invalid_state");
+    return redirectError(appUrl, "invalid_state");
   }
 
   if (stateCookie.state !== stateParam) {
-    return redirectError(origin, "invalid_state");
+    return redirectError(appUrl, "invalid_state");
   }
 
   const service = stateCookie.service;
 
   const clientId = process.env.YANDEX_CLIENT_ID;
   const clientSecret = process.env.YANDEX_CLIENT_SECRET;
-  const appUrl = process.env.APP_URL;
 
-  if (!clientId || !clientSecret || !appUrl) {
-    return redirectError(origin, "config_error");
+  if (!clientId || !clientSecret) {
+    return redirectError(appUrl, "config_error");
   }
 
   // Exchange authorization code for access token
@@ -66,10 +67,10 @@ export async function GET(req: NextRequest) {
     tokenData = await tokenRes.json();
 
     if (!tokenRes.ok || tokenData.error) {
-      return redirectError(origin, "token_error");
+      return redirectError(appUrl, "token_error");
     }
   } catch {
-    return redirectError(origin, "token_error");
+    return redirectError(appUrl, "token_error");
   }
 
   const { access_token, refresh_token, expires_in } = tokenData;
@@ -84,14 +85,14 @@ export async function GET(req: NextRequest) {
     });
 
     if (!userRes.ok) {
-      return redirectError(origin, "user_info_error");
+      return redirectError(appUrl, "user_info_error");
     }
 
     const userInfo = await userRes.json();
     email = userInfo.default_email ?? userInfo.login;
     name = userInfo.real_name ?? userInfo.display_name ?? userInfo.login ?? null;
   } catch {
-    return redirectError(origin, "user_info_error");
+    return redirectError(appUrl, "user_info_error");
   }
 
   // Encrypt tokens before storing
@@ -122,10 +123,10 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch {
-    return redirectError(origin, "db_error");
+    return redirectError(appUrl, "db_error");
   }
 
-  const res = NextResponse.redirect(new URL("/sources?success=true", origin));
+  const res = NextResponse.redirect(new URL("/sources?success=true", appUrl));
   res.cookies.delete("oauth_state");
   return res;
 }

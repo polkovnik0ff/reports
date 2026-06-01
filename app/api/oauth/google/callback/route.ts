@@ -15,27 +15,29 @@ export async function GET(req: NextRequest) {
 
   const stateCookieRaw = req.cookies.get("oauth_state")?.value;
 
+  const appUrlEarly = process.env.APP_URL ?? origin;
+
   if (!stateCookieRaw || !stateParam || !code) {
-    return redirectError(origin, "invalid_state");
+    return redirectError(appUrlEarly, "invalid_state");
   }
 
   let stateCookie: { state: string; service: string };
   try {
     stateCookie = JSON.parse(stateCookieRaw);
   } catch {
-    return redirectError(origin, "invalid_state");
+    return redirectError(appUrlEarly, "invalid_state");
   }
 
   if (stateCookie.state !== stateParam) {
-    return redirectError(origin, "invalid_state");
+    return redirectError(appUrlEarly, "invalid_state");
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const appUrl = process.env.APP_URL;
+  const appUrl = process.env.APP_URL ?? origin;
 
-  if (!clientId || !clientSecret || !appUrl) {
-    return redirectError(origin, "config_error");
+  if (!clientId || !clientSecret) {
+    return redirectError(appUrl, "config_error");
   }
 
   // Exchange code for tokens
@@ -114,10 +116,10 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch {
-    return redirectError(origin, "db_error");
+    return redirectError(appUrl, "db_error");
   }
 
-  const res = NextResponse.redirect(new URL("/sources?success=true", origin));
+  const res = NextResponse.redirect(new URL("/sources?success=true", appUrl));
   res.cookies.delete("oauth_state");
   return res;
 }
