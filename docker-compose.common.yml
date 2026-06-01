@@ -12,6 +12,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - OPENAI_SECRET_KEY=${OPENAI_SECRET_KEY}
+      - NEXT_PUBLIC_APP_URL=https://${DOMAIN}
     labels:
       - traefik.enable=true
       - traefik.http.routers.r${APP_NAME}.rule=Host(`${DOMAIN}`)
