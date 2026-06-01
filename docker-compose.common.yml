@@ -4,6 +4,14 @@ services:
     restart: always
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID}
+      - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET}
+      - TOPVISOR_BASE_URL=${TOPVISOR_BASE_URL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - OPENAI_SECRET_KEY=${OPENAI_SECRET_KEY}
     labels:
       - traefik.enable=true
       - traefik.http.routers.r${APP_NAME}.rule=Host(`${DOMAIN}`)
