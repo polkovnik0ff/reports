@@ -2,6 +2,8 @@ services:
   web:
     image: registry.gitlab.atwinta.ru/atwinta/internal/atwinta-promotion/aiprojects/reports:${TAG:-stage}
     restart: always
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
     labels:
       - traefik.enable=true
       - traefik.http.routers.r${APP_NAME}.rule=Host(`${DOMAIN}`)
@@ -11,6 +13,17 @@ services:
       - traefik.http.routers.r${APP_NAME}.entrypoints=websecure
       - traefik.http.services.s${APP_NAME}.loadbalancer.server.port=${EXPOSED_PORT:-3000}
       - traefik.docker.network=${DEF_NETWORK:-traefik_main}
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgresseo_data:/var/lib/postgresql
+
+volumes:
+  postgresseo_data:
 
 networks:
   default:
