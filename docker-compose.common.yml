@@ -24,6 +24,7 @@ services:
       - traefik.docker.network=${DEF_NETWORK:-traefik_main}
   db:
     image: postgres:18-alpine
+    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
